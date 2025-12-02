@@ -142,5 +142,59 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// -------------------------------------
+// LOGIN ROUTE (Phone + Password)
+// -------------------------------------
+router.post("/login", async (req, res) => {
+  const { phone, password } = req.body;
+
+  if (!phone || !password) {
+    return res.status(400).json({
+      success: false,
+      error: "Phone and password are required"
+    });
+  }
+
+  try {
+    // Check if user exists
+    const userCheck = await pool.query(
+      "SELECT * FROM users WHERE phone=$1",
+      [phone]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+
+    const user = userCheck.rows[0];
+
+    // Compare password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(400).json({
+        success: false,
+        error: "Incorrect password"
+      });
+    }
+
+    // Successful login
+    return res.json({
+      success: true,
+      message: "Login successful",
+      user
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      error: "Login failed"
+    });
+  }
+});
+
 
 module.exports = router;
