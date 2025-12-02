@@ -146,26 +146,26 @@ router.post("/register", async (req, res) => {
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
 router.post("/login", async (req, res) => {
-  const { phone, password } = req.body;
+  const { email, password } = req.body;
 
-  if (!phone || !password) {
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
-      error: "Phone and password are required"
+      error: "Email and password are required",
     });
   }
 
   try {
-    // Check if user exists
+    // Check user in DB
     const userCheck = await pool.query(
-      "SELECT * FROM users WHERE phone=$1",
-      [phone]
+      "SELECT * FROM users WHERE email = $1",
+      [email]
     );
 
     if (userCheck.rows.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "User not found"
+        error: "User not found",
       });
     }
 
@@ -177,7 +177,7 @@ router.post("/login", async (req, res) => {
     if (!passwordMatch) {
       return res.status(400).json({
         success: false,
-        error: "Incorrect password"
+        error: "Incorrect password",
       });
     }
 
@@ -185,13 +185,19 @@ router.post("/login", async (req, res) => {
     return res.json({
       success: true,
       message: "Login successful",
-      user
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
     });
   } catch (err) {
-    console.log(err);
+    console.log("Login Error:", err);
     res.status(500).json({
       success: false,
-      error: "Login failed"
+      error: "Login failed",
     });
   }
 });
