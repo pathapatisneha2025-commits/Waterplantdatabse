@@ -84,16 +84,48 @@ router.post("/register", async (req, res) => {
   const {
     name, email, phone,
     address, pincode, role,
-    latitude, longitude
+    latitude, longitude,
+    password
   } = req.body;
 
+  if (!password) {
+    return res.status(400).json({ success: false, error: "Password is required" });
+  }
+
   try {
+    // Check if user already exists
+    const existing = await pool.query(
+      "SELECT * FROM users WHERE phone=$1 OR email=$2",
+      [phone, email]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "User already exists"
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new user
     const result = await pool.query(
       `INSERT INTO users
-      (name, email, phone, address, pincode, role, latitude, longitude, is_verified)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true)
+      (name, email, phone, address, pincode, role, latitude, longitude, password, is_verified)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true)
       RETURNING *`,
-      [name, email, phone, address, pincode, role, latitude, longitude]
+      [
+        name,
+        email,
+        phone,
+        address,
+        pincode,
+        role,
+        latitude,
+        longitude,
+        hashedPassword
+      ]
     );
 
     res.json({
@@ -104,8 +136,9 @@ router.post("/register", async (req, res) => {
 
   } catch (err) {
     console.log(err);
-    res.status(400).json({ success: false, error: "Registration failed" });
+    res.status(500).json({ success: false, error: "Registration failed" });
   }
 });
+
 
 module.exports = router;
