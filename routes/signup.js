@@ -36,11 +36,12 @@ router.post("/send-otp", async (req, res) => {
 
     otpStore.set(phone, { otp, expiresAt });
 
-    await client.messages.create({
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-      body: `Your OTP is: ${otp}`
-    });
+   await client.messages.create({
+  from: process.env.TWILIO_PHONE_NUMBER,
+  to: phone.startsWith("+") ? phone : `+91${phone}`,
+  body: `Your OTP is: ${otp}`
+});
+
 
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
