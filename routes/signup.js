@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const twilio = require("twilio");
 const pool = require("../db"); // your PostgreSQL connection
+const bcrypt = require("bcrypt");
 
 // -------------------------------------
 // Twilio Setup
