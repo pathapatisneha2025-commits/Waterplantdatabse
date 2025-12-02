@@ -9,8 +9,8 @@ const bcrypt = require("bcrypt");
 // Twilio Setup
 // -------------------------------------
 const client = twilio(
-  process.env.TWILIO_SID,
-  process.env.TWILIO_AUTH
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
 );
 
 // In-memory OTP store (no DB)
@@ -37,7 +37,7 @@ router.post("/send-otp", async (req, res) => {
     otpStore.set(phone, { otp, expiresAt });
 
     await client.messages.create({
-      from: process.env.TWILIO_PHONE,
+      from: process.env.TWILIO_PHONE_NUMBER,
       to: phone,
       body: `Your OTP is: ${otp}`
     });
