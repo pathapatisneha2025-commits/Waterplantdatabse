@@ -191,6 +191,8 @@ router.post("/login", async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        is_premium: user.is_premium, // ✅ ADD THIS
+
       },
     });
   } catch (err) {
