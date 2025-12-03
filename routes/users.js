@@ -201,6 +201,21 @@ router.post("/login", async (req, res) => {
     });
   }
 });
+router.post("/become-premium", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    await pool.query(
+      "UPDATE users SET is_premium = true WHERE id = $1",
+      [userId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
 
 
 module.exports = router;
