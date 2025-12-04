@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const Users = require("./routes/users");
 const UserCart = require("./routes/cart");
+const Orders = require("./routes/Orders");
+
 
 require("dotenv").config();
 
@@ -12,6 +14,7 @@ app.use(express.json());
 // Use Router
 app.use("/users", Users);
 app.use("/cart", UserCart);
+app.use("/orders", Orders);
 
 
 app.listen(5000, () => {
