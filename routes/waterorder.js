@@ -7,20 +7,21 @@ const pool = require("../db");
 ---------------------------------------------------- */
 router.post("/place-order", async (req, res) => {
   try {
-    const { user_id, cans, slot } = req.body;
+    const { user_id, cans, slot, isPremium } = req.body;
 
     if (!user_id || !cans || !slot) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     const insertOrder = await pool.query(
-      `INSERT INTO water_orders (user_id, cans, slot)
-       VALUES ($1, $2, $3)
+      `INSERT INTO water_orders (user_id, cans, slot, is_premium)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [user_id, cans, slot]
+      [user_id, cans, slot, isPremium]
     );
 
     res.json({
+      success: true,
       message: "Water order placed successfully",
       order: insertOrder.rows[0],
     });
