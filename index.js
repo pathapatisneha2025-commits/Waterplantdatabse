@@ -3,6 +3,8 @@ const cors = require("cors");
 const Users = require("./routes/users");
 const UserCart = require("./routes/cart");
 const Orders = require("./routes/Orders");
+const WaterOrders = require("./routes/waterorder");
+
 
 
 require("dotenv").config();
@@ -15,6 +17,7 @@ app.use(express.json());
 app.use("/users", Users);
 app.use("/cart", UserCart);
 app.use("/orders", Orders);
+app.use("/waterorder", WaterOrders);
 
 
 app.listen(5000, () => {
