@@ -141,5 +141,33 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+router.get("/history/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const query = `
+      SELECT *,
+        created_at::date = CURRENT_DATE AS is_today,
+        created_at >= NOW() - INTERVAL '7 days' AS is_week,
+        created_at >= NOW() - INTERVAL '30 days' AS is_month
+      FROM water_orders
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+    `;
+
+    const result = await pool.query(query, [userId]);
+    const rows = result.rows;
+
+    res.json({
+      daily: rows.filter(r => r.is_today),
+      weekly: rows.filter(r => r.is_week),
+      monthly: rows.filter(r => r.is_month),
+    });
+
+  } catch (err) {
+    console.error("History API error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 module.exports = router;
