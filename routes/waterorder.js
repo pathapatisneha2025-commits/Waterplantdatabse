@@ -5,7 +5,7 @@ const pool = require("../db");
 /* ----------------------------------------------------
     PLACE WATER ORDER (cans + slot)
 ---------------------------------------------------- */
-router.post("/place", async (req, res) => {
+router.post("/place-order", async (req, res) => {
   try {
     const { user_id, cans, slot } = req.body;
 
