@@ -219,5 +219,117 @@ router.post("/become-premium", async (req, res) => {
   }
 });
 
+router.get("/all", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users ORDER BY id DESC");
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Failed to fetch users" });
+  }
+});
 
+
+router.get("/:id", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE id=$1", [req.params.id]);
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ success: false, error: "User not found" });
+
+    res.json({ success: true, user: result.rows[0] });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// ******************************************************************
+// UPDATE USER
+// ******************************************************************
+router.put("/:id", async (req, res) => {
+  const {
+    name, email, phone, address,
+    pincode, role, latitude, longitude
+  } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE users SET
+        name=$1, email=$2, phone=$3, address=$4,
+        pincode=$5, role=$6, latitude=$7, longitude=$8
+       WHERE id=$9 RETURNING *`,
+      [
+        name, email, phone, address, pincode,
+        role, latitude, longitude, req.params.id
+      ]
+    );
+
+    res.json({ success: true, user: result.rows[0] });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Update failed" });
+  }
+});
+
+// ******************************************************************
+// DELETE USER
+// ******************************************************************
+router.delete("/:id", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
+    res.json({ success: true, message: "User deleted" });
+  } catch (err) {
+    res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+// ******************************************************************
+// GET PREMIUM USERS
+// ******************************************************************
+router.get("/list/premium", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE is_premium=true");
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch premium users" });
+  }
+});
+
+// ******************************************************************
+// GET NON-PREMIUM USERS
+// ******************************************************************
+router.get("/list/nonpremium", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE is_premium=false");
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch non-premium users" });
+  }
+});
+
+// ******************************************************************
+// LIST DRIVERS
+// ******************************************************************
+router.get("/list/drivers", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE role='driver'");
+    res.json({ success: true, drivers: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch drivers" });
+  }
+});
+
+// ******************************************************************
+// LIST CUSTOMERS
+// ******************************************************************
+router.get("/list/customers", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE role='customer'");
+    res.json({ success: true, customers: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch customers" });
+  }
+});
 module.exports = router;
