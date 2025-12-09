@@ -145,7 +145,7 @@ router.post("/register", async (req, res) => {
 // -------------------------------------
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
-router.post("/login", async (req, res) => {
+router.post("/login", async (req, res) => { 
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -156,9 +156,8 @@ router.post("/login", async (req, res) => {
   }
 
   try {
-    // Check user in DB
     const userCheck = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT * FROM users WHERE TRIM(email) = TRIM($1)",
       [email]
     );
 
@@ -171,7 +170,6 @@ router.post("/login", async (req, res) => {
 
     const user = userCheck.rows[0];
 
-    // Compare password
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
@@ -181,7 +179,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Successful login
     return res.json({
       success: true,
       message: "Login successful",
@@ -191,10 +188,10 @@ router.post("/login", async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        is_premium: user.is_premium, // ✅ ADD THIS
-
+        is_premium: user.is_premium,
       },
     });
+
   } catch (err) {
     console.log("Login Error:", err);
     res.status(500).json({
@@ -203,6 +200,7 @@ router.post("/login", async (req, res) => {
     });
   }
 });
+
 router.post("/become-premium", async (req, res) => {
   try {
     const { userId } = req.body;
