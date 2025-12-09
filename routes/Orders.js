@@ -22,7 +22,7 @@ router.post("/place", async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Insert order with items JSON + user_id
+    // Insert order
     const insertOrder = await pool.query(
       `INSERT INTO orders
         (user_id, customer_name, mobile, address, landmark, pincode,
@@ -43,15 +43,20 @@ router.post("/place", async (req, res) => {
       ]
     );
 
+    // CLEAR CART FOR THIS USER
+    await pool.query("DELETE FROM user_cart WHERE user_id = $1", [user_id]);
+
     res.json({
       message: "Order placed successfully",
       order: insertOrder.rows[0],
+      cartCleared: true,
     });
   } catch (error) {
     console.error("Place order error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /* ------------------ GET ALL ORDERS ------------------ */
 router.get("/all", async (req, res) => {
