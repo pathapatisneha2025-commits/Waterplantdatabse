@@ -99,7 +99,7 @@ router.get("/:userId", async (req, res) => {
     const userId = req.params.userId;
 
     const orders = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM orders WHERE user_id = $1`,
       [userId]
     );
 
