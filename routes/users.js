@@ -330,4 +330,15 @@ router.get("/list/customers", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch customers" });
   }
 });
+router.get("/get-premium-status/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  const result = await pool.query(
+    "SELECT is_premium FROM users WHERE id = $1",
+    [userId]
+  );
+
+  res.json({ is_premium: result.rows[0].is_premium });
+});
+
 module.exports = router;
