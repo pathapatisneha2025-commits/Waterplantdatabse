@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const AddGrocery = ({ addItem }) => {
+const AddGrocery = () => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    id: "",
     name: "",
     brand: "",
     category: "",
@@ -17,160 +16,102 @@ const AddGrocery = ({ addItem }) => {
     stock: "",
     price: "",
     premiumPrice: "",
-    img: "", // Base64 stored here
   });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState("");
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // IMAGE FILE UPLOAD HANDLER
+  // IMAGE UPLOAD
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setForm({ ...form, img: reader.result });
-    };
-    reader.readAsDataURL(file);
+    setImageFile(file);
+    setPreview(URL.createObjectURL(file)); // preview image
   };
 
-  const handleSubmit = () => {
-    addItem({ ...form, id: Date.now() });
-    navigate("/grocery-list");
-  };
+  // SUBMIT TO BACKEND API
+  const handleSubmit = async () => {
+  if (!imageFile) {
+    alert("Please upload an image");
+    return;
+  }
+
+  const formData = new FormData();
+  Object.entries(form).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+
+  formData.append("image", imageFile);
+
+  try {
+    const res = await fetch("https://waterplantdatabse.onrender.com/groceries/add", {
+      method: "POST",
+      body: formData, // VERY IMPORTANT → no headers for FormData
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || "Failed to add item");
+      return;
+    }
+
+    alert("Grocery Item Added Successfully!");
+    navigate("/admingrocerylisting");
+
+  } catch (error) {
+    console.error("Upload Error:", error);
+    alert("Failed to add item");
+  }
+};
+
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.heading}>Add Grocery Item</h2>
 
-        {/* Name */}
-        <input
-          name="name"
-          placeholder="Grocery Name"
-          value={form.name}
-          onChange={handleChange}
-          style={styles.input}
-        />
+        {/* TEXT INPUT FIELDS */}
+        <input name="name" placeholder="Grocery Name" value={form.name} onChange={handleChange} style={styles.input} />
+        <input name="brand" placeholder="Brand" value={form.brand} onChange={handleChange} style={styles.input} />
+        <input name="category" placeholder="Category" value={form.category} onChange={handleChange} style={styles.input} />
+        <input name="subcategory" placeholder="Subcategory" value={form.subcategory} onChange={handleChange} style={styles.input} />
 
-        {/* Brand */}
-        <input
-          name="brand"
-          placeholder="Brand"
-          value={form.brand}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Category */}
-        <input
-          name="category"
-          placeholder="Category (e.g., Vegetables)"
-          value={form.category}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Subcategory */}
-        <input
-          name="subcategory"
-          placeholder="Subcategory (e.g., Leafy Vegetables)"
-          value={form.subcategory}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Description */}
         <textarea
           name="description"
           placeholder="Description"
           value={form.description}
           onChange={handleChange}
-          style={{ ...styles.input, height: "70px", resize: "none" }}
+          style={{ ...styles.input, height: "70px" }}
         ></textarea>
 
-        {/* Price */}
-        <input
-          name="price"
-          placeholder="Price"
-          type="number"
-          value={form.price}
-          onChange={handleChange}
-          style={styles.input}
-        />
+        <input name="price" type="number" placeholder="Price" value={form.price} onChange={handleChange} style={styles.input} />
+        <input name="premiumPrice" type="number" placeholder="Premium Price" value={form.premiumPrice} onChange={handleChange} style={styles.input} />
+        <input name="discount" type="number" placeholder="Discount (%)" value={form.discount} onChange={handleChange} style={styles.input} />
+        <input name="quantity" type="number" placeholder="Quantity" value={form.quantity} onChange={handleChange} style={styles.input} />
+        <input name="unit" placeholder="Unit (kg, litre, pcs)" value={form.unit} onChange={handleChange} style={styles.input} />
+        <input name="stock" type="number" placeholder="Stock" value={form.stock} onChange={handleChange} style={styles.input} />
 
-        {/* Premium Price */}
-        <input
-          name="premiumPrice"
-          placeholder="Premium Price"
-          type="number"
-          value={form.premiumPrice}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Discount */}
-        <input
-          name="discount"
-          placeholder="Discount (%)"
-          type="number"
-          value={form.discount}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Quantity */}
-        <input
-          name="quantity"
-          placeholder="Quantity"
-          type="number"
-          value={form.quantity}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Unit */}
-        <input
-          name="unit"
-          placeholder="Unit (kg, g, litre, pcs)"
-          value={form.unit}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* Stock */}
-        <input
-          name="stock"
-          placeholder="Stock Available"
-          type="number"
-          value={form.stock}
-          onChange={handleChange}
-          style={styles.input}
-        />
-
-        {/* FILE INPUT */}
+        {/* IMAGE FILE INPUT */}
         <label style={styles.fileLabel}>Upload Image</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
-          style={styles.fileInput}
-        />
+        <input type="file" accept="image/*" onChange={handleImageChange} style={styles.fileInput} />
 
         {/* IMAGE PREVIEW */}
-        {form.img && (
+        {preview && (
           <img
-            src={form.img}
+            src={preview}
             alt="preview"
             style={{
               width: "100%",
               height: "180px",
               objectFit: "cover",
-              marginBottom: "15px",
               borderRadius: "10px",
-              border: "1px solid #eee",
+              marginBottom: "15px",
             }}
           />
         )}
@@ -189,19 +130,15 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     minHeight: "100vh",
-    background: "#ffffff",
     padding: "20px",
   },
-
   card: {
     width: "420px",
-    background: "#ffffff",
+    background: "#fff",
     padding: "30px",
     borderRadius: "16px",
-    border: "1px solid #f5f5f5",
-    boxShadow: "0px 4px 18px rgba(0,0,0,0.08)",
+    boxShadow: "0px 4px 18px rgba(0,0,0,0.1)",
   },
-
   heading: {
     textAlign: "center",
     fontSize: "26px",
@@ -209,27 +146,14 @@ const styles = {
     color: "#ff6600",
     marginBottom: "25px",
   },
-
   input: {
     width: "100%",
     padding: "10px",
-    marginBottom: "15px",
+    marginBottom: "14px",
     borderRadius: "10px",
     border: "1px solid #ddd",
     fontSize: "15px",
   },
-
-  fileLabel: {
-    marginBottom: "5px",
-    fontWeight: "600",
-    color: "#ff6600",
-    display: "block",
-  },
-
-  fileInput: {
-    marginBottom: "15px",
-  },
-
   button: {
     width: "100%",
     padding: "14px",
@@ -239,8 +163,8 @@ const styles = {
     borderRadius: "10px",
     fontSize: "17px",
     cursor: "pointer",
-    fontWeight: "600",
   },
+  fileLabel: { fontWeight: "600", color: "#ff6600", marginBottom: "5px" },
 };
 
 export default AddGrocery;
