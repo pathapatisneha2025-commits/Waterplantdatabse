@@ -94,7 +94,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* ------------------ GET ORDERS BY USER ID ------------------ */
-router.get("/:userId", async (req, res) => {
+router.get("/user/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
 
