@@ -69,15 +69,10 @@ router.post("/verify-otp", async (req, res) => {
   // OTP success → remove from store
   otpStore.delete(phone);
 
-  // Check if user already exists
-  const user = await pool.query("SELECT * FROM users WHERE phone=$1", [phone]);
-
-  if (user.rows.length > 0) {
-    return res.json({ success: true, user: user.rows[0], newUser: false });
-  }
-
+  // Remove user existence check completely
   return res.json({ success: true, newUser: true });
 });
+
 
 // -------------------------------------
 // COMPLETE SIGNUP (after OTP verified)
