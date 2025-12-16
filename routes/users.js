@@ -218,6 +218,13 @@ router.post("/approve-premium", async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+router.get("/get-premium-status/:id", async (req, res) => {
+  const userId = req.params.id;
+  const result = await pool.query("SELECT is_premium, premium_requested FROM users WHERE id=$1", [userId]);
+  res.json(result.rows[0]);
+});
+
 // GET /admin/pending-premiums
 router.get("/pending-premiums", async (req, res) => {
   try {
