@@ -139,27 +139,26 @@ router.post("/login", async (req, res) => {
   }
 
   try {
-    // Search user by phone instead of email
-    const userCheck = await pool.query(
+    // Fetch all users with this phone (could be multiple)
+    const users = await pool.query(
       "SELECT * FROM users WHERE TRIM(phone) = TRIM($1)",
       [phone]
     );
 
-    if (userCheck.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: "User not found",
-      });
+    // Attempt to match password with any of the users
+    let authenticatedUser = null;
+    for (const user of users.rows) {
+      const match = await bcrypt.compare(password, user.password);
+      if (match) {
+        authenticatedUser = user;
+        break;
+      }
     }
 
-    const user = userCheck.rows[0];
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatch) {
+    if (!authenticatedUser) {
       return res.status(400).json({
         success: false,
-        error: "Incorrect password",
+        error: "Incorrect phone or password",
       });
     }
 
@@ -167,12 +166,12 @@ router.post("/login", async (req, res) => {
       success: true,
       message: "Login successful",
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        is_premium: user.is_premium,
+        id: authenticatedUser.id,
+        name: authenticatedUser.name,
+        email: authenticatedUser.email,
+        phone: authenticatedUser.phone,
+        role: authenticatedUser.role,
+        is_premium: authenticatedUser.is_premium,
       },
     });
 
@@ -184,7 +183,6 @@ router.post("/login", async (req, res) => {
     });
   }
 });
-
 
 // POST /users/request-premium
 router.post("/request-premium", async (req, res) => {
