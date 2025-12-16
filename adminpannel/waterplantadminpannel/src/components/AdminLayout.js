@@ -7,6 +7,8 @@ const AdminLayout = () => {
 
   const navItems = [
     { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
+        { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
+
   ];
 
   return (

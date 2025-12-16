@@ -146,19 +146,20 @@ router.post("/register", async (req, res) => {
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
 router.post("/login", async (req, res) => { 
-  const { email, password } = req.body;
+  const { phone, password } = req.body;
 
-  if (!email || !password) {
+  if (!phone || !password) {
     return res.status(400).json({
       success: false,
-      error: "Email and password are required",
+      error: "Phone and password are required",
     });
   }
 
   try {
+    // Search user by phone instead of email
     const userCheck = await pool.query(
-      "SELECT * FROM users WHERE TRIM(email) = TRIM($1)",
-      [email]
+      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1)",
+      [phone]
     );
 
     if (userCheck.rows.length === 0) {
@@ -201,12 +202,32 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/become-premium", async (req, res) => {
+
+// POST /users/request-premium
+router.post("/request-premium", async (req, res) => {
   try {
     const { userId } = req.body;
 
+    // Mark premium request as pending
     await pool.query(
-      "UPDATE users SET is_premium = true WHERE id = $1",
+      "UPDATE users SET premium_requested = true WHERE id = $1",
+      [userId]
+    );
+
+    res.json({ success: true, message: "Premium request sent" });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
+// POST /admin/approve-premium
+router.post("/approve-premium", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // Approve premium and remove request flag
+    await pool.query(
+      "UPDATE users SET is_premium = true, premium_requested = false WHERE id = $1",
       [userId]
     );
 
@@ -216,6 +237,19 @@ router.post("/become-premium", async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+// GET /admin/pending-premiums
+router.get("/pending-premiums", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email FROM users WHERE premium_requested = true"
+    );
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
 
 router.get("/all", async (req, res) => {
   try {

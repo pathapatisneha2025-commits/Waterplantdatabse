@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import GroceryList from "./Pages/AdmingroceryListing";
 import AddGrocery from "./Pages/AdminAddGrocery";
 import AdminLayout from "./components/AdminLayout";
+import CustomerManagement from "./Pages/CustomerManagement";
 function App() {
   return (
   <Router>
@@ -10,6 +11,8 @@ function App() {
     <Route path="/" element={<AdminLayout />} >
 <Route path="/admingrocerylisting" element={<GroceryList />} />
 <Route path="/adminGrocery" element={<AddGrocery />} />
+<Route path="/customermanagement" element={<CustomerManagement />} />
+
 
 </Route>
 
