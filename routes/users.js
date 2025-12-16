@@ -96,17 +96,18 @@ router.post("/register", async (req, res) => {
 
   try {
     // Check if user already exists
-    const existing = await pool.query(
-      "SELECT * FROM users WHERE phone=$1 OR email=$2",
-      [phone, email]
-    );
+   const existing = await pool.query(
+  "SELECT * FROM users WHERE phone=$1 AND role=$2",
+  [phone, role]
+);
 
-    if (existing.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: "User already exists"
-      });
-    }
+if (existing.rows.length > 0) {
+  return res.status(400).json({
+    success: false,
+    error: "Phone already registered for this role"
+  });
+}
+
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
