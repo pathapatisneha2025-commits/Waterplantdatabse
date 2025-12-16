@@ -95,24 +95,10 @@ router.post("/register", async (req, res) => {
   }
 
   try {
-    // Check if user already exists
-   const existing = await pool.query(
-  "SELECT * FROM users WHERE phone=$1 AND role=$2",
-  [phone, role]
-);
-
-if (existing.rows.length > 0) {
-  return res.status(400).json({
-    success: false,
-    error: "Phone already registered for this role"
-  });
-}
-
-
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user
+    // Insert new user without checking for existing ones
     const result = await pool.query(
       `INSERT INTO users
       (name, email, phone, address, pincode, role, latitude, longitude, password)
@@ -142,6 +128,7 @@ if (existing.rows.length > 0) {
     res.status(500).json({ success: false, error: "Registration failed" });
   }
 });
+
 
 // -------------------------------------
 // LOGIN ROUTE (Phone + Password)
