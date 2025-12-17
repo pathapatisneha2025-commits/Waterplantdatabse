@@ -284,15 +284,16 @@ router.post("/mark-delivered", async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Update order status, cans delivered, and timestamp
+    // Update order status, cans delivered, and timestamp in Kolkata time
     const updateQuery = `
       UPDATE water_orders
       SET status = $1,
           cans_delivered = $2,
-          delivered_at = NOW()
+          delivered_at = NOW() AT TIME ZONE 'Asia/Kolkata'
       WHERE id = $3
-      RETURNING id AS order_id, status, cans_delivered
+      RETURNING id AS order_id, status, cans_delivered, delivered_at
     `;
+
     const result = await pool.query(updateQuery, [status, cans_delivered, order_id]);
 
     if (result.rows.length === 0) {
@@ -302,12 +303,13 @@ router.post("/mark-delivered", async (req, res) => {
     res.json({
       success: true,
       message: "Order updated successfully",
-      delivery: result.rows[0], // { order_id, status, cans_delivered }
+      delivery: result.rows[0], // { order_id, status, cans_delivered, delivered_at }
     });
   } catch (error) {
     console.error("Mark delivered error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 module.exports = router;
