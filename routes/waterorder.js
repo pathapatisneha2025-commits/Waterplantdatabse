@@ -170,5 +170,46 @@ router.get("/history/:userId", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+router.post("/assign-driver", async (req, res) => {
+  const { orderId, driverId } = req.body;
+
+  if (!orderId || !driverId) {
+    return res.status(400).json({ success: false, message: "orderId and driverId are required" });
+  }
+
+  try {
+    // Check order
+    const { rows: orderRows } = await pool.query(
+      "SELECT * FROM water_orders WHERE id = $1",
+      [orderId]
+    );
+
+    if (orderRows.length === 0) return res.status(400).json({ success: false, message: "Invalid order ID" });
+
+    // Check driver
+    const { rows: driverRows } = await pool.query(
+      "SELECT * FROM users WHERE id = $1 AND role = 'driver'",
+      [driverId]
+    );
+
+    if (driverRows.length === 0) return res.status(400).json({ success: false, message: "Invalid driver ID" });
+
+    // Assign driver to order
+    await pool.query(
+      "UPDATE water_orders SET driver_id = $1 WHERE id = $2",
+      [driverId, orderId]
+    );
+
+    return res.json({
+      success: true,
+      message: `Driver ${driverRows[0].name} assigned to order #${orderRows[0].id}`,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 module.exports = router;
