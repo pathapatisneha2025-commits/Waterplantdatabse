@@ -408,30 +408,7 @@ await pool.query(
 
 
 
-router.post("/deliveries/mark-delivered", async (req, res) => {
-  const { customer_id, driver_id, cans_delivered, notes } = req.body;
 
-  try {
-    const result = await pool.query(
-      `
-      INSERT INTO deliveries
-        (customer_id, driver_id, cans_delivered, notes, status)
-      VALUES ($1, $2, $3, $4, 'delivered')
-      ON CONFLICT (customer_id, delivery_date)
-      DO UPDATE SET
-        cans_delivered = EXCLUDED.cans_delivered,
-        notes = EXCLUDED.notes,
-        status = 'delivered'
-      RETURNING *;
-      `,
-      [customer_id, driver_id, cans_delivered, notes]
-    );
-
-    res.json({ success: true, delivery: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ success: false });
-  }
-});
 
 
 

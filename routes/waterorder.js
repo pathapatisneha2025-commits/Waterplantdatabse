@@ -276,6 +276,38 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+router.post("/mark-delivered", async (req, res) => {
+  try {
+    const { order_id, status, cans_delivered } = req.body;
 
+    if (!order_id || !status || !cans_delivered) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    // Update order status, cans delivered, and timestamp
+    const updateQuery = `
+      UPDATE water_orders
+      SET status = $1,
+          cans_delivered = $2,
+          delivered_at = NOW()
+      WHERE id = $3
+      RETURNING id AS order_id, status, cans_delivered
+    `;
+    const result = await pool.query(updateQuery, [status, cans_delivered, order_id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Order updated successfully",
+      delivery: result.rows[0], // { order_id, status, cans_delivered }
+    });
+  } catch (error) {
+    console.error("Mark delivered error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 module.exports = router;
