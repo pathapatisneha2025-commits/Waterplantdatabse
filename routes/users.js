@@ -400,22 +400,53 @@ router.post("/assign-driver", async (req, res) => {
 });
 
 // GET /customers-with-drivers
-router.get("/customers-with-drivers", async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT 
-        c.id AS customer_id, c.name AS customer_name, 
-        d.id AS driver_id, d.name AS driver_name
-      FROM users c
-      LEFT JOIN users d ON c.assigned_driver_id = d.id
-      WHERE c.role = 'customer'
-    `);
+router.get("/AssignedCustomers/:driverId", async (req, res) => {
+  const driverId = req.params.driverId;
 
-    res.json({ success: true, users: rows });
+  if (!driverId) {
+    return res.status(400).json({ success: false, message: "driverId is required" });
+  }
+
+  try {
+    // Verify driver exists
+    const [driverRows] = await pool.query(
+      "SELECT * FROM users WHERE id = ? AND role = 'driver'",
+      [driverId]
+    );
+
+    if (driverRows.length === 0) {
+      return res.status(400).json({ success: false, message: "Invalid driver ID" });
+    }
+
+    // Fetch customers assigned to this driver
+    const [customers] = await pool.query(`
+      SELECT 
+        id AS customer_id,
+        name AS customer_name,
+        email AS customer_email,
+        phone AS customer_phone,
+        address AS customer_address,
+        pincode AS customer_pincode,
+        created_at AS customer_created_at
+      FROM users
+      WHERE role = 'customer' AND assigned_driver_id = ?
+    `, [driverId]);
+
+    res.json({
+      success: true,
+      driver: {
+        id: driverRows[0].id,
+        name: driverRows[0].name,
+        email: driverRows[0].email,
+        phone: driverRows[0].phone
+      },
+      customers
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 module.exports = router;
