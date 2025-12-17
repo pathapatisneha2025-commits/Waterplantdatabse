@@ -362,5 +362,60 @@ router.get("/get-premium-status/:userId", async (req, res) => {
 
   res.json({ is_premium: result.rows[0].is_premium });
 });
+router.post("/assign-driver", async (req, res) => {
+  const { customerId, driverId } = req.body;
+
+  if (!customerId || !driverId) {
+    return res.status(400).json({ success: false, message: "customerId and driverId are required" });
+  }
+
+  try {
+    const [customerRows] = await pool.query(
+      "SELECT * FROM users WHERE id = ? AND role = 'customer'",
+      [customerId]
+    );
+
+    const [driverRows] = await pool.query(
+      "SELECT * FROM users WHERE id = ? AND role = 'driver'",
+      [driverId]
+    );
+
+    if (customerRows.length === 0) return res.status(400).json({ success: false, message: "Invalid customer ID" });
+    if (driverRows.length === 0) return res.status(400).json({ success: false, message: "Invalid driver ID" });
+
+    // Assign driver directly to customer
+    await pool.query(
+      "UPDATE users SET assigned_driver_id = ? WHERE id = ?",
+      [driverId, customerId]
+    );
+
+    return res.json({
+      success: true,
+      message: `Driver ${driverRows[0].name} assigned to customer ${customerRows[0].name}`,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// GET /customers-with-drivers
+router.get("/customers-with-drivers", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        c.id AS customer_id, c.name AS customer_name, 
+        d.id AS driver_id, d.name AS driver_name
+      FROM users c
+      LEFT JOIN users d ON c.assigned_driver_id = d.id
+      WHERE c.role = 'customer'
+    `);
+
+    res.json({ success: true, users: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 module.exports = router;
