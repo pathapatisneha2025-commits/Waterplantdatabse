@@ -370,24 +370,30 @@ router.post("/assign-driver", async (req, res) => {
   }
 
   try {
-    const [customerRows] = await pool.query(
-      "SELECT * FROM users WHERE id = ? AND role = 'customer'",
-      [customerId]
-    );
+    // Check customer
+const { rows: customerRows } = await pool.query(
+  "SELECT * FROM users WHERE id = $1 AND role = 'customer'",
+  [customerId]
+);
 
-    const [driverRows] = await pool.query(
-      "SELECT * FROM users WHERE id = ? AND role = 'driver'",
-      [driverId]
-    );
+// Check driver
+const { rows: driverRows } = await pool.query(
+  "SELECT * FROM users WHERE id = $1 AND role = 'driver'",
+  [driverId]
+);
+
+
+
 
     if (customerRows.length === 0) return res.status(400).json({ success: false, message: "Invalid customer ID" });
     if (driverRows.length === 0) return res.status(400).json({ success: false, message: "Invalid driver ID" });
 
     // Assign driver directly to customer
-    await pool.query(
-      "UPDATE users SET assigned_driver_id = ? WHERE id = ?",
-      [driverId, customerId]
-    );
+    // Assign driver
+await pool.query(
+  "UPDATE users SET assigned_driver_id = $1 WHERE id = $2",
+  [driverId, customerId]
+);
 
     return res.json({
       success: true,
