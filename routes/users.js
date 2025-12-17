@@ -406,7 +406,7 @@ await pool.query(
 });
 
 // GET /customers-with-drivers
-router.get("/AssignedCustomers/:driverId", async (req, res) => {
+router.get("/AssignedCustomers/:driverId", async (req, res) => { 
   const driverId = req.params.driverId;
 
   if (!driverId) {
@@ -415,17 +415,17 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
 
   try {
     // Verify driver exists
-    const [driverRows] = await pool.query(
-      "SELECT * FROM users WHERE id = ? AND role = 'driver'",
-      [driverId]
-    );
+    const driverQuery = `
+      SELECT * FROM users WHERE id = $1 AND role = 'driver'
+    `;
+    const driverResult = await pool.query(driverQuery, [driverId]);
 
-    if (driverRows.length === 0) {
+    if (driverResult.rows.length === 0) {
       return res.status(400).json({ success: false, message: "Invalid driver ID" });
     }
 
     // Fetch customers assigned to this driver
-    const [customers] = await pool.query(`
+    const customerQuery = `
       SELECT 
         id AS customer_id,
         name AS customer_name,
@@ -435,24 +435,26 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
         pincode AS customer_pincode,
         created_at AS customer_created_at
       FROM users
-      WHERE role = 'customer' AND assigned_driver_id = ?
-    `, [driverId]);
+      WHERE role = 'customer' AND assigned_driver_id = $1
+    `;
+    const customerResult = await pool.query(customerQuery, [driverId]);
 
     res.json({
       success: true,
       driver: {
-        id: driverRows[0].id,
-        name: driverRows[0].name,
-        email: driverRows[0].email,
-        phone: driverRows[0].phone
+        id: driverResult.rows[0].id,
+        name: driverResult.rows[0].name,
+        email: driverResult.rows[0].email,
+        phone: driverResult.rows[0].phone
       },
-      customers
+      customers: customerResult.rows
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 
 module.exports = router;
