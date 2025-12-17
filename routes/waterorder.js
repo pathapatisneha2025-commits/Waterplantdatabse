@@ -210,6 +210,72 @@ router.post("/assign-driver", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+// GET /users/AssignedCustomers/:driverId
+router.get("/AssignedCustomers/:driverId", async (req, res) => {
+  const driverId = req.params.driverId;
+
+  if (!driverId) {
+    return res.status(400).json({ success: false, message: "driverId is required" });
+  }
+
+  try {
+    // Ensure driver exists
+    const driverCheck = await pool.query(
+      "SELECT id, name FROM users WHERE id=$1 AND role='driver'",
+      [driverId]
+    );
+
+    if (driverCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Driver not found" });
+    }
+
+    // Fetch all water orders assigned to this driver
+    const query = `
+      SELECT 
+        w.id AS order_id,
+        w.user_id,
+        w.cans,
+        w.slot,
+        w.status,
+        w.created_at,
+        w.is_premium,
+        w.driver_id,
+        u.name,
+        u.phone,
+        u.address,
+        u.latitude,
+        u.longitude
+      FROM water_orders w
+      LEFT JOIN users u ON w.user_id = u.id
+      WHERE w.driver_id = $1
+      ORDER BY w.created_at DESC
+    `;
+
+    const result = await pool.query(query, [driverId]);
+
+    const orders = result.rows.map(row => ({
+      id: row.order_id,
+      user_id: row.user_id,
+      name: row.name,
+      phone: row.phone,
+      address: row.address,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      cans: row.cans,
+      slot: row.slot,
+      status: row.status,
+      created_at: row.created_at,
+      is_premium: row.is_premium,
+      driver_id: row.driver_id,
+    }));
+
+    res.json({ success: true, driver: driverCheck.rows[0], customers: orders });
+
+  } catch (err) {
+    console.error("AssignedCustomers API error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 
 module.exports = router;

@@ -405,44 +405,8 @@ await pool.query(
   }
 });
 
-// GET /customers-with-drivers
-router.get("/AssignedCustomers/:driverId", async (req, res) => {
-  const driverId = req.params.driverId;
 
-  if (!driverId) {
-    return res.status(400).json({ success: false, message: "driverId is required" });
-  }
 
-  try {
-    // Fetch only customers assigned to this driver
-    const customerQuery = `
-      SELECT 
-        id,
-        name,
-        email,
-        phone,
-        address,
-        pincode,
-        latitude,
-        longitude,
-        created_at,
-        is_verified,
-        is_premium,
-        premium_requested
-      FROM users
-      WHERE role = 'customer' AND assigned_driver_id = $1
-    `;
-    const customerResult = await pool.query(customerQuery, [driverId]);
-
-    res.json({
-      success: true,
-      customers: customerResult.rows
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
 
 router.post("/deliveries/mark-delivered", async (req, res) => {
   const { customer_id, driver_id, cans_delivered, notes } = req.body;
