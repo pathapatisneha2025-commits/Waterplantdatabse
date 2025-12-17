@@ -406,7 +406,7 @@ await pool.query(
 });
 
 // GET /customers-with-drivers
-router.get("/AssignedCustomers/:driverId", async (req, res) => { 
+router.get("/AssignedCustomers/:driverId", async (req, res) => {
   const driverId = req.params.driverId;
 
   if (!driverId) {
@@ -414,26 +414,21 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
   }
 
   try {
-    // Verify driver exists
-    const driverQuery = `
-      SELECT * FROM users WHERE id = $1 AND role = 'driver'
-    `;
-    const driverResult = await pool.query(driverQuery, [driverId]);
-
-    if (driverResult.rows.length === 0) {
-      return res.status(400).json({ success: false, message: "Invalid driver ID" });
-    }
-
-    // Fetch customers assigned to this driver
+    // Fetch only customers assigned to this driver
     const customerQuery = `
       SELECT 
-        id AS customer_id,
-        name AS customer_name,
-        email AS customer_email,
-        phone AS customer_phone,
-        address AS customer_address,
-        pincode AS customer_pincode,
-        created_at AS customer_created_at
+        id,
+        name,
+        email,
+        phone,
+        address,
+        pincode,
+        latitude,
+        longitude,
+        created_at,
+        is_verified,
+        is_premium,
+        premium_requested
       FROM users
       WHERE role = 'customer' AND assigned_driver_id = $1
     `;
@@ -441,12 +436,6 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
 
     res.json({
       success: true,
-      driver: {
-        id: driverResult.rows[0].id,
-        name: driverResult.rows[0].name,
-        email: driverResult.rows[0].email,
-        phone: driverResult.rows[0].phone
-      },
       customers: customerResult.rows
     });
   } catch (err) {
@@ -454,6 +443,7 @@ router.get("/AssignedCustomers/:driverId", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 
 
