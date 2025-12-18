@@ -128,37 +128,38 @@ router.post("/register", async (req, res) => {
 // -------------------------------------
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
-router.post("/login", async (req, res) => { 
-  const { phone, password } = req.body;
+router.post("/login", async (req, res) => {
+  const { phone, password, role } = req.body; // ✅ include role
 
-  if (!phone || !password) {
+  if (!phone || !password || !role) {
     return res.status(400).json({
       success: false,
-      error: "Phone and password are required",
+      error: "Phone, password, and role are required",
     });
   }
 
   try {
-    // Fetch all users with this phone (could be multiple)
+    // Fetch user with matching phone AND role
     const users = await pool.query(
-      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1)",
-      [phone]
+      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1) AND role = $2",
+      [phone, role]
     );
 
-    // Attempt to match password with any of the users
-    let authenticatedUser = null;
-    for (const user of users.rows) {
-      const match = await bcrypt.compare(password, user.password);
-      if (match) {
-        authenticatedUser = user;
-        break;
-      }
-    }
-
-    if (!authenticatedUser) {
+    if (users.rows.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "Incorrect phone or password",
+        error: "User not found for this role",
+      });
+    }
+
+    const user = users.rows[0];
+
+    // Compare password
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({
+        success: false,
+        error: "Incorrect password",
       });
     }
 
@@ -166,15 +167,14 @@ router.post("/login", async (req, res) => {
       success: true,
       message: "Login successful",
       user: {
-        id: authenticatedUser.id,
-        name: authenticatedUser.name,
-        email: authenticatedUser.email,
-        phone: authenticatedUser.phone,
-        role: authenticatedUser.role,
-        is_premium: authenticatedUser.is_premium,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        is_premium: user.is_premium,
       },
     });
-
   } catch (err) {
     console.log("Login Error:", err);
     res.status(500).json({
@@ -183,6 +183,7 @@ router.post("/login", async (req, res) => {
     });
   }
 });
+
 
 // POST /users/request-premium
 router.post("/request-premium", async (req, res) => {
