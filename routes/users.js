@@ -128,62 +128,38 @@ router.post("/register", async (req, res) => {
 // -------------------------------------
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
-router.post("/login", async (req, res) => {
-  const { phone, password } = req.body;
+router.post('/login', async (req, res) => {
+  const { phone, password, role } = req.body;
 
-  if (!phone || !password) {
-    return res.status(400).json({
-      success: false,
-      error: "Phone and password are required",
-    });
+  if (!phone || !password || !role) {
+    return res.status(400).json({ success: false, message: 'Phone, password, and role are required' });
   }
 
   try {
-    // Fetch user with matching phone
+    // Fetch user by phone AND role
     const users = await pool.query(
-      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1)",
-      [phone]
+      'SELECT * FROM users WHERE phone = $1 AND role = $2',
+      [phone, role]
     );
 
     if (users.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: "User not found",
-      });
+      return res.status(400).json({ success: false, message: 'User not found' });
     }
 
     const user = users.rows[0];
 
-    // Compare password
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(400).json({
-        success: false,
-        error: "Incorrect password",
-      });
+    // Compare password using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Incorrect password' });
     }
 
-    return res.json({
-      success: true,
-      message: "Login successful",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        is_premium: user.is_premium,
-      },
-    });
+    return res.json({ success: true, user });
   } catch (err) {
-    console.log("Login Error:", err);
-    res.status(500).json({
-      success: false,
-      error: "Login failed",
-    });
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 
 // POST /users/request-premium
 router.post("/request-premium", async (req, res) => {
