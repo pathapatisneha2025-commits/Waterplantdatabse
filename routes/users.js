@@ -129,26 +129,26 @@ router.post("/register", async (req, res) => {
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
 router.post("/login", async (req, res) => {
-  const { phone, password, role } = req.body; // ✅ include role
+  const { phone, password } = req.body;
 
-  if (!phone || !password || !role) {
+  if (!phone || !password) {
     return res.status(400).json({
       success: false,
-      error: "Phone, password, and role are required",
+      error: "Phone and password are required",
     });
   }
 
   try {
-    // Fetch user with matching phone AND role
+    // Fetch user with matching phone
     const users = await pool.query(
-      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1) AND role = $2",
-      [phone, role]
+      "SELECT * FROM users WHERE TRIM(phone) = TRIM($1)",
+      [phone]
     );
 
     if (users.rows.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "User not found for this role",
+        error: "User not found",
       });
     }
 
