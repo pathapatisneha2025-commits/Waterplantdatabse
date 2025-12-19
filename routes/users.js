@@ -129,32 +129,36 @@ router.post("/register", async (req, res) => {
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
 router.post('/login', async (req, res) => {
-  const { phone, password, role } = req.body;
+  const { phone, password } = req.body;
 
-  if (!phone || !password || !role) {
-    return res.status(400).json({ success: false, message: 'Phone, password, and role are required' });
+  if (!phone || !password) {
+    return res.status(400).json({ success: false, message: 'Phone and password are required' });
   }
 
   try {
-    // Fetch user by phone AND role
-    const users = await pool.query(
-      'SELECT * FROM users WHERE phone = $1 AND role = $2',
-      [phone, role]
-    );
+    // Fetch all users with the given phone
+    const usersResult = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    const users = usersResult.rows;
 
-    if (users.rows.length === 0) {
+    if (users.length === 0) {
       return res.status(400).json({ success: false, message: 'User not found' });
     }
 
-    const user = users.rows[0];
+    // Check password against all users with the same phone
+    let matchedUser = null;
+    for (const user of users) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        matchedUser = user;
+        break;
+      }
+    }
 
-    // Compare password using bcrypt
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!matchedUser) {
       return res.status(400).json({ success: false, message: 'Incorrect password' });
     }
 
-    return res.json({ success: true, user });
+    return res.json({ success: true, user: matchedUser });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error' });
