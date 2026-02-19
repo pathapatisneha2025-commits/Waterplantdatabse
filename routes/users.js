@@ -413,6 +413,21 @@ router.post("/approve-driver", async (req, res) => {
   }
 });
 
+router.post("/update-location", async (req, res) => {
+  const { user_id, lat, lng } = req.body;
+  if (!user_id || !lat || !lng) return res.status(400).json({ success: false });
+
+  try {
+    await pool.query(
+      "UPDATE users SET lat=$1, lng=$2, updated_at=NOW() WHERE id=$3",
+      [lat, lng, user_id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
 
 
 
