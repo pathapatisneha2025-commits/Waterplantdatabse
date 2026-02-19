@@ -4,6 +4,8 @@ const pool = require("../db");
 
 /* ------------------ ADD TO CART ------------------ */
 router.post("/add", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { userId, item } = req.body;
 
@@ -11,11 +13,43 @@ router.post("/add", async (req, res) => {
       return res.status(400).json({ message: "Missing userId or item" });
     }
 
-    // DEFAULT QTY = 1 if not provided
     const qty = item.quantity || 1;
 
-    const insert = await pool.query(
-      `INSERT INTO user_cart (user_id, item_id, name, img, price, premium_price, qty)
+    await client.query("BEGIN");
+
+    // 1️⃣ Lock and check stock from grocery_items
+    const stockCheck = await client.query(
+      `SELECT stock 
+       FROM grocery_items 
+       WHERE id = $1 
+       FOR UPDATE`,
+      [item.id]
+    );
+
+    if (stockCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Grocery item not found" });
+    }
+
+    const currentStock = stockCheck.rows[0].stock;
+
+    if (currentStock < qty) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Insufficient stock" });
+    }
+
+    // 2️⃣ Reduce stock
+    await client.query(
+      `UPDATE grocery_items
+       SET stock = stock - $1
+       WHERE id = $2`,
+      [qty, item.id]
+    );
+
+    // 3️⃣ Insert into cart
+    const insert = await client.query(
+      `INSERT INTO user_cart 
+       (user_id, item_id, name, img, price, premium_price, qty)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
       [
@@ -29,13 +63,19 @@ router.post("/add", async (req, res) => {
       ]
     );
 
+    await client.query("COMMIT");
+
     res.json({
-      message: "Item added to cart",
+      message: "Item added to cart and stock reduced",
       cartItem: insert.rows[0],
     });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
+    await client.query("ROLLBACK");
+    console.error("Cart Add Error:", error);
+    res.status(500).json({ message: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
