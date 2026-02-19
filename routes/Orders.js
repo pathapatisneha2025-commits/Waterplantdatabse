@@ -29,7 +29,7 @@ router.post("/place", async (req, res) => {
     // 🔹 1️⃣ REDUCE STOCK FROM groceries_item
     for (const item of items) {
       const updateResult = await client.query(
-        `UPDATE groceries_item
+        `UPDATE grocery_items
          SET stock = stock - $1
          WHERE id = $2 AND stock >= $1
          RETURNING stock`,
