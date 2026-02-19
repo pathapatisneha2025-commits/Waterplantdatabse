@@ -26,10 +26,7 @@ router.post("/place", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // 🔹 1️⃣ REDUCE STOCK FROM groceries_item
-   for (const item of items) {
-  console.log("Incoming item:", item);
-
+ for (const item of items) {
   const quantity = parseInt(item.qty, 10);
 
   if (isNaN(quantity) || quantity <= 0) {
@@ -39,16 +36,12 @@ router.post("/place", async (req, res) => {
   const result = await client.query(
     `UPDATE grocery_items
      SET stock = stock - $1
-     WHERE id = $2
+     WHERE id = $2 AND stock >= $1
      RETURNING stock`,
     [quantity, item.item_id]
   );
 
   if (result.rowCount === 0) {
-    throw new Error(`Item not found: ${item.item_name}`);
-  }
-
-  if (result.rows[0].stock < 0) {
     throw new Error(`Not enough stock for ${item.item_name}`);
   }
 }
