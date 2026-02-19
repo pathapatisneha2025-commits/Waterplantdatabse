@@ -28,24 +28,31 @@ router.post("/place", async (req, res) => {
 
     // 🔹 1️⃣ REDUCE STOCK FROM groceries_item
    for (const item of items) {
-  const quantity = Number(item.qty);
+  console.log("Incoming item:", item);
 
-  if (!quantity || quantity <= 0) {
+  const quantity = parseInt(item.qty, 10);
+
+  if (isNaN(quantity) || quantity <= 0) {
     throw new Error(`Invalid quantity for ${item.item_name}`);
   }
 
-  const updateResult = await client.query(
+  const result = await client.query(
     `UPDATE grocery_items
      SET stock = stock - $1
-     WHERE id = $2 AND stock >= $1
+     WHERE id = $2
      RETURNING stock`,
     [quantity, item.item_id]
   );
 
-  if (updateResult.rowCount === 0) {
+  if (result.rowCount === 0) {
+    throw new Error(`Item not found: ${item.item_name}`);
+  }
+
+  if (result.rows[0].stock < 0) {
     throw new Error(`Not enough stock for ${item.item_name}`);
   }
 }
+
 
 
     // 🔹 2️⃣ INSERT ORDER
