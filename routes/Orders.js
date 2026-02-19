@@ -161,5 +161,54 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+/* ------------------ ASSIGN DRIVER ------------------ */
+router.post("/assign-driver", async (req, res) => {
+  const { orderId, driverId } = req.body;
+
+  if (!orderId || !driverId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "orderId and driverId are required" });
+  }
+
+  try {
+    // Check if order exists
+    const { rows: orderRows } = await pool.query(
+      "SELECT * FROM groceriesorders WHERE id = $1",
+      [orderId]
+    );
+
+    if (orderRows.length === 0)
+      return res.status(404).json({ success: false, message: "Order not found" });
+
+    // Check if driver exists and has role = driver
+    const { rows: driverRows } = await pool.query(
+      "SELECT * FROM users WHERE id = $1 AND role = 'driver'",
+      [driverId]
+    );
+
+    if (driverRows.length === 0)
+      return res.status(404).json({ success: false, message: "Driver not found" });
+
+    // Assign driver to order
+    const { rows: updatedOrder } = await pool.query(
+      `UPDATE groceriesorders 
+       SET driver_id = $1, status = 'Assigned' 
+       WHERE id = $2 
+       RETURNING *`,
+      [driverId, orderId]
+    );
+
+    res.json({
+      success: true,
+      message: `Driver ${driverRows[0].name} assigned to order #${orderId}`,
+      order: updatedOrder[0],
+    });
+  } catch (error) {
+    console.error("Assign driver error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 module.exports = router;

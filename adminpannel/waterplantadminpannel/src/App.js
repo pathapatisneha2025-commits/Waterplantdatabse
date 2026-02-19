@@ -5,6 +5,7 @@ import AdminLayout from "./components/AdminLayout";
 import CustomerManagement from "./Pages/CustomerManagement";
 import OrdersAssignDriver from "./Pages/AdminAssignDriver";
 import DriverManagement from "./Pages/DriverMangegement";
+import AdminOrdersScreen from "./Pages/AdminOrders";
 function App() {
   return (
   <Router>
@@ -16,6 +17,7 @@ function App() {
 <Route path="/customermanagement" element={<CustomerManagement />} />
 <Route path="/ordersassigndriver" element={<OrdersAssignDriver />} />
 <Route path="/drivermanagement" element={<DriverManagement />} />
+<Route path="/adminorders" element={<AdminOrdersScreen />} />
 
 
 
