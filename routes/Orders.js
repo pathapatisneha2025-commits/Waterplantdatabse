@@ -33,7 +33,7 @@ router.post("/place", async (req, res) => {
          FROM grocery_items 
          WHERE id = $1 
          FOR UPDATE`,
-        [item.item_id]
+        [item.item.id]
       );
 
       if (stockCheck.rows.length === 0) {
@@ -55,7 +55,7 @@ router.post("/place", async (req, res) => {
         `UPDATE grocery_items
          SET stock = stock - $1
          WHERE id = $2`,
-        [item.qty, item.item_id]
+        [item.qty, item.item.id]
       );
     }
 
