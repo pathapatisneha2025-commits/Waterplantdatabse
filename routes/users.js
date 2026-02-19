@@ -413,19 +413,29 @@ router.post("/approve-driver", async (req, res) => {
   }
 });
 
+// routes/users.js
 router.post("/update-location", async (req, res) => {
   const { user_id, lat, lng } = req.body;
-  if (!user_id || !lat || !lng) return res.status(400).json({ success: false });
+
+  // Validate
+  if (!user_id || lat == null || lng == null) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing parameters" });
+  }
 
   try {
     await pool.query(
-      "UPDATE users SET lat=$1, lng=$2, updated_at=NOW() WHERE id=$3",
-      [lat, lng, user_id]
+      `UPDATE users 
+       SET lat=$1, lng=$2, updated_at=NOW() 
+       WHERE id=$3`,
+      [Number(lat), Number(lng), Number(user_id)]
     );
-    res.json({ success: true });
+
+    res.json({ success: true, message: "Location updated" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    console.error("Location update error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
