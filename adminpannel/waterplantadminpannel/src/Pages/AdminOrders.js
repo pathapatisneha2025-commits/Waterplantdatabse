@@ -39,7 +39,7 @@ export default function AdminOrdersScreen() {
 
     try {
       const res = await fetch(
-        "https://waterplantdatabse.onrender.com/waterorder/assign-driver",
+        "https://waterplantdatabse.onrender.com/orders/assign-driver",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

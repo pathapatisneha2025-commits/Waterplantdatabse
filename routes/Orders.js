@@ -210,5 +210,35 @@ router.post("/assign-driver", async (req, res) => {
   }
 });
 
+/* ------------------ GET ORDERS BY DRIVER ------------------ */
+router.get("/driver/:driverId", async (req, res) => {
+  try {
+    const driverId = req.params.driverId;
+
+    if (!driverId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Driver ID is required" });
+    }
+
+    const { rows: orders } = await pool.query(
+      `SELECT * FROM groceriesorders 
+       WHERE driver_id = $1
+       ORDER BY created_at DESC`,
+      [driverId]
+    );
+
+    res.json({
+      success: true,
+      driverId,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get orders by driver error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
 
 module.exports = router;
