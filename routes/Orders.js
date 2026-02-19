@@ -4,6 +4,8 @@ const pool = require("../db");
 
 /* ------------------ PLACE ORDER ------------------ */
 router.post("/place", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const {
       user_id,
@@ -22,8 +24,26 @@ router.post("/place", async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Insert order
-    const insertOrder = await pool.query(
+    await client.query("BEGIN");
+
+    // 🔹 1️⃣ REDUCE STOCK FROM groceries_item
+    for (const item of items) {
+      const updateResult = await client.query(
+        `UPDATE groceries_item
+         SET stock = stock - $1
+         WHERE id = $2 AND stock >= $1
+         RETURNING stock`,
+        [item.qty, item.item_id]
+      );
+
+      // If no rows updated → stock not enough
+      if (updateResult.rowCount === 0) {
+        throw new Error(`Not enough stock for ${item.item_name}`);
+      }
+    }
+
+    // 🔹 2️⃣ INSERT ORDER
+    const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
          payment_mode, total_amount, is_premium, items)
@@ -43,19 +63,29 @@ router.post("/place", async (req, res) => {
       ]
     );
 
-    // CLEAR CART FOR THIS USER
-    await pool.query("DELETE FROM user_cart WHERE user_id = $1", [user_id]);
+    // 🔹 3️⃣ CLEAR CART
+    await client.query(
+      "DELETE FROM user_cart WHERE user_id = $1",
+      [user_id]
+    );
+
+    await client.query("COMMIT");
 
     res.json({
       message: "Order placed successfully",
       order: insertOrder.rows[0],
       cartCleared: true,
     });
+
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Place order error:", error);
-    res.status(500).json({ error: "Server error" });
+    res.status(400).json({ error: error.message || "Server error" });
+  } finally {
+    client.release();
   }
 });
+
 
 
 /* ------------------ GET ALL ORDERS ------------------ */
