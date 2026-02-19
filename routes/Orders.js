@@ -4,6 +4,8 @@ const pool = require("../db");
 
 /* ------------------ PLACE ORDER ------------------ */
 router.post("/place", async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const {
       user_id,
@@ -22,8 +24,43 @@ router.post("/place", async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Insert order
-    const insertOrder = await pool.query(
+    await client.query("BEGIN");
+
+    // 🔒 1️⃣ Check and lock stock for each item
+    for (let item of items) {
+      const stockCheck = await client.query(
+        `SELECT stock 
+         FROM grocery_items 
+         WHERE id = $1 
+         FOR UPDATE`,
+        [item.item_id]
+      );
+
+      if (stockCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: `Item ${item.name} not found` });
+      }
+
+      const currentStock = stockCheck.rows[0].stock;
+
+      if (currentStock < item.qty) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: `Insufficient stock for ${item.name}`,
+        });
+      }
+
+      // ➖ Reduce stock
+      await client.query(
+        `UPDATE grocery_items
+         SET stock = stock - $1
+         WHERE id = $2`,
+        [item.qty, item.item_id]
+      );
+    }
+
+    // 🧾 2️⃣ Insert Order
+    const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
          payment_mode, total_amount, is_premium, items)
@@ -43,19 +80,28 @@ router.post("/place", async (req, res) => {
       ]
     );
 
-    // CLEAR CART FOR THIS USER
-    await pool.query("DELETE FROM user_cart WHERE user_id = $1", [user_id]);
+    // 🗑 3️⃣ Clear Cart
+    await client.query(
+      "DELETE FROM user_cart WHERE user_id = $1",
+      [user_id]
+    );
+
+    await client.query("COMMIT");
 
     res.json({
       message: "Order placed successfully",
       order: insertOrder.rows[0],
-      cartCleared: true,
     });
+
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Place order error:", error);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
+
 
 
 /* ------------------ GET ALL ORDERS ------------------ */
