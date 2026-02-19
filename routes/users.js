@@ -446,6 +446,18 @@ router.post("/update-location", async (req, res) => {
 });
 
 
+// GET all customers with their locations
+router.get("/customers/locations", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, phone, address, lat, lng FROM users WHERE role='customer'"
+    );
+    res.json({ success: true, customers: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 
 
