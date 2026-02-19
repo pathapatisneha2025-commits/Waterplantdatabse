@@ -17,31 +17,41 @@ router.post("/place", async (req, res) => {
       payment_mode,
       is_premium,
       total_amount,
-      items,
     } = req.body;
 
-    if (!user_id || !customer_name || !mobile || !address || !pincode || !Array.isArray(items)) {
+    if (!user_id || !customer_name || !mobile || !address || !pincode) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     await client.query("BEGIN");
 
-    // 🔒 1️⃣ Check stock and reduce
-    for (const item of items) {
+    // ✅ 1️⃣ Fetch cart items from DB
+    const cartResult = await client.query(
+      `SELECT item_id, qty, name 
+       FROM user_cart 
+       WHERE user_id = $1`,
+      [user_id]
+    );
 
-      // Make sure frontend sends id and qty
-      if (!item.id || !item.qty) {
-        throw new Error("Invalid item structure");
-      }
+    if (cartResult.rows.length === 0) {
+      throw new Error("Cart is empty");
+    }
 
-      // Lock row
+    const cartItems = cartResult.rows;
+
+    // 🔒 2️⃣ Check stock & reduce from grocery_items
+    for (const item of cartItems) {
+
       const stockResult = await client.query(
-        `SELECT stock FROM grocery_items WHERE id = $1 FOR UPDATE`,
-        [item.id]
+        `SELECT stock 
+         FROM grocery_items 
+         WHERE id = $1 
+         FOR UPDATE`,
+        [item.item_id]
       );
 
       if (!stockResult.rows.length) {
-        throw new Error(`Item not found (ID: ${item.id})`);
+        throw new Error(`Item not found (ID: ${item.item_id})`);
       }
 
       const currentStock = stockResult.rows[0].stock;
@@ -50,16 +60,15 @@ router.post("/place", async (req, res) => {
         throw new Error(`Insufficient stock for ${item.name}`);
       }
 
-      // ➖ Reduce stock
       await client.query(
         `UPDATE grocery_items
          SET stock = stock - $1
          WHERE id = $2`,
-        [item.qty, item.id]
+        [item.qty, item.item_id]
       );
     }
 
-    // 🧾 2️⃣ Insert order AFTER stock success
+    // 🧾 3️⃣ Insert order (store cart items)
     const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
@@ -76,11 +85,11 @@ router.post("/place", async (req, res) => {
         payment_mode,
         total_amount,
         is_premium,
-        JSON.stringify(items),
+        JSON.stringify(cartItems),
       ]
     );
 
-    // 🗑 3️⃣ Clear cart
+    // 🗑 4️⃣ Clear cart
     await client.query(
       "DELETE FROM user_cart WHERE user_id = $1",
       [user_id]
@@ -101,6 +110,7 @@ router.post("/place", async (req, res) => {
     client.release();
   }
 });
+
 
 
 
