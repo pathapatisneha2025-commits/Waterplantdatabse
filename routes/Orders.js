@@ -24,7 +24,7 @@ router.post("/place", async (req, res) => {
 
     // Insert order
     const insertOrder = await pool.query(
-      `INSERT INTO orders
+      `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
          payment_mode, total_amount, is_premium, items)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -62,7 +62,7 @@ router.post("/place", async (req, res) => {
 router.get("/all", async (req, res) => {
   try {
     const orders = await pool.query(
-      `SELECT * FROM orders ORDER BY created_at DESC`
+      `SELECT * FROM groceriesorders ORDER BY created_at DESC`
     );
 
     res.json(orders.rows);
@@ -78,7 +78,7 @@ router.get("/:id", async (req, res) => {
     const orderId = req.params.id;
 
     const order = await pool.query(
-      `SELECT * FROM orders WHERE id = $1`,
+      `SELECT * FROM groceriesorders WHERE id = $1`,
       [orderId]
     );
 
@@ -99,7 +99,7 @@ router.get("/user/:userId", async (req, res) => {
     const userId = req.params.userId;
 
     const orders = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1`,
+      `SELECT * FROM groceriesorders WHERE user_id = $1`,
       [userId]
     );
 
@@ -123,7 +123,7 @@ router.put("/status/:id", async (req, res) => {
     }
 
     const update = await pool.query(
-      `UPDATE orders SET status = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE groceriesorders SET status = $1 WHERE id = $2 RETURNING *`,
       [status, id]
     );
 
@@ -147,7 +147,7 @@ router.delete("/:id", async (req, res) => {
     const id = req.params.id;
 
     const del = await pool.query(
-      `DELETE FROM orders WHERE id = $1 RETURNING *`,
+      `DELETE FROM groceriesorders WHERE id = $1 RETURNING *`,
       [id]
     );
 

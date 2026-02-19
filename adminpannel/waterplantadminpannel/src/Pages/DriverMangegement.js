@@ -10,7 +10,6 @@ export default function DriverManagement() {
       .then((data) => {
         if (data.success) {
 
-          // ✅ Only drivers
           const mapped = data.users
             .filter((u) => u.role === "driver")
             .map((u) => ({
@@ -28,6 +27,7 @@ export default function DriverManagement() {
               address: u.address,
               latitude: u.latitude,
               longitude: u.longitude,
+              approved: u.driver_approved || false, // 👈 important
             }));
 
           setDrivers(mapped);
@@ -39,6 +39,35 @@ export default function DriverManagement() {
         setLoading(false);
       });
   }, []);
+
+  // ✅ Approve Driver Function
+  const approveDriver = async (id) => {
+    try {
+      const res = await fetch(
+        "https://waterplantdatabse.onrender.com/users/approve-driver",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: id }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        setDrivers((prev) =>
+          prev.map((d) =>
+            d.id === id ? { ...d, approved: true } : d
+          )
+        );
+
+        alert("Driver approved successfully!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to approve driver.");
+    }
+  };
 
   const styles = {
     container: { marginTop: "20px", fontFamily: "Arial, sans-serif" },
@@ -52,6 +81,14 @@ export default function DriverManagement() {
       textAlign: "left",
     },
     td: { border: "1px solid #007bff", padding: "10px", textAlign: "left" },
+    approveBtn: {
+      padding: "5px 10px",
+      backgroundColor: "#28a745",
+      border: "none",
+      color: "white",
+      borderRadius: "5px",
+      cursor: "pointer",
+    },
   };
 
   if (loading) return <div style={styles.container}>Loading drivers...</div>;
@@ -70,6 +107,7 @@ export default function DriverManagement() {
             <th style={styles.th}>Address</th>
             <th style={styles.th}>Latitude</th>
             <th style={styles.th}>Longitude</th>
+            <th style={styles.th}>Approval</th>
           </tr>
         </thead>
 
@@ -83,6 +121,22 @@ export default function DriverManagement() {
               <td style={styles.td}>{d.address}</td>
               <td style={styles.td}>{d.latitude}</td>
               <td style={styles.td}>{d.longitude}</td>
+
+              {/* ✅ Approval Column */}
+              <td style={styles.td}>
+                {d.approved ? (
+                  <span style={{ color: "green", fontWeight: "600" }}>
+                    Approved
+                  </span>
+                ) : (
+                  <button
+                    style={styles.approveBtn}
+                    onClick={() => approveDriver(d.id)}
+                  >
+                    Approve
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
