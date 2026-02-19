@@ -129,39 +129,48 @@ router.post("/register", async (req, res) => {
 // LOGIN ROUTE (Phone + Password)
 // -------------------------------------
 router.post('/login', async (req, res) => {
-  const { phone, password } = req.body;
+  const { phone, password, role } = req.body;
 
-  if (!phone || !password) {
-    return res.status(400).json({ success: false, message: 'Phone and password are required' });
+  if (!phone || !password || !role) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Phone, password and role are required' 
+    });
   }
 
   try {
-    // Fetch all users with the given phone
-    const usersResult = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
-    const users = usersResult.rows;
+    // Fetch user by phone AND role
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 AND role = $2',
+      [phone, role.toLowerCase()]
+    );
 
-    if (users.length === 0) {
-      return res.status(400).json({ success: false, message: 'User not found' });
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User not found for this role' 
+      });
     }
 
-    // Check password against all users with the same phone
-    let matchedUser = null;
-    for (const user of users) {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (isMatch) {
-        matchedUser = user;
-        break;
-      }
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Incorrect password' 
+      });
     }
 
-    if (!matchedUser) {
-      return res.status(400).json({ success: false, message: 'Incorrect password' });
-    }
+    return res.json({ success: true, user });
 
-    return res.json({ success: true, user: matchedUser });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 });
 
