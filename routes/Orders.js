@@ -27,20 +27,26 @@ router.post("/place", async (req, res) => {
     await client.query("BEGIN");
 
     // 🔹 1️⃣ REDUCE STOCK FROM groceries_item
-    for (const item of items) {
-      const updateResult = await client.query(
-        `UPDATE grocery_items
-         SET stock = stock - $1
-         WHERE id = $2 AND stock >= $1
-         RETURNING stock`,
-        [item.qty, item.item_id]
-      );
+   for (const item of items) {
+  const quantity = Number(item.qty);
 
-      // If no rows updated → stock not enough
-      if (updateResult.rowCount === 0) {
-        throw new Error(`Not enough stock for ${item.item_name}`);
-      }
-    }
+  if (!quantity || quantity <= 0) {
+    throw new Error(`Invalid quantity for ${item.item_name}`);
+  }
+
+  const updateResult = await client.query(
+    `UPDATE grocery_items
+     SET stock = stock - $1
+     WHERE id = $2 AND stock >= $1
+     RETURNING stock`,
+    [quantity, item.item_id]
+  );
+
+  if (updateResult.rowCount === 0) {
+    throw new Error(`Not enough stock for ${item.item_name}`);
+  }
+}
+
 
     // 🔹 2️⃣ INSERT ORDER
     const insertOrder = await client.query(
