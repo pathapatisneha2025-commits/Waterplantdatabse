@@ -9,14 +9,33 @@ export default function CustomerManagement() {
     fetch("https://waterplantdatabse.onrender.com/users/all")
       .then((res) => res.json())
       .then((data) => {
+          console.log("FULL API RESPONSE:", data);
+
         if (data.success) {
-          const mapped = data.users.map((u) => ({
-            id: u.id,
-            name: u.name,
-            premium: u.is_premium,
-            address: u.address,
-            premiumRequested: u.premium_requested, // track requests
-          }));
+const mapped = data.users
+  .filter((u) => u.role === "customer")   // ✅ only customers
+  .map((u) => {
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      registeredAt: u.created_at
+        ? new Date(u.created_at).toLocaleString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            dateStyle: "medium",
+            timeStyle: "short",
+          })
+        : "N/A",
+      premium: u.is_premium,
+      address: u.address,
+      premiumRequested: u.premium_requested,
+    };
+  });
+
+
+
+
           setCustomers(mapped);
         }
         setLoading(false);
@@ -80,6 +99,39 @@ export default function CustomerManagement() {
     }
   };
 
+const handleToggle = async (isChecked, c) => {
+
+  // Admin turns ON toggle
+  if (isChecked) {
+
+    // If pending request → approve via API
+    if (c.premiumRequested) {
+      await approvePremium(c.id);
+      return;
+    }
+
+    // If regular user → manually make premium
+    setCustomers((prev) =>
+      prev.map((cust) =>
+        cust.id === c.id
+          ? { ...cust, premium: true }
+          : cust
+      )
+    );
+  }
+
+  // Admin turns OFF toggle → remove premium
+  else {
+    setCustomers((prev) =>
+      prev.map((cust) =>
+        cust.id === c.id
+          ? { ...cust, premium: false, premiumRequested: false }
+          : cust
+      )
+    );
+  }
+};
+
   // Styles
   const styles = {
     container: { marginTop: "20px", fontFamily: "Arial, sans-serif" },
@@ -134,68 +186,84 @@ export default function CustomerManagement() {
     <div style={styles.container}>
       <h2 style={styles.header}>Customer Management</h2>
       <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Name</th>
-            <th style={styles.th}>Premium Status</th>
-            <th style={styles.th}>Subscription</th>
-            <th style={styles.th}>Address</th>
-            <th style={styles.th}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((c) => (
-            <tr key={c.id}>
-              <td style={styles.td}>{c.name}</td>
+      <thead>
+  <tr>
+    <th style={styles.th}>Name</th>
+    <th style={styles.th}>Email</th>        {/* NEW */}
+    <th style={styles.th}>Phone</th>        {/* NEW */}
+    <th style={styles.th}>Registered At</th>{/* NEW */}
+    <th style={styles.th}>Premium Status</th>
+    <th style={styles.th}>Subscription</th>
+    <th style={styles.th}>Address</th>
+    <th style={styles.th}>Actions</th>
+  </tr>
+</thead>
 
-              {/* Premium Status with Pending */}
-              <td style={styles.td}>
-                {c.premium ? (
-                  <span style={{ color: "#4CAF50", fontWeight: "600" }}>Premium</span>
-                ) : c.premiumRequested ? (
-                  <span style={{ color: "#FFA500", fontWeight: "600" }}>Pending Request</span>
-                ) : (
-                  <span style={{ color: "#888" }}>Regular</span>
-                )}
-              </td>
+     <tbody>
+  {customers.map((c) => (
+    <tr key={c.id}>
+      <td style={styles.td}>{c.name}</td>
 
-              {/* Subscription Toggle */}
-              <td style={styles.td}>
-                <label style={styles.toggleWrapper}>
-                  <input
-                    type="checkbox"
-                    checked={c.premium}
-                    onChange={() => toggleSubscription(c)}
-                    style={{ display: "none" }}
-                  />
-                  <span
-                    style={{
-                      ...styles.toggleSlider,
-                      ...(c.premium ? styles.toggleChecked : {}),
-                    }}
-                  >
-                    <span
-                      style={{
-                        ...styles.toggleSliderBefore,
-                        ...(c.premium ? styles.toggleCheckedBefore : {}),
-                      }}
-                    ></span>
-                  </span>
-                </label>
-              </td>
+      {/* NEW FIELDS */}
+      <td style={styles.td}>{c.email}</td>
+      <td style={styles.td}>{c.phone}</td>
+<td style={styles.td}>{c.registeredAt}</td>
 
-              <td style={styles.td}>{c.address}</td>
-              <td style={styles.td}>
-                <button
-                  style={styles.updateBtn}
-                  onClick={() => updateAddress(c.id)}
-                >
-                  Update Address
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+
+      {/* Premium Status */}
+      <td style={styles.td}>
+        {c.premium ? (
+          <span style={{ color: "#4CAF50", fontWeight: "600" }}>
+            Premium
+          </span>
+        ) : c.premiumRequested ? (
+          <span style={{ color: "#FFA500", fontWeight: "600" }}>
+            Pending Request
+          </span>
+        ) : (
+          <span style={{ color: "#888" }}>Regular</span>
+        )}
+      </td>
+
+      {/* Subscription Toggle */}
+      <td style={styles.td}>
+        <label style={styles.toggleWrapper}>
+          <input
+            type="checkbox"
+            checked={c.premium}
+            onChange={(e) => handleToggle(e.target.checked, c)}
+            style={{ display: "none" }}
+          />
+          <span
+            style={{
+              ...styles.toggleSlider,
+              ...(c.premium ? styles.toggleChecked : {}),
+            }}
+          >
+            <span
+              style={{
+                ...styles.toggleSliderBefore,
+                ...(c.premium ? styles.toggleCheckedBefore : {}),
+              }}
+            ></span>
+          </span>
+        </label>
+      </td>
+
+      <td style={styles.td}>{c.address}</td>
+
+      <td style={styles.td}>
+        <button
+          style={styles.updateBtn}
+          onClick={() => updateAddress(c.id)}
+        >
+          Update Address
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
       </table>
     </div>
   );

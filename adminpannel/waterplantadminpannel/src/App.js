@@ -4,6 +4,7 @@ import AddGrocery from "./Pages/AdminAddGrocery";
 import AdminLayout from "./components/AdminLayout";
 import CustomerManagement from "./Pages/CustomerManagement";
 import OrdersAssignDriver from "./Pages/AdminAssignDriver";
+import DriverManagement from "./Pages/DriverMangegement";
 function App() {
   return (
   <Router>
@@ -14,6 +15,8 @@ function App() {
 <Route path="/adminGrocery" element={<AddGrocery />} />
 <Route path="/customermanagement" element={<CustomerManagement />} />
 <Route path="/ordersassigndriver" element={<OrdersAssignDriver />} />
+<Route path="/drivermanagement" element={<DriverManagement />} />
+
 
 
 

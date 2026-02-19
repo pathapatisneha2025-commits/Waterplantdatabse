@@ -8,6 +8,8 @@ const AdminLayout = () => {
   const navItems = [
     { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
     { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
+        { name: "Driver Mangement", path: "/drivermanagement", icon: <FiList /> },
+
     { name: "AssignDrivers", path: "/ordersassigndriver", icon: <FiList /> },
 
 

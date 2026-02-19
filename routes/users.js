@@ -396,6 +396,22 @@ await pool.query(
 });
 
 
+// Approve Driver
+router.post("/approve-driver", async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    await pool.query(
+      "UPDATE users SET driver_approved = true WHERE id = $1",
+      [userId]
+    );
+
+    res.json({ success: true, message: "Driver approved successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+});
 
 
 
