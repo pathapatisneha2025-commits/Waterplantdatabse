@@ -20,34 +20,34 @@ router.post("/place", async (req, res) => {
       items,
     } = req.body;
 
-    if (!user_id || !customer_name || !mobile || !address || !pincode || !items) {
+    if (!user_id || !customer_name || !mobile || !address || !pincode || !Array.isArray(items)) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     await client.query("BEGIN");
 
-    // 🔒 1️⃣ Check and lock stock for each item
-    for (let item of items) {
-      const stockCheck = await client.query(
-        `SELECT stock 
-         FROM grocery_items 
-         WHERE id = $1 
-         FOR UPDATE`,
-        [item.item.id]
-      );
+    // 🔒 1️⃣ Check stock and reduce
+    for (const item of items) {
 
-      if (stockCheck.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ message: `Item ${item.name} not found` });
+      // Make sure frontend sends id and qty
+      if (!item.id || !item.qty) {
+        throw new Error("Invalid item structure");
       }
 
-      const currentStock = stockCheck.rows[0].stock;
+      // Lock row
+      const stockResult = await client.query(
+        `SELECT stock FROM grocery_items WHERE id = $1 FOR UPDATE`,
+        [item.id]
+      );
+
+      if (!stockResult.rows.length) {
+        throw new Error(`Item not found (ID: ${item.id})`);
+      }
+
+      const currentStock = stockResult.rows[0].stock;
 
       if (currentStock < item.qty) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          message: `Insufficient stock for ${item.name}`,
-        });
+        throw new Error(`Insufficient stock for ${item.name}`);
       }
 
       // ➖ Reduce stock
@@ -55,11 +55,11 @@ router.post("/place", async (req, res) => {
         `UPDATE grocery_items
          SET stock = stock - $1
          WHERE id = $2`,
-        [item.qty, item.item.id]
+        [item.qty, item.id]
       );
     }
 
-    // 🧾 2️⃣ Insert Order
+    // 🧾 2️⃣ Insert order AFTER stock success
     const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
@@ -80,7 +80,7 @@ router.post("/place", async (req, res) => {
       ]
     );
 
-    // 🗑 3️⃣ Clear Cart
+    // 🗑 3️⃣ Clear cart
     await client.query(
       "DELETE FROM user_cart WHERE user_id = $1",
       [user_id]
@@ -95,8 +95,8 @@ router.post("/place", async (req, res) => {
 
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("Place order error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("Place order error:", error.message);
+    res.status(500).json({ error: error.message });
   } finally {
     client.release();
   }
