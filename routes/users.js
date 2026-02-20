@@ -459,6 +459,24 @@ router.get("/customers/locations", async (req, res) => {
   }
 });
 
+router.put("/update-address", async (req, res) => {
+  const { userId, address } = req.body;
 
+  if (!userId || !address) {
+    return res.status(400).json({ success: false, error: "Missing userId or address" });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users SET address = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [address, userId]
+    );
+
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Failed to update address" });
+  }
+});
 
 module.exports = router;

@@ -9,7 +9,6 @@ export default function DriverManagement() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-
           const mapped = data.users
             .filter((u) => u.role === "driver")
             .map((u) => ({
@@ -27,7 +26,7 @@ export default function DriverManagement() {
               address: u.address,
               latitude: u.latitude,
               longitude: u.longitude,
-              approved: u.driver_approved || false, // 👈 important
+              approved: u.driver_approved || false,
             }));
 
           setDrivers(mapped);
@@ -40,7 +39,6 @@ export default function DriverManagement() {
       });
   }, []);
 
-  // ✅ Approve Driver Function
   const approveDriver = async (id) => {
     try {
       const res = await fetch(
@@ -51,16 +49,11 @@ export default function DriverManagement() {
           body: JSON.stringify({ userId: id }),
         }
       );
-
       const data = await res.json();
-
       if (data.success) {
         setDrivers((prev) =>
-          prev.map((d) =>
-            d.id === id ? { ...d, approved: true } : d
-          )
+          prev.map((d) => (d.id === id ? { ...d, approved: true } : d))
         );
-
         alert("Driver approved successfully!");
       }
     } catch (err) {
@@ -69,18 +62,19 @@ export default function DriverManagement() {
     }
   };
 
+  // Styles (matching Customer Management UI)
   const styles = {
     container: { marginTop: "20px", fontFamily: "Arial, sans-serif" },
-    header: { color: "#007bff", marginBottom: "10px" },
+    header: { color: "#ff7f50", marginBottom: "10px" },
     table: { width: "100%", borderCollapse: "collapse" },
     th: {
-      border: "1px solid #007bff",
+      border: "1px solid #ff7f50",
       padding: "10px",
-      backgroundColor: "#007bff",
+      backgroundColor: "#ff7f50",
       color: "white",
       textAlign: "left",
     },
-    td: { border: "1px solid #007bff", padding: "10px", textAlign: "left" },
+    td: { border: "1px solid #ff7f50", padding: "10px", textAlign: "left" },
     approveBtn: {
       padding: "5px 10px",
       backgroundColor: "#28a745",
@@ -96,7 +90,6 @@ export default function DriverManagement() {
   return (
     <div style={styles.container}>
       <h2 style={styles.header}>Driver Management</h2>
-
       <table style={styles.table}>
         <thead>
           <tr>
@@ -110,7 +103,6 @@ export default function DriverManagement() {
             <th style={styles.th}>Approval</th>
           </tr>
         </thead>
-
         <tbody>
           {drivers.map((d) => (
             <tr key={d.id}>
@@ -121,11 +113,9 @@ export default function DriverManagement() {
               <td style={styles.td}>{d.address}</td>
               <td style={styles.td}>{d.latitude}</td>
               <td style={styles.td}>{d.longitude}</td>
-
-              {/* ✅ Approval Column */}
               <td style={styles.td}>
                 {d.approved ? (
-                  <span style={{ color: "green", fontWeight: "600" }}>
+                  <span style={{ color: "#4CAF50", fontWeight: "600" }}>
                     Approved
                   </span>
                 ) : (

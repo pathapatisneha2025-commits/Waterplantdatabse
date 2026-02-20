@@ -129,13 +129,18 @@ export default function AdminOrdersScreen() {
               <td style={{ ...styles.td, color: order.status === "Pending" ? "#E53935" : "#4CAF50" }}>
                 {order.status}
               </td>
-              <td style={{ ...styles.td, ...styles.itemsCell }}>
-                {order.items.map((item) => (
-                  <div key={item.item_id}>
-                    {item.qty} × {item.item_name} (₹{item.total})
-                  </div>
-                ))}
-              </td>
+          <td style={{ ...styles.td, ...styles.itemsCell }}>
+  {order.items.map((item, idx) => {
+    const itemName = item.item_name || item.name || "Unnamed";
+    const itemTotal = item.total ? `₹${item.total}` : "";
+    const key = item.item_id || idx; // fallback key if item_id is null
+    return (
+      <div key={key}>
+        {item.qty} × {itemName} {itemTotal}
+      </div>
+    );
+  })}
+</td>
               <td style={styles.td}>{order.created_at.slice(0, 10)}</td>
               <td style={styles.td}>
                 {order.status === "Pending" && (

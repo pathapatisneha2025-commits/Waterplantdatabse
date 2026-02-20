@@ -6,21 +6,35 @@ export default function GroceryListStock() {
 
   // Fetch groceries from API
   useEffect(() => {
-    fetch("https://your-api-url.com/groceries") // Replace with your API
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setGroceries(data.groceries);
+    const fetchGroceries = async () => {
+      try {
+        const res = await fetch("https://waterplantdatabse.onrender.com/groceries/all");
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.groceries)) {
+          // Ensure stock is a number
+          const normalized = data.groceries.map((item) => ({
+            ...item,
+            stock: Number(item.stock ?? 0),
+            price: Number(item.price ?? 0),
+            premiumprice: Number(item.premiumprice ?? 0),
+          }));
+          setGroceries(normalized);
+        } else {
+          setGroceries([]);
         }
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error fetching groceries:", err);
+        setGroceries([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchGroceries();
   }, []);
 
-  // Styles (same as your CustomerManagement)
+  // Styles
   const styles = {
     container: { marginTop: "20px", fontFamily: "Arial, sans-serif" },
     header: { color: "#ff7f50", marginBottom: "10px" },
@@ -34,9 +48,13 @@ export default function GroceryListStock() {
     },
     td: { border: "1px solid #ff7f50", padding: "10px", textAlign: "left" },
     img: { width: "50px", height: "50px", borderRadius: "5px" },
+    emptyText: { padding: "20px", textAlign: "center", color: "#999" },
   };
 
   if (loading) return <div style={styles.container}>Loading groceries...</div>;
+
+  if (groceries.length === 0)
+    return <div style={styles.container}>No grocery items found.</div>;
 
   return (
     <div style={styles.container}>
@@ -64,8 +82,6 @@ export default function GroceryListStock() {
               <td style={styles.td}>{item.category}</td>
               <td style={styles.td}>₹ {item.price}</td>
               <td style={styles.td}>₹ {item.premiumprice}</td>
-
-              {/* 🔥 Highlight stock in red if <= 30 */}
               <td
                 style={{
                   ...styles.td,

@@ -90,14 +90,33 @@ const mapped = data.users
   };
 
   // Update customer address
-  const updateAddress = (id) => {
-    const newAddress = prompt("Enter new address:");
-    if (newAddress) {
+ const updateAddress = async (id) => {
+  const newAddress = prompt("Enter new address:");
+  if (!newAddress) return;
+
+  try {
+    const res = await fetch("https://waterplantdatabse.onrender.com/users/update-address", {
+      method: "PUT", // or POST depending on your backend
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: id, address: newAddress }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      // Update local state
       setCustomers((prev) =>
         prev.map((c) => (c.id === id ? { ...c, address: newAddress } : c))
       );
+      alert("Address updated successfully!");
+    } else {
+      alert(data.error || "Failed to update address");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    alert("Network error while updating address");
+  }
+};
 
 const handleToggle = async (isChecked, c) => {
 
