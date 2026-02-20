@@ -12,6 +12,7 @@ const AdminLayout = () => {
         { name: "Order Mangement", path: "/adminorders", icon: <FiList /> },
                 { name: "Stock Inventory", path: "/stockinventory", icon: <FiList /> },
 
+                { name: "Drivers Earnings", path: "/driverearnings", icon: <FiList /> },
 
     // { name: "AssignDrivers", path: "/ordersassigndriver", icon: <FiList /> },
 

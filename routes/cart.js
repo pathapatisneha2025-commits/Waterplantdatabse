@@ -17,7 +17,34 @@ router.post("/add", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // 1️⃣ Lock and check stock from grocery_items
+    // ✅ If it's a water can, skip grocery stock check
+    if (item.type === "water") {
+      const insert = await client.query(
+        `INSERT INTO user_cart 
+         (user_id, item_id, name, img, price, premium_price, qty, item_type, slot)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING *`,
+        [
+          userId,
+          null,                // water cans don't have an id in grocery_items
+          item.name,
+          item.img || "water.png",
+          item.price,
+          item.premiumPrice,
+          qty,
+          "water",
+          item.slot || null,   // delivery slot for water cans
+        ]
+      );
+
+      await client.query("COMMIT");
+      return res.json({
+        message: "Water can added to cart",
+        cartItem: insert.rows[0],
+      });
+    }
+
+    // 🔹 For grocery items, check stock
     const stockCheck = await client.query(
       `SELECT stock 
        FROM grocery_items 
@@ -38,7 +65,7 @@ router.post("/add", async (req, res) => {
       return res.status(400).json({ message: "Insufficient stock" });
     }
 
-    // 2️⃣ Reduce stock
+    // 🔹 Reduce grocery stock
     await client.query(
       `UPDATE grocery_items
        SET stock = stock - $1
@@ -46,11 +73,11 @@ router.post("/add", async (req, res) => {
       [qty, item.id]
     );
 
-    // 3️⃣ Insert into cart
+    // 🔹 Insert grocery item into cart
     const insert = await client.query(
       `INSERT INTO user_cart 
-       (user_id, item_id, name, img, price, premium_price, qty)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       (user_id, item_id, name, img, price, premium_price, qty, item_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
       [
         userId,
@@ -60,13 +87,14 @@ router.post("/add", async (req, res) => {
         item.price,
         item.premiumPrice,
         qty,
+        "grocery",
       ]
     );
 
     await client.query("COMMIT");
 
     res.json({
-      message: "Item added to cart and stock reduced",
+      message: "Grocery item added to cart and stock reduced",
       cartItem: insert.rows[0],
     });
 
