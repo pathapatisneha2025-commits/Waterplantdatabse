@@ -25,10 +25,10 @@ router.post("/place", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // ✅ 1️⃣ Fetch cart items from DB
+    // 1️⃣ Fetch cart items from DB
     const cartResult = await client.query(
-      `SELECT item_id, qty, name 
-       FROM user_cart 
+      `SELECT item_id, qty, name, item_type, slot
+       FROM user_cart
        WHERE user_id = $1`,
       [user_id]
     );
@@ -39,36 +39,38 @@ router.post("/place", async (req, res) => {
 
     const cartItems = cartResult.rows;
 
-    // 🔒 2️⃣ Check stock & reduce from grocery_items
+    // 2️⃣ Check stock & reduce for groceries only
     for (const item of cartItems) {
+      if (item.item_type !== "water") {
+        const stockResult = await client.query(
+          `SELECT stock 
+           FROM grocery_items 
+           WHERE id = $1 
+           FOR UPDATE`,
+          [item.item_id]
+        );
 
-      const stockResult = await client.query(
-        `SELECT stock 
-         FROM grocery_items 
-         WHERE id = $1 
-         FOR UPDATE`,
-        [item.item_id]
-      );
+        if (!stockResult.rows.length) {
+          throw new Error(`Item not found (ID: ${item.item_id})`);
+        }
 
-      if (!stockResult.rows.length) {
-        throw new Error(`Item not found (ID: ${item.item_id})`);
+        const currentStock = stockResult.rows[0].stock;
+
+        if (currentStock < item.qty) {
+          throw new Error(`Insufficient stock for ${item.name}`);
+        }
+
+        await client.query(
+          `UPDATE grocery_items
+           SET stock = stock - $1
+           WHERE id = $2`,
+          [item.qty, item.item_id]
+        );
       }
-
-      const currentStock = stockResult.rows[0].stock;
-
-      if (currentStock < item.qty) {
-        throw new Error(`Insufficient stock for ${item.name}`);
-      }
-
-      await client.query(
-        `UPDATE grocery_items
-         SET stock = stock - $1
-         WHERE id = $2`,
-        [item.qty, item.item_id]
-      );
+      // ✅ For water cans, skip stock check (managed separately)
     }
 
-    // 🧾 3️⃣ Insert order (store cart items)
+    // 3️⃣ Insert order (store cart items)
     const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (user_id, customer_name, mobile, address, landmark, pincode,
@@ -89,7 +91,7 @@ router.post("/place", async (req, res) => {
       ]
     );
 
-    // 🗑 4️⃣ Clear cart
+    // 4️⃣ Clear cart
     await client.query(
       "DELETE FROM user_cart WHERE user_id = $1",
       [user_id]
@@ -110,7 +112,6 @@ router.post("/place", async (req, res) => {
     client.release();
   }
 });
-
 
 
 
