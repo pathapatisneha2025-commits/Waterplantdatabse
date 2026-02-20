@@ -10,8 +10,10 @@ const AdminLayout = () => {
     { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
         { name: "Driver Mangement", path: "/drivermanagement", icon: <FiList /> },
         { name: "Order Mangement", path: "/adminorders", icon: <FiList /> },
+                { name: "Stock Inventory", path: "/stockinventory", icon: <FiList /> },
 
-    { name: "AssignDrivers", path: "/ordersassigndriver", icon: <FiList /> },
+
+    // { name: "AssignDrivers", path: "/ordersassigndriver", icon: <FiList /> },
 
 
   ];

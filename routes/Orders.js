@@ -295,6 +295,33 @@ router.get("/driver/:driverId", async (req, res) => {
   }
 });
 
+/* ------------------ MARK ORDER DELIVERED ------------------ */
+router.post("/mark-delivered", async (req, res) => {
+  const { order_id, status, cans_delivered, notes } = req.body;
+
+  if (!order_id || !status || !cans_delivered) {
+    return res.status(400).json({ success: false, message: "Missing required fields" });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE groceriesorders 
+       SET status = $1, delivered_cans = $2, notes = $3 
+       WHERE id = $4
+       RETURNING *`,
+      [status, cans_delivered, notes || null, order_id]
+    );
+
+    if (rows.length === 0)
+      return res.status(404).json({ success: false, message: "Order not found" });
+
+    res.json({ success: true, message: "Order marked as delivered", order: rows[0] });
+  } catch (err) {
+    console.error("Mark delivered error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 
 module.exports = router;

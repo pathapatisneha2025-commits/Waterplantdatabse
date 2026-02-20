@@ -6,6 +6,7 @@ import CustomerManagement from "./Pages/CustomerManagement";
 import OrdersAssignDriver from "./Pages/AdminAssignDriver";
 import DriverManagement from "./Pages/DriverMangegement";
 import AdminOrdersScreen from "./Pages/AdminOrders";
+import GroceryListStock from "./Pages/AdminInventory";
 function App() {
   return (
   <Router>
@@ -18,6 +19,7 @@ function App() {
 <Route path="/ordersassigndriver" element={<OrdersAssignDriver />} />
 <Route path="/drivermanagement" element={<DriverManagement />} />
 <Route path="/adminorders" element={<AdminOrdersScreen />} />
+<Route path="/stockinventory" element={<GroceryListStock />} />
 
 
 
