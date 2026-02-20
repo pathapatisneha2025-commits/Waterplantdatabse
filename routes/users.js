@@ -459,16 +459,32 @@ router.get("/customers/locations", async (req, res) => {
   }
 });
 
-router.put("/update-address", async (req, res) => {
-  const { userId, address } = req.body;
-  if (!userId || !address) return res.status(400).json({ success: false, error: "Missing userId or address" });
+// Update user address by ID in URL
+router.put("/update-addresses/:id", async (req, res) => {
+  const { address } = req.body;
+  const userId = parseInt(req.params.id, 10); // parse ID from URL
 
-  const result = await pool.query(
-    `UPDATE users SET address=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
-    [address, userId]
-  );
+  if (!address || isNaN(userId)) {
+    return res.status(400).json({ success: false, error: "Invalid address or user ID" });
+  }
 
-  res.json({ success: true, user: result.rows[0] });
+  try {
+    const result = await pool.query(
+      `UPDATE users 
+       SET address = $1, updated_at = NOW() 
+       WHERE id = $2 
+       RETURNING *`,
+      [address, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Failed to update address" });
+  }
 });
-
 module.exports = router;
