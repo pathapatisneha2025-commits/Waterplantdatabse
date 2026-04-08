@@ -90,15 +90,15 @@ const mapped = data.users
   };
 
   // Update customer address
- const updateAddress = async (id) => {
+const updateAddress = async (id) => {
   const newAddress = prompt("Enter new address:");
   if (!newAddress) return;
 
   try {
-    const res = await fetch("https://waterplantdatabse.onrender.com/users/update-address", {
-      method: "PUT", // or POST depending on your backend
+    const res = await fetch(`https://waterplantdatabse.onrender.com/users/update-addresses/${id}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: id, address: newAddress }),
+      body: JSON.stringify({ address: newAddress }), // only send address
     });
 
     const data = await res.json();
