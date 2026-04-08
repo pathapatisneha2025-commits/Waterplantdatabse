@@ -309,7 +309,7 @@ router.get("/locations/driver/:driverId", async (req, res) => {
     const { rows: orders } = await pool.query(
       `SELECT o.*, u.name AS customer_name, u.phone AS customer_phone, u.latitude, u.longitude, u.address AS customer_address
        FROM groceriesorders o
-       JOIN users u ON o.customer_id = u.id
+       JOIN users u ON o.user_id = u.id
        WHERE o.driver_id = $1
        ORDER BY o.created_at DESC`,
       [driverId]
