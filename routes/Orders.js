@@ -296,6 +296,35 @@ router.get("/driver/:driverId", async (req, res) => {
   }
 });
 
+// GET orders + customer locations by driver ID
+router.get("/locations/driver/:driverId", async (req, res) => {
+  try {
+    const driverId = req.params.driverId;
+
+    if (!driverId) {
+      return res.status(400).json({ success: false, message: "Driver ID is required" });
+    }
+
+    // Fetch assigned orders with customer info
+    const { rows: orders } = await pool.query(
+      `SELECT o.*, u.name AS customer_name, u.phone AS customer_phone, u.latitude, u.longitude, u.address AS customer_address
+       FROM groceriesorders o
+       JOIN users u ON o.customer_id = u.id
+       WHERE o.driver_id = $1
+       ORDER BY o.created_at DESC`,
+      [driverId]
+    );
+
+    res.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get orders by driver error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 /* ------------------ MARK ORDER DELIVERED ------------------ */
 router.post("/mark-delivered", async (req, res) => {
   const { order_id, status, cans_delivered, notes } = req.body;
