@@ -268,27 +268,26 @@ router.post("/assign-driver", async (req, res) => {
 });
 
 /* ------------------ GET ORDERS BY DRIVER ------------------ */
-// GET orders + customer locations by driver ID
 router.get("/driver/:driverId", async (req, res) => {
   try {
     const driverId = req.params.driverId;
 
     if (!driverId) {
-      return res.status(400).json({ success: false, message: "Driver ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Driver ID is required" });
     }
 
-    // Fetch assigned orders with customer info
     const { rows: orders } = await pool.query(
-      `SELECT o.*, u.name AS customer_name, u.latitude, u.longitude
-       FROM groceriesorders o
-       JOIN users u ON o.user_id = u.id
-       WHERE o.driver_id = $1
-       ORDER BY o.created_at DESC`,
+      `SELECT * FROM groceriesorders 
+       WHERE driver_id = $1
+       ORDER BY created_at DESC`,
       [driverId]
     );
 
     res.json({
       success: true,
+      driverId,
       orders,
     });
   } catch (error) {
