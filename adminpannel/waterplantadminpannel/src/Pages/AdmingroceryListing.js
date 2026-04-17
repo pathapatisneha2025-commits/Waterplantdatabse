@@ -6,9 +6,6 @@ const GroceryList = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ============================
-  // FETCH LISTING API
-  // ============================
   const fetchItems = async () => {
     try {
       const res = await fetch("https://waterplantdatabse.onrender.com/groceries/all");
@@ -20,7 +17,6 @@ const GroceryList = () => {
       else if (Array.isArray(data.data)) setItems(data.data);
       else if (Array.isArray(data.groceries)) setItems(data.groceries);
       else setItems([]);
-
     } catch (error) {
       console.log("Error fetching grocery:", error);
       alert("Server error");
@@ -32,9 +28,6 @@ const GroceryList = () => {
     fetchItems();
   }, []);
 
-  // ============================
-  // DELETE API
-  // ============================
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure to delete?")) return;
 
@@ -54,7 +47,6 @@ const GroceryList = () => {
     }
   };
 
-  // Redirect to Edit
   const handleEdit = (item) => {
     navigate("/adminGrocery", { state: { item } });
   };
@@ -76,9 +68,8 @@ const GroceryList = () => {
           <table style={styles.table}>
             <thead>
               <tr>
-               
                 <th>ID</th>
-                 <th>Image</th>
+                <th>Image</th>
                 <th>Name</th>
                 <th>Brand</th>
                 <th>Category</th>
@@ -88,8 +79,12 @@ const GroceryList = () => {
                 <th>Qty</th>
                 <th>Unit</th>
                 <th>Stock</th>
-                <th>Price</th>
+
+                {/* ✅ PRICE STRUCTURE */}
+                <th>MRP</th>
+                <th>Non-Premium</th>
                 <th>Premium</th>
+
                 <th>Actions</th>
               </tr>
             </thead>
@@ -97,22 +92,19 @@ const GroceryList = () => {
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan="14" style={styles.emptyText}>
+                  <td colSpan="16" style={styles.emptyText}>
                     No items found
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} style={styles.row}>
-                   
                     <td>{item.id}</td>
-                     <td>
-                      <img
-                        src={item.img}
-                        alt="img"
-                        style={styles.image}
-                      />
+
+                    <td>
+                      <img src={item.img} alt="img" style={styles.image} />
                     </td>
+
                     <td>{item.name}</td>
                     <td>{item.brand}</td>
                     <td>{item.category}</td>
@@ -122,8 +114,11 @@ const GroceryList = () => {
                     <td>{item.quantity}</td>
                     <td>{item.unit}</td>
                     <td>{item.stock}</td>
+
+                    {/* ✅ PRICES */}
+                    <td>₹{item.mrp}</td>
                     <td>₹{item.price}</td>
-                    <td>₹{item.premiumprice}</td>
+                    <td>₹{item.premiumPrice || item.premiumprice}</td>
 
                     <td style={styles.actionCol}>
                       <button style={styles.editBtn} onClick={() => handleEdit(item)}>
@@ -148,21 +143,17 @@ const GroceryList = () => {
   );
 };
 
-// -----------------------
-// BEAUTIFUL UI STYLING
-// -----------------------
 const styles = {
   wrapper: {
     padding: "30px",
     minHeight: "100vh",
     background: "#f9fafb",
-    fontFamily: "Arial, sans-serif",
+    fontFamily: "Arial",
   },
 
   headerContainer: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: "25px",
   },
 
@@ -178,24 +169,21 @@ const styles = {
     color: "#fff",
     border: "none",
     borderRadius: "8px",
-    fontSize: "15px",
-    cursor: "pointer",
     fontWeight: "bold",
-    transition: "0.2s",
+    cursor: "pointer",
   },
 
   tableCard: {
     background: "#fff",
     padding: "20px",
     borderRadius: "12px",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
     overflowX: "auto",
   },
 
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1200px",
+    minWidth: "1300px",
   },
 
   image: {
@@ -205,48 +193,42 @@ const styles = {
     objectFit: "cover",
   },
 
-  emptyText: {
-    padding: "20px",
-    textAlign: "center",
-    color: "#999",
-    fontSize: "16px",
-  },
-
-  loadingText: {
-    textAlign: "center",
-    fontSize: "18px",
-    marginTop: "50px",
-  },
-
   row: {
     borderBottom: "1px solid #eee",
-    transition: "0.2s",
   },
 
   actionCol: {
-    minWidth: "150px",
     display: "flex",
     gap: "8px",
   },
 
   editBtn: {
-    padding: "6px 12px",
     background: "#ffaa33",
     border: "none",
+    padding: "6px 10px",
     borderRadius: "6px",
-    cursor: "pointer",
     color: "#fff",
     fontWeight: "bold",
   },
 
   deleteBtn: {
-    padding: "6px 12px",
     background: "#ff3300",
     border: "none",
+    padding: "6px 10px",
     borderRadius: "6px",
-    cursor: "pointer",
     color: "#fff",
     fontWeight: "bold",
+  },
+
+  loadingText: {
+    textAlign: "center",
+    marginTop: "50px",
+  },
+
+  emptyText: {
+    textAlign: "center",
+    padding: "20px",
+    color: "#999",
   },
 };
 

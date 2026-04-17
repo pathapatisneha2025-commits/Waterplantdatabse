@@ -38,6 +38,7 @@ router.post("/add", upload.single("image"), async (req, res) => {
       quantity,
       unit,
       stock,
+      mrp,              // ✅ ADDED
       price,
       premiumPrice,
     } = req.body;
@@ -51,14 +52,25 @@ router.post("/add", upload.single("image"), async (req, res) => {
       });
     }
 
-    const imgUrl = file.path; // cloudinary image URL
+    const imgUrl = file.path;
 
     const insertQuery = `
       INSERT INTO grocery_items (
-        name, brand, category, subcategory, description,
-        discount, quantity, unit, stock, price, premiumPrice, img
+        name,
+        brand,
+        category,
+        subcategory,
+        description,
+        discount,
+        quantity,
+        unit,
+        stock,
+        mrp,
+        price,
+        premiumPrice,
+        img
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *
     `;
 
@@ -72,6 +84,7 @@ router.post("/add", upload.single("image"), async (req, res) => {
       quantity,
       unit,
       stock,
+      mrp,            // ✅ ADDED
       price,
       premiumPrice,
       imgUrl,
@@ -84,12 +97,15 @@ router.post("/add", upload.single("image"), async (req, res) => {
       message: "Grocery Item Added",
       item: result.rows[0],
     });
+
   } catch (error) {
     console.error("Add Grocery Error:", error);
-    return res.status(500).json({ success: false, message: "Server Error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
   }
 });
-
 // ===============================
 // FETCH All Grocery Items
 // ===============================

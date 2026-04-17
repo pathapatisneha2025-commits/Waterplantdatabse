@@ -14,7 +14,10 @@ const AddGrocery = () => {
     quantity: 1,
     unit: "",
     stock: "",
-    price: "",
+
+    // ✅ PRICING STRUCTURE (NEW)
+    mrp: "",
+    price: "", // non-premium price
     premiumPrice: "",
   });
 
@@ -25,58 +28,57 @@ const AddGrocery = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // IMAGE UPLOAD
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setImageFile(file);
-    setPreview(URL.createObjectURL(file)); // preview image
+    setPreview(URL.createObjectURL(file));
   };
 
-  // SUBMIT TO BACKEND API
   const handleSubmit = async () => {
-  if (!imageFile) {
-    alert("Please upload an image");
-    return;
-  }
-
-  const formData = new FormData();
-  Object.entries(form).forEach(([key, value]) => {
-    formData.append(key, value);
-  });
-
-  formData.append("image", imageFile);
-
-  try {
-    const res = await fetch("https://waterplantdatabse.onrender.com/groceries/add", {
-      method: "POST",
-      body: formData, // VERY IMPORTANT → no headers for FormData
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || "Failed to add item");
+    if (!imageFile) {
+      alert("Please upload an image");
       return;
     }
 
-    alert("Grocery Item Added Successfully!");
-    navigate("/admingrocerylisting");
+    const formData = new FormData();
 
-  } catch (error) {
-    console.error("Upload Error:", error);
-    alert("Failed to add item");
-  }
-};
+    Object.entries(form).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
 
+    formData.append("image", imageFile);
+
+    try {
+      const res = await fetch(
+        "https://waterplantdatabse.onrender.com/groceries/add",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to add item");
+        return;
+      }
+
+      alert("Grocery Item Added Successfully!");
+      navigate("/admingrocerylisting");
+    } catch (error) {
+      console.error("Upload Error:", error);
+      alert("Failed to add item");
+    }
+  };
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <h2 style={styles.heading}>Add Grocery Item</h2>
 
-        {/* TEXT INPUT FIELDS */}
         <input name="name" placeholder="Grocery Name" value={form.name} onChange={handleChange} style={styles.input} />
         <input name="brand" placeholder="Brand" value={form.brand} onChange={handleChange} style={styles.input} />
         <input name="category" placeholder="Category" value={form.category} onChange={handleChange} style={styles.input} />
@@ -90,18 +92,43 @@ const AddGrocery = () => {
           style={{ ...styles.input, height: "70px" }}
         ></textarea>
 
-        <input name="price" type="number" placeholder="Price" value={form.price} onChange={handleChange} style={styles.input} />
-        <input name="premiumPrice" type="number" placeholder="Premium Price" value={form.premiumPrice} onChange={handleChange} style={styles.input} />
+        {/* ✅ PRICE SECTION (NEW STRUCTURE) */}
+        <input
+          name="mrp"
+          type="number"
+          placeholder="MRP Price"
+          value={form.mrp}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+        <input
+          name="price"
+          type="number"
+          placeholder="Non-Premium Price"
+          value={form.price}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+        <input
+          name="premiumPrice"
+          type="number"
+          placeholder="Premium Price"
+          value={form.premiumPrice}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
         <input name="discount" type="number" placeholder="Discount (%)" value={form.discount} onChange={handleChange} style={styles.input} />
         <input name="quantity" type="number" placeholder="Quantity" value={form.quantity} onChange={handleChange} style={styles.input} />
         <input name="unit" placeholder="Unit (kg, litre, pcs)" value={form.unit} onChange={handleChange} style={styles.input} />
         <input name="stock" type="number" placeholder="Stock" value={form.stock} onChange={handleChange} style={styles.input} />
 
-        {/* IMAGE FILE INPUT */}
+        {/* IMAGE */}
         <label style={styles.fileLabel}>Upload Image</label>
         <input type="file" accept="image/*" onChange={handleImageChange} style={styles.fileInput} />
 
-        {/* IMAGE PREVIEW */}
         {preview && (
           <img
             src={preview}
@@ -164,7 +191,11 @@ const styles = {
     fontSize: "17px",
     cursor: "pointer",
   },
-  fileLabel: { fontWeight: "600", color: "#ff6600", marginBottom: "5px" },
+  fileLabel: {
+    fontWeight: "600",
+    color: "#ff6600",
+    marginBottom: "5px",
+  },
 };
 
 export default AddGrocery;
