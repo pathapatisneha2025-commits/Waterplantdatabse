@@ -167,6 +167,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     quantity,
     unit,
     stock,
+    mrp,              // ✅ ADDED
     price,
     premiumPrice,
   } = req.body;
@@ -189,7 +190,6 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
 
     const existingItem = existing.rows[0];
 
-    // If new image uploaded, use it; else keep old one
     const imgUrl = file ? file.path : existingItem.img;
 
     const updateQuery = `
@@ -203,10 +203,11 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
         quantity = $7,
         unit = $8,
         stock = $9,
-        price = $10,
-        premiumPrice = $11,
-        img = $12
-      WHERE id = $13
+        mrp = $10,              -- ✅ ADDED
+        price = $11,
+        premiumPrice = $12,
+        img = $13
+      WHERE id = $14
       RETURNING *
     `;
 
@@ -220,6 +221,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
       quantity || existingItem.quantity,
       unit || existingItem.unit,
       stock || existingItem.stock,
+      mrp || existingItem.mrp,        // ✅ ADDED
       price || existingItem.price,
       premiumPrice || existingItem.premiumprice,
       imgUrl,
@@ -238,7 +240,6 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 });
-
 // ===============================
 // DELETE Grocery Item
 // ===============================

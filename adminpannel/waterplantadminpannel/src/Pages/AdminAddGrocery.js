@@ -1,8 +1,12 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const AddGrocery = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const editItem = location.state?.item;
+  const isEdit = !!editItem;
 
   const [form, setForm] = useState({
     name: "",
@@ -15,14 +19,40 @@ const AddGrocery = () => {
     unit: "",
     stock: "",
 
-    // ✅ PRICING STRUCTURE (NEW)
+    // PRICE STRUCTURE
     mrp: "",
-    price: "", // non-premium price
+    price: "",
     premiumPrice: "",
   });
 
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState("");
+
+  // =========================
+  // PREFILL ON EDIT
+  // =========================
+  useEffect(() => {
+    if (editItem) {
+      setForm({
+        name: editItem.name || "",
+        brand: editItem.brand || "",
+        category: editItem.category || "",
+        subcategory: editItem.subcategory || "",
+        description: editItem.description || "",
+        discount: editItem.discount || "",
+        quantity: editItem.quantity || 1,
+        unit: editItem.unit || "",
+        stock: editItem.stock || "",
+
+        mrp: editItem.mrp || "",
+        price: editItem.price || "",
+        premiumPrice:
+          editItem.premiumPrice || editItem.premiumprice || "",
+      });
+
+      setPreview(editItem.img || "");
+    }
+  }, [editItem]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,48 +66,53 @@ const AddGrocery = () => {
     setPreview(URL.createObjectURL(file));
   };
 
+  // =========================
+  // ADD + EDIT SUBMIT
+  // =========================
   const handleSubmit = async () => {
-    if (!imageFile) {
-      alert("Please upload an image");
-      return;
-    }
-
     const formData = new FormData();
 
     Object.entries(form).forEach(([key, value]) => {
       formData.append(key, value);
     });
 
-    formData.append("image", imageFile);
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
 
     try {
-      const res = await fetch(
-        "https://waterplantdatabse.onrender.com/groceries/add",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const url = isEdit
+        ? `https://waterplantdatabse.onrender.com/groceries/update/${editItem.id}`
+        : `https://waterplantdatabse.onrender.com/groceries/add`;
+
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        body: formData,
+      });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Failed to add item");
+        alert(data.message || "Failed");
         return;
       }
 
-      alert("Grocery Item Added Successfully!");
+      alert(isEdit ? "Updated Successfully!" : "Added Successfully!");
       navigate("/admingrocerylisting");
     } catch (error) {
-      console.error("Upload Error:", error);
-      alert("Failed to add item");
+      console.error(error);
+      alert("Server Error");
     }
   };
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h2 style={styles.heading}>Add Grocery Item</h2>
+        <h2 style={styles.heading}>
+          {isEdit ? "Edit Grocery Item" : "Add Grocery Item"}
+        </h2>
 
         <input name="name" placeholder="Grocery Name" value={form.name} onChange={handleChange} style={styles.input} />
         <input name="brand" placeholder="Brand" value={form.brand} onChange={handleChange} style={styles.input} />
@@ -90,35 +125,14 @@ const AddGrocery = () => {
           value={form.description}
           onChange={handleChange}
           style={{ ...styles.input, height: "70px" }}
-        ></textarea>
-
-        {/* ✅ PRICE SECTION (NEW STRUCTURE) */}
-        <input
-          name="mrp"
-          type="number"
-          placeholder="MRP Price"
-          value={form.mrp}
-          onChange={handleChange}
-          style={styles.input}
         />
 
-        <input
-          name="price"
-          type="number"
-          placeholder="Non-Premium Price"
-          value={form.price}
-          onChange={handleChange}
-          style={styles.input}
-        />
+        {/* PRICE SECTION */}
+        <input name="mrp" type="number" placeholder="MRP Price" value={form.mrp} onChange={handleChange} style={styles.input} />
 
-        <input
-          name="premiumPrice"
-          type="number"
-          placeholder="Premium Price"
-          value={form.premiumPrice}
-          onChange={handleChange}
-          style={styles.input}
-        />
+        <input name="price" type="number" placeholder="Non-Premium Price" value={form.price} onChange={handleChange} style={styles.input} />
+
+        <input name="premiumPrice" type="number" placeholder="Premium Price" value={form.premiumPrice} onChange={handleChange} style={styles.input} />
 
         <input name="discount" type="number" placeholder="Discount (%)" value={form.discount} onChange={handleChange} style={styles.input} />
         <input name="quantity" type="number" placeholder="Quantity" value={form.quantity} onChange={handleChange} style={styles.input} />
@@ -127,7 +141,7 @@ const AddGrocery = () => {
 
         {/* IMAGE */}
         <label style={styles.fileLabel}>Upload Image</label>
-        <input type="file" accept="image/*" onChange={handleImageChange} style={styles.fileInput} />
+        <input type="file" accept="image/*" onChange={handleImageChange} />
 
         {preview && (
           <img
@@ -138,13 +152,14 @@ const AddGrocery = () => {
               height: "180px",
               objectFit: "cover",
               borderRadius: "10px",
+              marginTop: "10px",
               marginBottom: "15px",
             }}
           />
         )}
 
         <button style={styles.button} onClick={handleSubmit}>
-          Save Item
+          {isEdit ? "Update Item" : "Save Item"}
         </button>
       </div>
     </div>
@@ -168,7 +183,7 @@ const styles = {
   },
   heading: {
     textAlign: "center",
-    fontSize: "26px",
+    fontSize: "24px",
     fontWeight: "700",
     color: "#ff6600",
     marginBottom: "25px",
@@ -194,7 +209,6 @@ const styles = {
   fileLabel: {
     fontWeight: "600",
     color: "#ff6600",
-    marginBottom: "5px",
   },
 };
 
