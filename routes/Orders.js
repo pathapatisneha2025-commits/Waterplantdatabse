@@ -352,7 +352,7 @@ router.post("/mark-delivered", async (req, res) => {
   }
 });
 
-router.put("/orders/received/:id", async (req, res) => {
+router.put("/received/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
