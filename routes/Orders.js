@@ -352,6 +352,30 @@ router.post("/mark-delivered", async (req, res) => {
   }
 });
 
+router.put("/orders/received/:id", async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    const result = await pool.query(
+      `UPDATE groceriesorders 
+       SET status = $1
+       WHERE id = $2
+       RETURNING *`,
+      ["Received", id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({
+      message: "Order marked as Received",
+      order: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error updating received status:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 module.exports = router;
