@@ -417,31 +417,60 @@ router.post("/approve-driver", async (req, res) => {
 router.post("/update-location", async (req, res) => {
   const { user_id, lat, lng } = req.body;
 
-  console.log("Update location called with:", { user_id, lat, lng });
+  console.log("Update location called:", {
+    user_id,
+    lat,
+    lng
+  });
 
   if (!user_id || lat == null || lng == null) {
-    return res.status(400).json({ success: false, message: "Invalid parameters" });
+    return res.status(400).json({
+      success:false,
+      message:"Invalid parameters"
+    });
   }
 
   try {
+
     const result = await pool.query(
-      `UPDATE users 
-       SET lat=$1, lng=$2, updated_at=NOW()
-       WHERE id=$3
-       RETURNING *`,
-      [Number(lat), Number(lng), Number(user_id)]
+      `
+      UPDATE users
+      SET latitude=$1,
+          longitude=$2,
+          updated_at=NOW()
+      WHERE id=$3
+      RETURNING *
+      `,
+      [
+        Number(lat),
+        Number(lng),
+        Number(user_id)
+      ]
     );
 
-    if (result.rowCount === 0) {
-      console.log("No user updated, check user_id");
-      return res.status(404).json({ success: false, message: "User not found" });
+
+    if(result.rowCount===0){
+      return res.status(404).json({
+        success:false,
+        message:"User not found"
+      });
     }
 
-    console.log("Location updated:", result.rows[0]);
-    res.json({ success: true, updated: result.rows[0] });
-  } catch (err) {
-    console.error("Failed to update location:", err);
-    res.status(500).json({ success: false, message: err.message });
+
+    res.json({
+      success:true,
+      user:result.rows[0]
+    });
+
+
+  } catch(err){
+
+    console.error("Failed to update location:",err);
+
+    res.status(500).json({
+      success:false,
+      message:err.message
+    });
   }
 });
 

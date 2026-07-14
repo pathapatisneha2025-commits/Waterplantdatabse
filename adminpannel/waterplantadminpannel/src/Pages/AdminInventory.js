@@ -8,7 +8,7 @@ export default function GroceryListStock() {
   useEffect(() => {
     const fetchGroceries = async () => {
       try {
-        const res = await fetch("https://waterplantdatabse.onrender.com/groceries/all");
+        const res = await fetch("https://waterplantdatabse-v763.onrender.com/groceries/all");
         const data = await res.json();
 
         if (data.success && Array.isArray(data.groceries)) {

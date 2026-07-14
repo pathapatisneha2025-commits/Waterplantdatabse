@@ -5,7 +5,7 @@ export default function DriverManagement() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("https://waterplantdatabse.onrender.com/users/all")
+    fetch("https://waterplantdatabse-v763.onrender.com/users/all")
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -42,7 +42,7 @@ export default function DriverManagement() {
   const approveDriver = async (id) => {
     try {
       const res = await fetch(
-        "https://waterplantdatabse.onrender.com/users/approve-driver",
+        "https://waterplantdatabse-v763.onrender.com/users/approve-driver",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

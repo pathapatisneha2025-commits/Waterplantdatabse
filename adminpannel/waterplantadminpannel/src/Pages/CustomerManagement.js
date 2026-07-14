@@ -6,7 +6,7 @@ export default function CustomerManagement() {
 
   // Fetch customers from API
   useEffect(() => {
-    fetch("https://waterplantdatabse.onrender.com/users/all")
+    fetch("https://waterplantdatabse-v763.onrender.com/users/all")
       .then((res) => res.json())
       .then((data) => {
           console.log("FULL API RESPONSE:", data);
@@ -50,7 +50,7 @@ const mapped = data.users
   const approvePremium = async (id) => {
     try {
       const res = await fetch(
-        "https://waterplantdatabse.onrender.com/users/approve-premium",
+        "https://waterplantdatabse-v763.onrender.com/users/approve-premium",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ const updateAddress = async (id) => {
   if (!newAddress) return;
 
   try {
-    const res = await fetch(`https://waterplantdatabse.onrender.com/users/update-addresses/${id}`, {
+    const res = await fetch(`https://waterplantdatabse-v763.onrender.com/users/update-addresses/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address: newAddress }), // only send address

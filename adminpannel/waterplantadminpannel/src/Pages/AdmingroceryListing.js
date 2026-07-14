@@ -8,7 +8,7 @@ const GroceryList = () => {
 
   const fetchItems = async () => {
     try {
-      const res = await fetch("https://waterplantdatabse.onrender.com/groceries/all");
+      const res = await fetch("https://waterplantdatabse-v763.onrender.com/groceries/all");
       const data = await res.json();
 
       console.log("API Response:", data);
@@ -33,7 +33,7 @@ const GroceryList = () => {
 
     try {
       const res = await fetch(
-        `https://waterplantdatabse.onrender.com/groceries/delete/${id}`,
+        `https://waterplantdatabse-v763.onrender.com/groceries/delete/${id}`,
         { method: "DELETE" }
       );
 

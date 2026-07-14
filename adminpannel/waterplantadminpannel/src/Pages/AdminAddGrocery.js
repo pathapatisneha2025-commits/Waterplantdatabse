@@ -82,8 +82,8 @@ const AddGrocery = () => {
 
     try {
       const url = isEdit
-        ? `https://waterplantdatabse.onrender.com/groceries/update/${editItem.id}`
-        : `https://waterplantdatabse.onrender.com/groceries/add`;
+        ? `https://waterplantdatabse-v763.onrender.com/groceries/update/${editItem.id}`
+        : `https://waterplantdatabse-v763.onrender.com/groceries/add`;
 
       const method = isEdit ? "PUT" : "POST";
 
@@ -107,109 +107,335 @@ const AddGrocery = () => {
     }
   };
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h2 style={styles.heading}>
-          {isEdit ? "Edit Grocery Item" : "Add Grocery Item"}
-        </h2>
+return (
+  <div style={styles.page}>
+    <div style={styles.card}>
 
-        <input name="name" placeholder="Grocery Name" value={form.name} onChange={handleChange} style={styles.input} />
-        <input name="brand" placeholder="Brand" value={form.brand} onChange={handleChange} style={styles.input} />
-        <input name="category" placeholder="Category" value={form.category} onChange={handleChange} style={styles.input} />
-        <input name="subcategory" placeholder="Subcategory" value={form.subcategory} onChange={handleChange} style={styles.input} />
+      <h2 style={styles.heading}>
+        {isEdit ? "Edit Grocery Item" : "Add Grocery Item"}
+      </h2>
 
-        <textarea
-          name="description"
-          placeholder="Description"
-          value={form.description}
+      <div style={styles.grid}>
+
+        <input 
+          name="name" 
+          placeholder="Grocery Name"
+          value={form.name}
           onChange={handleChange}
-          style={{ ...styles.input, height: "70px" }}
+          style={styles.input}
         />
 
-        {/* PRICE SECTION */}
-        <input name="mrp" type="number" placeholder="MRP Price" value={form.mrp} onChange={handleChange} style={styles.input} />
+        <input 
+          name="brand"
+          placeholder="Brand"
+          value={form.brand}
+          onChange={handleChange}
+          style={styles.input}
+        />
 
-        <input name="price" type="number" placeholder="Non-Premium Price" value={form.price} onChange={handleChange} style={styles.input} />
 
-        <input name="premiumPrice" type="number" placeholder="Premium Price" value={form.premiumPrice} onChange={handleChange} style={styles.input} />
+        <input 
+          name="category"
+          placeholder="Category"
+          value={form.category}
+          onChange={handleChange}
+          style={styles.input}
+        />
 
-        <input name="discount" type="number" placeholder="Discount (%)" value={form.discount} onChange={handleChange} style={styles.input} />
-        <input name="quantity" type="number" placeholder="Quantity" value={form.quantity} onChange={handleChange} style={styles.input} />
-        <input name="unit" placeholder="Unit (kg, litre, pcs)" value={form.unit} onChange={handleChange} style={styles.input} />
-        <input name="stock" type="number" placeholder="Stock" value={form.stock} onChange={handleChange} style={styles.input} />
+        <input 
+          name="subcategory"
+          placeholder="Subcategory"
+          value={form.subcategory}
+          onChange={handleChange}
+          style={styles.input}
+        />
 
-        {/* IMAGE */}
-        <label style={styles.fileLabel}>Upload Image</label>
-        <input type="file" accept="image/*" onChange={handleImageChange} />
-
-        {preview && (
-          <img
-            src={preview}
-            alt="preview"
-            style={{
-              width: "100%",
-              height: "180px",
-              objectFit: "cover",
-              borderRadius: "10px",
-              marginTop: "10px",
-              marginBottom: "15px",
-            }}
-          />
-        )}
-
-        <button style={styles.button} onClick={handleSubmit}>
-          {isEdit ? "Update Item" : "Save Item"}
-        </button>
       </div>
+
+
+      <textarea
+        name="description"
+        placeholder="Description"
+        value={form.description}
+        onChange={handleChange}
+        style={styles.textarea}
+      />
+
+
+      <h3 style={styles.sectionTitle}>
+        Price Details
+      </h3>
+
+
+      <div style={styles.grid}>
+
+
+        <input
+          name="mrp"
+          type="number"
+          placeholder="MRP Price ₹"
+          value={form.mrp}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+        <input
+          name="price"
+          type="number"
+          placeholder="Normal Price ₹"
+          value={form.price}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+        <input
+          name="premiumPrice"
+          type="number"
+          placeholder="Premium Price ₹"
+          value={form.premiumPrice}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+        <input
+          name="discount"
+          type="number"
+          placeholder="Discount %"
+          value={form.discount}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+      </div>
+
+
+
+      <h3 style={styles.sectionTitle}>
+        Stock Details
+      </h3>
+
+
+
+      <div style={styles.grid}>
+
+
+        <input
+          name="quantity"
+          type="number"
+          placeholder="Quantity"
+          value={form.quantity}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+        <input
+          name="unit"
+          placeholder="Unit (kg, litre, pcs)"
+          value={form.unit}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+        <input
+          name="stock"
+          type="number"
+          placeholder="Stock"
+          value={form.stock}
+          onChange={handleChange}
+          style={styles.input}
+        />
+
+
+      </div>
+
+
+
+      <h3 style={styles.sectionTitle}>
+        Product Image
+      </h3>
+
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleImageChange}
+      />
+
+
+
+      {preview && (
+        <img
+          src={preview}
+          alt="preview"
+          style={styles.preview}
+        />
+      )}
+
+
+
+      <button
+        style={styles.button}
+        onClick={handleSubmit}
+      >
+        {isEdit ? "Update Item" : "Save Item"}
+      </button>
+
+
     </div>
-  );
+  </div>
+);
 };
 
-const styles = {
-  page: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    padding: "20px",
-  },
-  card: {
-    width: "420px",
-    background: "#fff",
-    padding: "30px",
-    borderRadius: "16px",
-    boxShadow: "0px 4px 18px rgba(0,0,0,0.1)",
-  },
-  heading: {
-    textAlign: "center",
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#ff6600",
-    marginBottom: "25px",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    marginBottom: "14px",
-    borderRadius: "10px",
-    border: "1px solid #ddd",
-    fontSize: "15px",
-  },
-  button: {
-    width: "100%",
-    padding: "14px",
-    background: "#ff6600",
-    color: "#fff",
-    border: "none",
-    borderRadius: "10px",
-    fontSize: "17px",
-    cursor: "pointer",
-  },
-  fileLabel: {
-    fontWeight: "600",
-    color: "#ff6600",
-  },
+const styles={
+
+
+page:{
+ minHeight:"100vh",
+ background:"#f5f7fb",
+ padding:"20px",
+ display:"flex",
+ justifyContent:"center",
+ alignItems:"flex-start"
+},
+
+
+card:{
+
+ width:"100%",
+ maxWidth:"750px",
+
+ background:"#fff",
+
+ padding:"30px",
+
+ borderRadius:"20px",
+
+ boxShadow:"0 5px 20px rgba(0,0,0,0.08)"
+
+},
+
+
+
+heading:{
+
+ textAlign:"center",
+ fontSize:"26px",
+ fontWeight:"700",
+ color:"#ff6600",
+ marginBottom:"25px"
+
+},
+
+
+
+grid:{
+
+ display:"grid",
+ gridTemplateColumns:"repeat(2,1fr)",
+ gap:"15px"
+
+},
+
+
+
+input:{
+
+ width:"100%",
+ padding:"14px",
+
+ borderRadius:"12px",
+
+ border:"1px solid #ddd",
+
+ fontSize:"16px",
+
+ boxSizing:"border-box"
+
+},
+
+
+textarea:{
+
+ width:"100%",
+
+ height:"100px",
+
+ padding:"14px",
+
+ borderRadius:"12px",
+
+ border:"1px solid #ddd",
+
+ fontSize:"16px",
+
+ marginTop:"15px",
+
+ boxSizing:"border-box"
+
+},
+
+
+
+sectionTitle:{
+
+ color:"#333",
+
+ fontSize:"18px",
+
+ marginTop:"25px",
+
+ marginBottom:"12px"
+
+},
+
+
+
+preview:{
+
+ width:"100%",
+
+ height:"220px",
+
+ objectFit:"cover",
+
+ borderRadius:"15px",
+
+ marginTop:"15px",
+
+ marginBottom:"20px"
+
+},
+
+
+
+button:{
+
+ width:"100%",
+
+ padding:"16px",
+
+ background:"#ff6600",
+
+ color:"#fff",
+
+ border:"none",
+
+ borderRadius:"14px",
+
+ fontSize:"18px",
+
+ fontWeight:"700",
+
+ cursor:"pointer"
+
+}
+
 };
 
 export default AddGrocery;

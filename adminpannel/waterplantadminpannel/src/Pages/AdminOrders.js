@@ -11,8 +11,8 @@ export default function AdminOrdersScreen() {
       try {
         setLoading(true);
         const [ordersRes, driversRes] = await Promise.all([
-          fetch("https://waterplantdatabse.onrender.com/orders/all"),
-          fetch("https://waterplantdatabse.onrender.com/users/list/drivers"),
+          fetch("https://waterplantdatabse-v763.onrender.com/orders/all"),
+          fetch("https://waterplantdatabse-v763.onrender.com/users/list/drivers"),
         ]);
         const ordersData = await ordersRes.json();
         const driversData = await driversRes.json();
@@ -39,7 +39,7 @@ export default function AdminOrdersScreen() {
 
     try {
       const res = await fetch(
-        "https://waterplantdatabse.onrender.com/orders/assign-driver",
+        "https://waterplantdatabse-v763.onrender.com/orders/assign-driver",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -50,7 +50,7 @@ export default function AdminOrdersScreen() {
       if (data.success) {
         alert(`Driver assigned to order #${orderId}`);
         // Refresh orders
-        const ordersRes = await fetch("https://waterplantdatabse.onrender.com/orders/all");
+        const ordersRes = await fetch("https://waterplantdatabse-v763.onrender.com/orders/all");
         const ordersData = await ordersRes.json();
         setOrders(Array.isArray(ordersData) ? ordersData : []);
       } else {
