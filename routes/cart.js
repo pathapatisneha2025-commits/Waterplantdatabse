@@ -211,14 +211,60 @@ router.delete("/delete/:itemId/:userId", async (req, res) => {
   try {
     const { itemId, userId } = req.params;
 
-    await pool.query(
-      "DELETE FROM user_cart WHERE user_id=$1 AND item_id=$2",
-      [userId, itemId]
-    );
+    let result;
 
-    res.json({ message: "Item removed from cart" });
+    // Water item (itemId will be "null")
+    if (itemId === "null") {
+
+      result = await pool.query(
+        `
+        DELETE FROM user_cart
+        WHERE user_id = $1
+        AND item_type = 'water'
+        RETURNING *
+        `,
+        [userId]
+      );
+
+    } 
+    // Grocery item
+    else {
+
+      result = await pool.query(
+        `
+        DELETE FROM user_cart
+        WHERE user_id = $1
+        AND item_id = $2
+        RETURNING *
+        `,
+        [userId, itemId]
+      );
+
+    }
+
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Cart item not found"
+      });
+    }
+
+
+    res.json({
+      success: true,
+      message: "Item removed from cart",
+      deleted: result.rows[0]
+    });
+
+
   } catch (error) {
-    res.status(500).json({ error: "Server error" });
+
+    console.error("Delete cart error:", error);
+
+    res.status(500).json({
+      error: "Server error"
+    });
+
   }
 });
 

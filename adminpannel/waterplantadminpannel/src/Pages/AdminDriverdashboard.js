@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import moment from "moment";
 
 export default function AdminDriverDashboard() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [drivers, setDrivers] = useState({});
   const [filter, setFilter] = useState("month"); // month, quarter, custom
@@ -68,19 +70,50 @@ export default function AdminDriverDashboard() {
     .filter((o) => o.status === "Delivered")
     .reduce((sum, o) => sum + o.total_amount, 0);
 
-  // Inline styles matching CustomerManagement UI
+  // Inline styles maintaining exact original colors, incorporating back button and mobile horizontal scrolling
   const styles = {
-    container: { fontFamily: "Arial, sans-serif", maxWidth: "900px", margin: "20px auto" },
-    header: { color: "#ff7f50", marginBottom: "10px", textAlign: "center" },
-    table: { width: "100%", borderCollapse: "collapse", marginTop: "20px" },
-    th: { border: "1px solid #ff7f50", padding: "10px", backgroundColor: "#ff7f50", color: "white", textAlign: "left" },
-    td: { border: "1px solid #ff7f50", padding: "10px", textAlign: "left" },
-    filters: { display: "flex", justifyContent: "center", gap: "10px", marginBottom: "20px" },
+    container: { 
+      fontFamily: "Arial, sans-serif", 
+      maxWidth: "100%", 
+      margin: "0 auto",
+      padding: "15px",
+      boxSizing: "border-box"
+    },
+    headerRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: "15px",
+      marginBottom: "15px",
+    },
+    backBtn: {
+      background: "#fff",
+      border: "1px solid #ccc",
+      borderRadius: "5px",
+      width: "36px",
+      height: "36px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "18px",
+      cursor: "pointer",
+      color: "#333",
+      flexShrink: 0,
+    },
+    header: { color: "#ff7f50", margin: 0, textAlign: "left" },
+    tableResponsiveWrapper: {
+      width: "100%",
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
+    },
+    table: { width: "100%", borderCollapse: "collapse", marginTop: "20px", minWidth: "750px" },
+    th: { border: "1px solid #ff7f50", padding: "10px", backgroundColor: "#ff7f50", color: "white", textAlign: "left", whiteSpace: "nowrap" },
+    td: { border: "1px solid #ff7f50", padding: "10px", textAlign: "left", whiteSpace: "nowrap" },
+    filters: { display: "flex", justifyContent: "center", gap: "10px", marginBottom: "20px", flexWrap: "wrap" },
     filterBtn: { padding: "8px 16px", backgroundColor: "#3498db", border: "none", color: "white", cursor: "pointer", borderRadius: "5px" },
     filterBtnActive: { backgroundColor: "#2980b9" },
-    customRange: { display: "flex", gap: "10px", marginLeft: "10px" },
-    stats: { display: "flex", justifyContent: "space-around", marginBottom: "20px" },
-    statCard: { backgroundColor: "#ecf0f1", padding: "16px", borderRadius: "8px", textAlign: "center", width: "200px" },
+    customRange: { display: "flex", gap: "10px", marginLeft: "10px", flexWrap: "wrap" },
+    stats: { display: "flex", justifyContent: "space-around", marginBottom: "20px", gap: "10px", flexWrap: "wrap" },
+    statCard: { backgroundColor: "#ecf0f1", padding: "16px", borderRadius: "8px", textAlign: "center", width: "200px", flex: "1" },
     statTitle: { marginBottom: "8px", color: "#2c3e50" },
     statValue: { fontSize: "20px", fontWeight: "bold" },
     statusColors: {
@@ -94,7 +127,12 @@ export default function AdminDriverDashboard() {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>Driver Dashboard</h1>
+      <div style={styles.headerRow}>
+        <button style={styles.backBtn} onClick={() => navigate(-1)} title="Go Back">
+          ←
+        </button>
+        <h1 style={styles.header}>Driver Dashboard</h1>
+      </div>
 
       {/* Filters */}
       <div style={styles.filters}>
@@ -146,35 +184,37 @@ export default function AdminDriverDashboard() {
       </div>
 
       {/* Orders Table */}
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>ID</th>
-            <th style={styles.th}>Customer</th>
-            <th style={styles.th}>Driver</th>
-            <th style={styles.th}>Status</th>
-            <th style={styles.th}>Amount</th>
-            <th style={styles.th}>Delivered Cans</th>
-            <th style={styles.th}>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredOrders.map((o) => (
-            <tr
-              key={o.id}
-              style={{ backgroundColor: styles.statusColors[o.status] || "#fff" }}
-            >
-              <td style={styles.td}>{o.id}</td>
-              <td style={styles.td}>{o.customer_name}</td>
-              <td style={styles.td}>{o.driver_id ? drivers[o.driver_id] : "Unassigned"}</td>
-              <td style={styles.td}>{o.status}</td>
-              <td style={styles.td}>₹ {o.total_amount}</td>
-              <td style={styles.td}>{o.delivered_cans}</td>
-              <td style={styles.td}>{moment(o.created_at).format("YYYY-MM-DD")}</td>
+      <div style={styles.tableResponsiveWrapper}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>Customer</th>
+              <th style={styles.th}>Driver</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Amount</th>
+              <th style={styles.th}>Delivered Cans</th>
+              <th style={styles.th}>Date</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredOrders.map((o) => (
+              <tr
+                key={o.id}
+                style={{ backgroundColor: styles.statusColors[o.status] || "#fff" }}
+              >
+                <td style={styles.td}>{o.id}</td>
+                <td style={styles.td}>{o.customer_name}</td>
+                <td style={styles.td}>{o.driver_id ? drivers[o.driver_id] : "Unassigned"}</td>
+                <td style={styles.td}>{o.status}</td>
+                <td style={styles.td}>₹ {o.total_amount}</td>
+                <td style={styles.td}>{o.delivered_cans}</td>
+                <td style={styles.td}>{moment(o.created_at).format("YYYY-MM-DD")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

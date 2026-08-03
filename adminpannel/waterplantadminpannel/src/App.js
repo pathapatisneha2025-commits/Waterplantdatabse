@@ -8,13 +8,18 @@ import DriverManagement from "./Pages/DriverMangegement";
 import AdminOrdersScreen from "./Pages/AdminOrders";
 import GroceryListStock from "./Pages/AdminInventory";
 import AdminDriverDashboard from "./Pages/AdminDriverdashboard";
+import GroceryDashboard from "./Pages/Dashboard";
 function App() {
   return (
   <Router>
   <Routes>
-    <Route path="/" element={<Navigate to="/admingrocerylisting" />} />
+    <Route path="/" element={<Navigate to="/dashboard" />} />
+    <Route path="/admingrocerylisting" element={<GroceryList />} />
+
     <Route path="/" element={<AdminLayout />} >
-<Route path="/admingrocerylisting" element={<GroceryList />} />
+    <Route path="/dashboard" element={<GroceryDashboard />} />
+</Route>
+
 <Route path="/adminGrocery" element={<AddGrocery />} />
 <Route path="/customermanagement" element={<CustomerManagement />} />
 <Route path="/ordersassigndriver" element={<OrdersAssignDriver />} />
@@ -26,7 +31,6 @@ function App() {
 
 
 
-</Route>
 
 
 
