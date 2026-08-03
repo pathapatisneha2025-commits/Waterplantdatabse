@@ -17,9 +17,7 @@ router.post("/add", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // ✅ FORCE TYPE SAFETY
     const isWater = item.type === "water";
-    const itemType = isWater ? "water" : "grocery";
 
     // =========================
     // 💧 WATER FLOW
@@ -43,13 +41,16 @@ router.post("/add", async (req, res) => {
         ]
       );
 
-      // ✅ SET FLAG: FIRST WATER BOOKING
+
+      // First water booking flag
       await client.query(
         `UPDATE users 
          SET has_booked_water_cans = TRUE
-         WHERE id = $1 AND has_booked_water_cans = FALSE`,
+         WHERE id = $1 
+         AND has_booked_water_cans = FALSE`,
         [userId]
       );
+
 
       await client.query("COMMIT");
 
@@ -59,37 +60,41 @@ router.post("/add", async (req, res) => {
       });
     }
 
+
     // =========================
     // 🛒 GROCERY FLOW
     // =========================
 
+    // Only CHECK stock, don't reduce here
     const stockCheck = await client.query(
       `SELECT stock 
        FROM grocery_items 
-       WHERE id = $1 
+       WHERE id = $1
        FOR UPDATE`,
       [item.id]
     );
 
+
     if (stockCheck.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ message: "Grocery item not found" });
+
+      return res.status(404).json({
+        message: "Grocery item not found"
+      });
     }
+
 
     const currentStock = stockCheck.rows[0].stock;
 
+
     if (currentStock < qty) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Insufficient stock" });
+
+      return res.status(400).json({
+        message: "Insufficient stock"
+      });
     }
 
-    // Reduce stock
-    await client.query(
-      `UPDATE grocery_items
-       SET stock = stock - $1
-       WHERE id = $2`,
-      [qty, item.id]
-    );
 
     // Insert grocery cart item
     const insert = await client.query(
@@ -109,15 +114,20 @@ router.post("/add", async (req, res) => {
       ]
     );
 
+
     await client.query("COMMIT");
 
+
     return res.json({
-      message: "Grocery item added to cart and stock reduced",
+      message: "Grocery item added to cart",
       cartItem: insert.rows[0],
     });
 
+
   } catch (error) {
+
     await client.query("ROLLBACK");
+
     console.error("Cart Add Error:", error);
 
     return res.status(500).json({
@@ -125,7 +135,9 @@ router.post("/add", async (req, res) => {
     });
 
   } finally {
+
     client.release();
+
   }
 });
 
