@@ -207,44 +207,27 @@ router.put("/update/:itemId", async (req, res) => {
 });
 
 /* ------------------ DELETE ITEM ------------------ */
-router.delete("/delete/:itemId/:userId", async (req, res) => {
+router.delete("/delete/:id/:userId", async (req, res) => {
   try {
-    const { itemId, userId } = req.params;
+    const { id, userId } = req.params;
 
-    let result;
-
-    // Water item (itemId will be "null")
-    if (itemId === "null") {
-
-      result = await pool.query(
-        `
-        DELETE FROM user_cart
-        WHERE user_id = $1
-        AND item_type = 'water'
-        RETURNING *
-        `,
-        [userId]
-      );
-
-    } 
-    // Grocery item
-    else {
-
-      result = await pool.query(
-        `
-        DELETE FROM user_cart
-        WHERE user_id = $1
-        AND item_id = $2
-        RETURNING *
-        `,
-        [userId, itemId]
-      );
-
-    }
+    const result = await pool.query(
+      `
+      DELETE FROM user_cart
+      WHERE id = $1
+      AND user_id = $2
+      RETURNING *
+      `,
+      [
+        id,
+        userId
+      ]
+    );
 
 
     if (result.rows.length === 0) {
       return res.status(404).json({
+        success: false,
         message: "Cart item not found"
       });
     }
@@ -262,7 +245,8 @@ router.delete("/delete/:itemId/:userId", async (req, res) => {
     console.error("Delete cart error:", error);
 
     res.status(500).json({
-      error: "Server error"
+      success: false,
+      message: "Server error"
     });
 
   }
