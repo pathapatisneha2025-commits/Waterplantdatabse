@@ -143,7 +143,7 @@ export default function AdminOrdersScreen() {
 </td>
               <td style={styles.td}>{order.created_at.slice(0, 10)}</td>
               <td style={styles.td}>
-                {order.status === "Pending" && (
+                {order.order_status === "Pending" && (
                   <>
                     <select
                       style={styles.select}
