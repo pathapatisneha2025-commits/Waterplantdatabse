@@ -10,7 +10,9 @@ router.post("/add", async (req, res) => {
     const { userId, item } = req.body;
 
     if (!userId || !item) {
-      return res.status(400).json({ message: "Missing userId or item" });
+      return res.status(400).json({
+        message: "Missing userId or item"
+      });
     }
 
     const qty = item.quantity || 1;
@@ -19,13 +21,25 @@ router.post("/add", async (req, res) => {
 
     const isWater = item.type === "water";
 
+
     // =========================
     // 💧 WATER FLOW
     // =========================
     if (isWater) {
+
       const insert = await client.query(
         `INSERT INTO user_cart 
-         (user_id, item_id, name, img, price, premium_price, qty, item_type, slot)
+         (
+          user_id,
+          item_id,
+          name,
+          img,
+          price,
+          premium_price,
+          qty,
+          item_type,
+          slot
+         )
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          RETURNING *`,
         [
@@ -42,17 +56,8 @@ router.post("/add", async (req, res) => {
       );
 
 
-      // First water booking flag
-      await client.query(
-        `UPDATE users 
-         SET has_booked_water_cans = TRUE
-         WHERE id = $1 
-         AND has_booked_water_cans = FALSE`,
-        [userId]
-      );
-
-
       await client.query("COMMIT");
+
 
       return res.json({
         message: "Water can added to cart",
@@ -61,14 +66,16 @@ router.post("/add", async (req, res) => {
     }
 
 
+
     // =========================
     // 🛒 GROCERY FLOW
     // =========================
 
-    // Only CHECK stock, don't reduce here
+
+    // Check stock availability only
     const stockCheck = await client.query(
-      `SELECT stock 
-       FROM grocery_items 
+      `SELECT stock
+       FROM grocery_items
        WHERE id = $1
        FOR UPDATE`,
       [item.id]
@@ -76,11 +83,13 @@ router.post("/add", async (req, res) => {
 
 
     if (stockCheck.rows.length === 0) {
+
       await client.query("ROLLBACK");
 
       return res.status(404).json({
         message: "Grocery item not found"
       });
+
     }
 
 
@@ -88,18 +97,30 @@ router.post("/add", async (req, res) => {
 
 
     if (currentStock < qty) {
+
       await client.query("ROLLBACK");
 
       return res.status(400).json({
         message: "Insufficient stock"
       });
+
     }
 
 
-    // Insert grocery cart item
+
+    // Insert grocery item into cart
     const insert = await client.query(
       `INSERT INTO user_cart 
-       (user_id, item_id, name, img, price, premium_price, qty, item_type)
+       (
+        user_id,
+        item_id,
+        name,
+        img,
+        price,
+        premium_price,
+        qty,
+        item_type
+       )
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
       [
