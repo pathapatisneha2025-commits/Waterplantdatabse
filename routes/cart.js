@@ -109,7 +109,7 @@ router.post("/add", async (req, res) => {
         name,
         img,
         price,
-        premium_price,
+        premiumprice,
         stock
        FROM grocery_items
        WHERE id = $1
