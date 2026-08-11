@@ -18,7 +18,10 @@ const AdminLayout = () => {
 
 
   ];
-
+const handleLogout = () => {
+  localStorage.removeItem("adminLoggedIn");
+  navigate("/login", { replace: true });
+};
   return (
     <div style={container}>
       {/* Sidebar */}
@@ -45,9 +48,9 @@ const AdminLayout = () => {
         </div>
 
         {/* Logout */}
-        <div style={logoutBtn} onClick={() => alert("Logout clicked!")}>
-          <FiLogOut style={{ marginRight: 10 }} /> Logout
-        </div>
+    <div style={logoutBtn} onClick={handleLogout}>
+  <FiLogOut style={{ marginRight: 10 }} /> Logout
+</div>
       </aside>
 
       {/* Main Content */}

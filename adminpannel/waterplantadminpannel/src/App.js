@@ -9,16 +9,18 @@ import AdminOrdersScreen from "./Pages/AdminOrders";
 import GroceryListStock from "./Pages/AdminInventory";
 import AdminDriverDashboard from "./Pages/AdminDriverdashboard";
 import GroceryDashboard from "./Pages/Dashboard";
+import AdminLogin from "./Pages/Adminlogin";
 function App() {
   return (
   <Router>
   <Routes>
-    <Route path="/" element={<Navigate to="/dashboard" />} />
-    <Route path="/admingrocerylisting" element={<GroceryList />} />
+    <Route path="/" element={<Navigate to="/login" />} />
+<Route path="/login" element={<AdminLogin/>} />
 
     <Route path="/" element={<AdminLayout />} >
     <Route path="/dashboard" element={<GroceryDashboard />} />
 </Route>
+    <Route path="/admingrocerylisting" element={<GroceryList />} />
 
 <Route path="/adminGrocery" element={<AddGrocery />} />
 <Route path="/customermanagement" element={<CustomerManagement />} />
