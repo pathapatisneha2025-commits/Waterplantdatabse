@@ -2,16 +2,21 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-/* ------------------ ADD TO CART ------------------ */
-// =========================
+
+
+// =====================================================
 // 🛒 ADD ITEM TO CART
-// =========================
+// =====================================================
 
 router.post("/add", async (req, res) => {
   const client = await pool.connect();
 
   try {
     const { userId, item } = req.body;
+
+    // =====================================================
+    // 1. VALIDATE REQUEST
+    // =====================================================
 
     if (!userId || !item) {
       return res.status(400).json({
@@ -21,11 +26,15 @@ router.post("/add", async (req, res) => {
 
     const qty = Number(item.quantity || 1);
 
-    if (qty <= 0) {
+    if (!Number.isInteger(qty) || qty <= 0) {
       return res.status(400).json({
         message: "Invalid quantity",
       });
     }
+
+    // =====================================================
+    // START TRANSACTION
+    // =====================================================
 
     await client.query("BEGIN");
 
@@ -37,7 +46,8 @@ router.post("/add", async (req, res) => {
 
     if (isWater) {
       const insert = await client.query(
-        `INSERT INTO user_cart
+        `
+        INSERT INTO user_cart
         (
           user_id,
           item_id,
@@ -50,7 +60,8 @@ router.post("/add", async (req, res) => {
           slot
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        RETURNING *`,
+        RETURNING *
+        `,
         [
           userId,
           null,
@@ -66,7 +77,8 @@ router.post("/add", async (req, res) => {
 
       await client.query("COMMIT");
 
-      return res.json({
+      return res.status(200).json({
+        success: true,
         message: "Water can added to cart",
         cartItem: insert.rows[0],
       });
@@ -76,101 +88,185 @@ router.post("/add", async (req, res) => {
     // 🛒 GROCERY FLOW
     // =====================================================
 
-    // -----------------------------------------------------
-    // 1️⃣ GET USER PREMIUM STATUS
-    // -----------------------------------------------------
+    // =====================================================
+    // 2. GET USER ROLE + PREMIUM STATUS
+    // =====================================================
 
     const userResult = await client.query(
-      `SELECT is_premium
-       FROM users
-       WHERE id = $1`,
+      `
+      SELECT
+        id,
+        role,
+        is_premium
+      FROM users
+      WHERE id = $1
+      `,
       [userId]
     );
+
+    // =====================================================
+    // USER NOT FOUND
+    // =====================================================
 
     if (userResult.rows.length === 0) {
       await client.query("ROLLBACK");
 
       return res.status(404).json({
+        success: false,
         message: "User not found",
       });
     }
 
-    const isPremium = userResult.rows[0].is_premium === true;
+    const user = userResult.rows[0];
 
-    // -----------------------------------------------------
-    // 2️⃣ GET GROCERY FROM DATABASE
-    // -----------------------------------------------------
-    // FOR UPDATE locks the row while the cart operation
-    // is being processed.
+    const role = user.role;
+    const isPremium = user.is_premium === true;
+
+    // =====================================================
+    // 3. ONLY CUSTOMER CAN ADD GROCERY
+    // =====================================================
+
+    if (role !== "customer") {
+      await client.query("ROLLBACK");
+
+      return res.status(403).json({
+        success: false,
+        message: "Only customers can add groceries to cart",
+        role: role,
+      });
+    }
+
+    // =====================================================
+    // 4. GET GROCERY FROM DATABASE
+    // =====================================================
+    //
+    // IMPORTANT:
+    // grocery_items uses:
+    //
+    // price
+    // premiumprice
+    // stock
+    //
+    // We DO NOT trust price coming from frontend.
+    // =====================================================
+
+    if (!item.id) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Grocery item ID is required",
+      });
+    }
 
     const groceryResult = await client.query(
-      `SELECT
+      `
+      SELECT
         id,
         name,
         img,
         price,
         premiumprice,
         stock
-       FROM grocery_items
-       WHERE id = $1
-       FOR UPDATE`,
+      FROM grocery_items
+      WHERE id = $1
+      FOR UPDATE
+      `,
       [item.id]
     );
+
+    // =====================================================
+    // GROCERY NOT FOUND
+    // =====================================================
 
     if (groceryResult.rows.length === 0) {
       await client.query("ROLLBACK");
 
       return res.status(404).json({
+        success: false,
         message: "Grocery item not found",
       });
     }
 
     const grocery = groceryResult.rows[0];
 
-    // -----------------------------------------------------
-    // 3️⃣ CHECK STOCK
-    // -----------------------------------------------------
+    // =====================================================
+    // 5. CHECK STOCK
+    // =====================================================
 
     const currentStock = Number(grocery.stock || 0);
+
+    if (currentStock <= 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Grocery item is out of stock",
+        availableStock: 0,
+      });
+    }
 
     if (currentStock < qty) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
+        success: false,
         message: "Insufficient stock",
         availableStock: currentStock,
         requestedQuantity: qty,
       });
     }
 
-    // -----------------------------------------------------
-    // 4️⃣ GET PRICES FROM DATABASE
-    // -----------------------------------------------------
+    // =====================================================
+    // 6. GET DATABASE PRICES
+    // =====================================================
 
     const normalPrice = Number(grocery.price || 0);
-    const premiumPrice = Number(grocery.premium_price || 0);
 
-    // -----------------------------------------------------
-    // 5️⃣ SELECT CORRECT PRICE
-    // -----------------------------------------------------
+    const premiumPrice = Number(
+      grocery.premiumprice || 0
+    );
+
+    // =====================================================
+    // 7. SELECT CORRECT PRICE
+    // =====================================================
     //
-    // Premium user     -> premium_price
-    // Non-premium user -> normal price
+    // Premium customer:
+    //      premiumprice
+    //
+    // Normal customer:
+    //      price
     //
     // IMPORTANT:
-    // We use DATABASE prices, not frontend prices.
-    // -----------------------------------------------------
+    // Frontend price is completely ignored.
+    // =====================================================
 
     const selectedPrice = isPremium
       ? premiumPrice
       : normalPrice;
 
-    // -----------------------------------------------------
-    // 6️⃣ INSERT INTO CART
-    // -----------------------------------------------------
+    // =====================================================
+    // 8. VALIDATE SELECTED PRICE
+    // =====================================================
+
+    if (selectedPrice <= 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: isPremium
+          ? "Premium price is not configured for this grocery item"
+          : "Price is not configured for this grocery item",
+      });
+    }
+
+    // =====================================================
+    // 9. ADD GROCERY TO CART
+    // =====================================================
 
     const insert = await client.query(
-      `INSERT INTO user_cart
+      `
+      INSERT INTO user_cart
       (
         user_id,
         item_id,
@@ -182,7 +278,8 @@ router.post("/add", async (req, res) => {
         item_type
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-      RETURNING *`,
+      RETURNING *
+      `,
       [
         userId,
         grocery.id,
@@ -195,48 +292,76 @@ router.post("/add", async (req, res) => {
       ]
     );
 
-    // -----------------------------------------------------
-    // 7️⃣ COMMIT
-    // -----------------------------------------------------
+    // =====================================================
+    // 10. COMMIT TRANSACTION
+    // =====================================================
 
     await client.query("COMMIT");
 
-    // -----------------------------------------------------
-    // 8️⃣ RESPONSE
-    // -----------------------------------------------------
+    // =====================================================
+    // 11. SUCCESS RESPONSE
+    // =====================================================
 
-    return res.json({
+    return res.status(200).json({
+      success: true,
+
       message: isPremium
         ? "Grocery added with premium price"
         : "Grocery added with normal price",
 
-      isPremium,
+      role: role,
 
-      normalPrice,
+      isPremium: isPremium,
 
-      premiumPrice,
+      item: {
+        id: grocery.id,
+        name: grocery.name,
+      },
 
-      selectedPrice,
+      pricing: {
+        normalPrice: normalPrice,
+        premiumPrice: premiumPrice,
+        selectedPrice: selectedPrice,
+      },
+
+      quantity: qty,
 
       cartItem: insert.rows[0],
     });
   } catch (error) {
+    // =====================================================
+    // ERROR → ROLLBACK
+    // =====================================================
+
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
-      console.error("Rollback Error:", rollbackError);
+      console.error(
+        "Rollback Error:",
+        rollbackError
+      );
     }
 
-    console.error("Cart Add Error:", error);
+    console.error(
+      "Cart Add Error:",
+      error
+    );
 
     return res.status(500).json({
+      success: false,
       message: "Server error",
       error: error.message,
     });
   } finally {
+    // =====================================================
+    // RELEASE CONNECTION
+    // =====================================================
+
     client.release();
   }
 });
+
+
 /* ------------------ GET CART ------------------ */
 router.get("/:userId", async (req, res) => {
   try {
