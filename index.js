@@ -5,6 +5,8 @@ const UserCart = require("./routes/cart");
 const Orders = require("./routes/Orders");
 const WaterOrders = require("./routes/waterorder");
 const Groceries = require("./routes/Groceriesadd");
+const Categories = require("./routes/categories");
+
 
 
 
@@ -20,7 +22,8 @@ app.use("/users", Users);
 app.use("/cart", UserCart);
 app.use("/orders", Orders);
 app.use("/waterorder", WaterOrders);
-app.use("/groceries", Groceries);
+app.use("/groceries",Groceries);
+app.use("/categories",Categories);
 
 
 app.listen(5000, () => {
