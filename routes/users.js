@@ -259,30 +259,61 @@ router.get("/:id", async (req, res) => {
 // ******************************************************************
 router.put("/:id", async (req, res) => {
   const {
-    name, email, phone, address,
-    pincode, role, latitude, longitude
+    name,
+    email,
+    phone,
+    address,
+    pincode,
+    latitude,
+    longitude
   } = req.body;
 
   try {
     const result = await pool.query(
       `UPDATE users SET
-        name=$1, email=$2, phone=$3, address=$4,
-        pincode=$5, role=$6, latitude=$7, longitude=$8
-       WHERE id=$9 RETURNING *`,
+        name = $1,
+        email = $2,
+        phone = $3,
+        address = $4,
+        pincode = $5,
+        latitude = $6,
+        longitude = $7,
+        updated_at = NOW()
+       WHERE id = $8
+       RETURNING *`,
       [
-        name, email, phone, address, pincode,
-        role, latitude, longitude, req.params.id
+        name,
+        email ?? "",
+        phone,
+        address ?? null,
+        pincode ?? null,
+        latitude ?? null,
+        longitude ?? null,
+        req.params.id
       ]
     );
 
-    res.json({ success: true, user: result.rows[0] });
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
 
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Update failed" });
+    console.log("❌ Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      error: "Update failed"
+    });
   }
 });
-
 // ******************************************************************
 // DELETE USER
 // ******************************************************************

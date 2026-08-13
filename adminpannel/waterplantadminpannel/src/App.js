@@ -10,6 +10,7 @@ import GroceryListStock from "./Pages/AdminInventory";
 import AdminDriverDashboard from "./Pages/AdminDriverdashboard";
 import GroceryDashboard from "./Pages/Dashboard";
 import AdminLogin from "./Pages/Adminlogin";
+import AdminWaterPlantCategory from "./Pages/AdminAddCategories";
 function App() {
   return (
   <Router>
@@ -20,6 +21,8 @@ function App() {
     <Route path="/" element={<AdminLayout />} >
     <Route path="/dashboard" element={<GroceryDashboard />} />
 </Route>
+    <Route path="/admincatagories" element={<AdminWaterPlantCategory />} />
+
     <Route path="/admingrocerylisting" element={<GroceryList />} />
 
 <Route path="/adminGrocery" element={<AddGrocery />} />

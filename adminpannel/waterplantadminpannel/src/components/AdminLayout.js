@@ -6,9 +6,13 @@ const AdminLayout = () => {
   const location = useLocation();
 
   const navItems = [
-    { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
+  
+
     { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
         { name: "Driver Mangement", path: "/drivermanagement", icon: <FiList /> },
+                { name: "categoryAdding", path: "/admincatagories", icon: <FiList /> },
+
+          { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
         { name: "Order Mangement", path: "/adminorders", icon: <FiList /> },
                 { name: "Stock Inventory", path: "/stockinventory", icon: <FiList /> },
 

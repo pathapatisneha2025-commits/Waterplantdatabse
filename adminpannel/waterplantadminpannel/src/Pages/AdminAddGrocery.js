@@ -27,10 +27,45 @@ const AddGrocery = () => {
 
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState("");
-
+const [categories, setCategories] = useState([]);
   // =========================
   // PREFILL ON EDIT
   // =========================
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const url =
+        "https://waterplantdatabse-v763.onrender.com/categories/all";
+
+      console.log("Fetching categories from:", url);
+
+      const res = await fetch(url);
+
+      console.log("Category response status:", res.status);
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch categories: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      console.log("Categories API response:", data);
+      console.log("Is array:", Array.isArray(data));
+
+      if (Array.isArray(data)) {
+        setCategories(data);
+      } else {
+        console.error("Expected array but received:", data);
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error("Category fetch error:", error);
+      alert("Failed to load categories");
+    }
+  };
+
+  fetchCategories();
+}, []);
   useEffect(() => {
     if (editItem) {
       setForm({
@@ -133,14 +168,23 @@ return (
           style={styles.input}
         />
 
+<select
+  name="category"
+  value={form.category}
+  onChange={handleChange}
+  style={styles.input}
+>
+  <option value="">Select Category</option>
 
-        <input 
-          name="category"
-          placeholder="Category"
-          value={form.category}
-          onChange={handleChange}
-          style={styles.input}
-        />
+  {categories.map((category) => (
+    <option
+      key={category.id}
+      value={category.name}
+    >
+      {category.name}
+    </option>
+  ))}
+</select>
 
         <input 
           name="subcategory"
