@@ -1,11 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 const GroceryDashboard = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+const [newOrderCount, setNewOrderCount] = useState(0);
+const [showNotification, setShowNotification] = useState(false);
+const [notificationMessage, setNotificationMessage] = useState("");
 
+const previousOrderIds = useRef([]);
+const firstOrderCheck = useRef(true);
   const fetchItems = async () => {
     try {
       const res = await fetch("https://waterplantdatabse-v763.onrender.com/groceries/all");
@@ -20,10 +25,82 @@ const GroceryDashboard = () => {
     }
     setLoading(false);
   };
+const checkForNewOrders = async () => {
+  try {
+    const res = await fetch(
+      "https://waterplantdatabse-v763.onrender.com/orders/all"
+    );
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
+    if (!res.ok) return;
+
+    const data = await res.json();
+
+    const orders = Array.isArray(data)
+      ? data
+      : Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data.orders)
+      ? data.orders
+      : [];
+
+    const currentOrderIds = orders.map((order) => order.id);
+
+    // First API call: only remember existing orders.
+    // Don't show notifications for old orders.
+    if (firstOrderCheck.current) {
+      previousOrderIds.current = currentOrderIds;
+      firstOrderCheck.current = false;
+      return;
+    }
+
+    // Find orders that were not present during previous check
+    const newOrders = orders.filter(
+      (order) => !previousOrderIds.current.includes(order.id)
+    );
+
+    if (newOrders.length > 0) {
+      setNewOrderCount((prev) => prev + newOrders.length);
+
+      const latestOrder = newOrders[0];
+
+      setNotificationMessage(
+        `New order received from ${
+          latestOrder.full_name ||
+          latestOrder.customer_name ||
+          "Customer"
+        }`
+      );
+
+      setShowNotification(true);
+
+      // Browser alert popup
+      alert(
+        `🛎️ New Order Received!\n\nCustomer: ${
+          latestOrder.full_name ||
+          latestOrder.customer_name ||
+          "Customer"
+        }\nOrder ID: #${latestOrder.id}`
+      );
+    }
+
+    previousOrderIds.current = currentOrderIds;
+  } catch (error) {
+    console.log("Error checking new orders:", error);
+  }
+};
+ useEffect(() => {
+  fetchItems();
+
+  // Check immediately
+  checkForNewOrders();
+
+  // Check for new orders every 10 seconds
+  const orderInterval = setInterval(() => {
+    checkForNewOrders();
+  }, 10000);
+
+  return () => clearInterval(orderInterval);
+}, []);
 
   const totalItems = items.length;
   const outOfStock = items.filter((item) => Number(item.stock) === 0).length;
@@ -32,6 +109,25 @@ const GroceryDashboard = () => {
 
   return (
     <div style={styles.wrapper}>
+      {showNotification && (
+  <div style={styles.notificationPopup}>
+    <div style={styles.notificationPopupIcon}>
+      🔔
+    </div>
+
+    <div style={styles.notificationPopupContent}>
+      <strong>New Order Received!</strong>
+      <p>{notificationMessage}</p>
+    </div>
+
+    <button
+      style={styles.notificationClose}
+      onClick={() => setShowNotification(false)}
+    >
+      ×
+    </button>
+  </div>
+)}
       {/* Header */}
       <div style={styles.headerContainer}>
         <div style={styles.headerLeft}>
@@ -44,9 +140,36 @@ const GroceryDashboard = () => {
           </div>
         </div>
 
-        <button style={styles.primaryBtn} onClick={() => navigate("/admingrocerylisting")}>
-          📋 View All Items
-        </button>
+     <div style={styles.headerRight}>
+
+  {/* Notification Button */}
+  <button
+    style={styles.notificationBtn}
+    onClick={() => {
+      setNewOrderCount(0);
+      setShowNotification(false);
+      navigate("/adminorders");
+    }}
+    title="New Orders"
+  >
+    🔔
+
+    {newOrderCount > 0 && (
+      <span style={styles.notificationBadge}>
+        {newOrderCount > 99 ? "99+" : newOrderCount}
+      </span>
+    )}
+  </button>
+
+  {/* View All Items */}
+  <button
+    style={styles.primaryBtn}
+    onClick={() => navigate("/admingrocerylisting")}
+  >
+    📋 View All Items
+  </button>
+
+</div>
       </div>
 
       {loading ? (
@@ -147,6 +270,7 @@ const GroceryDashboard = () => {
         </div>
       )}
     </div>
+    
   );
 };
 
@@ -422,6 +546,85 @@ const styles = {
     fontSize: "13px",
     fontWeight: "500",
   },
+  headerRight: {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+},
+
+notificationBtn: {
+  position: "relative",
+  width: "42px",
+  height: "42px",
+  borderRadius: "10px",
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  cursor: "pointer",
+  fontSize: "20px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+},
+
+notificationBadge: {
+  position: "absolute",
+  top: "-6px",
+  right: "-6px",
+  minWidth: "20px",
+  height: "20px",
+  padding: "0 5px",
+  borderRadius: "20px",
+  background: "#dc2626",
+  color: "#fff",
+  fontSize: "10px",
+  fontWeight: "700",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "2px solid #fff",
+},
+
+notificationPopup: {
+  position: "fixed",
+  top: "20px",
+  right: "20px",
+  zIndex: 9999,
+  width: "340px",
+  background: "#fff",
+  borderRadius: "12px",
+  padding: "14px",
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+  border: "1px solid #e5e7eb",
+  animation: "slideIn 0.3s ease",
+},
+
+notificationPopupIcon: {
+  width: "42px",
+  height: "42px",
+  borderRadius: "50%",
+  background: "#fff7ed",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "22px",
+  flexShrink: 0,
+},
+
+notificationPopupContent: {
+  flex: 1,
+},
+
+notificationClose: {
+  border: "none",
+  background: "transparent",
+  fontSize: "22px",
+  color: "#6b7280",
+  cursor: "pointer",
+},
 };
 
 export default GroceryDashboard;

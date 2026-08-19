@@ -6,6 +6,7 @@ const Orders = require("./routes/Orders");
 const WaterOrders = require("./routes/waterorder");
 const Groceries = require("./routes/Groceriesadd");
 const Categories = require("./routes/categories");
+const Banners = require("./routes/banner");
 
 
 
@@ -24,6 +25,7 @@ app.use("/orders", Orders);
 app.use("/waterorder", WaterOrders);
 app.use("/groceries",Groceries);
 app.use("/categories",Categories);
+app.use("/baneer",Banners);
 
 
 app.listen(5000, () => {
