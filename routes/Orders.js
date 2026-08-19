@@ -25,7 +25,9 @@ router.post("/place", async (req, res) => {
       longitude,
       location_address,
 
-      // Optional - useful if frontend sends items
+      // ==========================================
+      // BUY NOW / CART
+      // ==========================================
       items,
       order_source,
     } = req.body;
@@ -39,6 +41,10 @@ router.post("/place", async (req, res) => {
     console.log("LONGITUDE:", longitude);
     console.log("LOCATION ADDRESS:", location_address);
     console.log("ORDER SOURCE:", order_source);
+    console.log(
+      "FRONTEND ITEMS:",
+      JSON.stringify(items, null, 2)
+    );
     console.log("=================================");
 
     // ==========================================
@@ -85,7 +91,6 @@ router.post("/place", async (req, res) => {
       });
     }
 
-    // Valid geographic ranges
     if (
       latitudeNumber < -90 ||
       latitudeNumber > 90 ||
@@ -97,147 +102,351 @@ router.post("/place", async (req, res) => {
       });
     }
 
+    // ==========================================
+    // START TRANSACTION
+    // ==========================================
+
     await client.query("BEGIN");
 
     // ==========================================
-    // 1. FETCH CART ITEMS
+    // 1. GET ORDER ITEMS
+    //
+    // BUY NOW:
+    //     Use req.body.items
+    //
+    // CART:
+    //     Read from user_cart
     // ==========================================
 
-    const cartResult = await client.query(
-      `SELECT
-         item_id,
-         qty,
-         name,
-         item_type,
-         slot
-       FROM user_cart
-       WHERE user_id = $1`,
-      [user_id]
-    );
+    let orderItems = [];
 
-    if (cartResult.rows.length === 0) {
-      throw new Error("Cart is empty");
+    if (
+      order_source === "buy_now"
+    ) {
+      console.log(
+        "PROCESSING BUY NOW ORDER"
+      );
+
+      // ==========================================
+      // BUY NOW VALIDATION
+      // ==========================================
+
+      if (
+        !Array.isArray(items) ||
+        items.length === 0
+      ) {
+        throw new Error(
+          "No Buy Now items received"
+        );
+      }
+
+      // ==========================================
+      // NORMALIZE BUY NOW ITEMS
+      // ==========================================
+
+      orderItems = items.map((item) => ({
+        item_id:
+          item.item_id ??
+          item.id ??
+          null,
+
+        qty: Number(
+          item.qty ??
+          item.quantity ??
+          1
+        ),
+
+        name:
+          item.name ||
+          item.item_name ||
+          "Product",
+
+        item_type:
+          item.item_type ||
+          "grocery",
+
+        slot:
+          item.slot ||
+          null,
+
+        price: Number(
+          item.price || 0
+        ),
+
+        total: Number(
+          item.total ??
+          (
+            Number(
+              item.qty ??
+              item.quantity ??
+              1
+            ) *
+            Number(
+              item.price || 0
+            )
+          )
+        ),
+      }));
+
+      console.log(
+        "BUY NOW ITEMS:",
+        JSON.stringify(
+          orderItems,
+          null,
+          2
+        )
+      );
+    } else {
+      // ==========================================
+      // NORMAL CART ORDER
+      // ==========================================
+
+      console.log(
+        "PROCESSING CART ORDER"
+      );
+
+      const cartResult =
+        await client.query(
+          `SELECT
+             item_id,
+             qty,
+             name,
+             item_type,
+             slot
+           FROM user_cart
+           WHERE user_id = $1`,
+          [user_id]
+        );
+
+      if (
+        cartResult.rows.length === 0
+      ) {
+        throw new Error(
+          "Cart is empty"
+        );
+      }
+
+      orderItems =
+        cartResult.rows;
+
+      console.log(
+        "CART ITEMS:",
+        JSON.stringify(
+          orderItems,
+          null,
+          2
+        )
+      );
     }
 
-    const cartItems = cartResult.rows;
+    // ==========================================
+    // VALIDATE ORDER ITEMS
+    // ==========================================
 
-    console.log(
-      "CART ITEMS:",
-      JSON.stringify(cartItems, null, 2)
-    );
+    if (
+      !orderItems ||
+      orderItems.length === 0
+    ) {
+      throw new Error(
+        "No items found for this order"
+      );
+    }
 
     // ==========================================
     // 2. CHECK STOCK & REDUCE GROCERY STOCK
     // ==========================================
 
-    for (const item of cartItems) {
-      if (item.item_type !== "water") {
-        const stockResult = await client.query(
-          `SELECT stock
+    for (const item of orderItems) {
+      // Water doesn't use grocery stock
+      if (
+        item.item_type === "water"
+      ) {
+        continue;
+      }
+
+      const itemId =
+        item.item_id;
+
+      if (!itemId) {
+        throw new Error(
+          `Invalid grocery item ID for ${item.name}`
+        );
+      }
+
+      const qty = Number(
+        item.qty || 1
+      );
+
+      if (qty <= 0) {
+        throw new Error(
+          `Invalid quantity for ${item.name}`
+        );
+      }
+
+      // ==========================================
+      // LOCK STOCK ROW
+      // ==========================================
+
+      const stockResult =
+        await client.query(
+          `SELECT
+             stock,
+             name
            FROM grocery_items
            WHERE id = $1
            FOR UPDATE`,
-          [item.item_id]
+          [itemId]
         );
 
-        if (!stockResult.rows.length) {
-          throw new Error(
-            `Item not found (ID: ${item.item_id})`
-          );
-        }
-
-        const currentStock =
-          stockResult.rows[0].stock;
-
-        if (currentStock < item.qty) {
-          throw new Error(
-            `Insufficient stock for ${item.name}`
-          );
-        }
-
-        await client.query(
-          `UPDATE grocery_items
-           SET stock = stock - $1
-           WHERE id = $2`,
-          [
-            item.qty,
-            item.item_id,
-          ]
+      if (
+        !stockResult.rows.length
+      ) {
+        throw new Error(
+          `Item not found (ID: ${itemId})`
         );
       }
+
+      const currentStock =
+        Number(
+          stockResult.rows[0].stock
+        );
+
+      console.log(
+        `STOCK CHECK: ${item.name}`,
+        "Requested:",
+        qty,
+        "Available:",
+        currentStock
+      );
+
+      // ==========================================
+      // STOCK VALIDATION
+      // ==========================================
+
+      if (
+        currentStock < qty
+      ) {
+        throw new Error(
+          `Insufficient stock for ${item.name}. Available: ${currentStock}`
+        );
+      }
+
+      // ==========================================
+      // REDUCE STOCK
+      // ==========================================
+
+      await client.query(
+        `UPDATE grocery_items
+         SET stock = stock - $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [
+          qty,
+          itemId,
+        ]
+      );
+
+      console.log(
+        `STOCK REDUCED: ${item.name} by ${qty}`
+      );
     }
 
     // ==========================================
     // 3. INSERT ORDER
     // ==========================================
 
-    const insertOrder = await client.query(
-      `INSERT INTO groceriesorders
-        (
+    const insertOrder =
+      await client.query(
+        `INSERT INTO groceriesorders
+          (
+            user_id,
+            customer_name,
+            mobile,
+            address,
+            landmark,
+            pincode,
+            payment_mode,
+            total_amount,
+            is_premium,
+            items,
+
+            latitude,
+            longitude,
+            location_address
+          )
+        VALUES
+          (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+
+            $11,
+            $12,
+            $13
+          )
+        RETURNING *`,
+        [
           user_id,
           customer_name,
           mobile,
           address,
-          landmark,
+          landmark || null,
           pincode,
-          payment_mode,
-          total_amount,
-          is_premium,
-          items,
+          payment_mode || "COD",
+          Number(
+            total_amount || 0
+          ),
+          is_premium || false,
 
-          -- LIVE LOCATION
-          latitude,
-          longitude,
-          location_address
-        )
-       VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
+          // ======================================
+          // SAVE ORDER ITEMS
+          // ======================================
 
-          $11,
-          $12,
-          $13
-        )
-       RETURNING *`,
-      [
-        user_id,
-        customer_name,
-        mobile,
-        address,
-        landmark || null,
-        pincode,
-        payment_mode || "COD",
-        total_amount,
-        is_premium || false,
+          JSON.stringify(
+            orderItems
+          ),
 
-        // Order items
-        JSON.stringify(cartItems),
+          // ======================================
+          // LOCATION
+          // ======================================
 
-        // ======================================
-        // LOCATION
-        // ======================================
-
-        latitudeNumber,
-        longitudeNumber,
-        location_address || null,
-      ]
-    );
+          latitudeNumber,
+          longitudeNumber,
+          location_address || null,
+        ]
+      );
 
     const createdOrder =
       insertOrder.rows[0];
 
     console.log(
+      "================================="
+    );
+
+    console.log(
       "ORDER CREATED:",
       createdOrder.id
+    );
+
+    console.log(
+      "ORDER SOURCE:",
+      order_source
+    );
+
+    console.log(
+      "SAVED ITEMS:",
+      JSON.stringify(
+        orderItems,
+        null,
+        2
+      )
     );
 
     console.log(
@@ -250,14 +459,19 @@ router.post("/place", async (req, res) => {
       createdOrder.longitude
     );
 
+    console.log(
+      "================================="
+    );
+
     // ==========================================
     // 4. UPDATE WATER BOOKING FLAG
     // ==========================================
 
     const hasWaterOrder =
-      cartItems.some(
+      orderItems.some(
         (item) =>
-          item.item_type === "water"
+          item.item_type ===
+          "water"
       );
 
     if (hasWaterOrder) {
@@ -267,45 +481,82 @@ router.post("/place", async (req, res) => {
            has_booked_water_cans = TRUE,
            updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
-         AND has_booked_water_cans = FALSE`,
+           AND has_booked_water_cans = FALSE`,
         [user_id]
       );
     }
 
     // ==========================================
     // 5. CLEAR CART
+    //
+    // IMPORTANT:
+    //
+    // Only clear cart for normal cart checkout.
+    //
+    // BUY NOW should NOT delete the customer's
+    // existing cart.
     // ==========================================
 
-    await client.query(
-      `DELETE FROM user_cart
-       WHERE user_id = $1`,
-      [user_id]
-    );
+    if (
+      order_source !== "buy_now"
+    ) {
+      await client.query(
+        `DELETE FROM user_cart
+         WHERE user_id = $1`,
+        [user_id]
+      );
+
+      console.log(
+        "CART CLEARED"
+      );
+    } else {
+      console.log(
+        "BUY NOW - CART NOT CLEARED"
+      );
+    }
 
     // ==========================================
     // 6. COMMIT
     // ==========================================
 
-    await client.query("COMMIT");
+    await client.query(
+      "COMMIT"
+    );
 
     // ==========================================
-    // RESPONSE
+    // 7. RESPONSE
     // ==========================================
 
     res.status(201).json({
-      message: "Order placed successfully",
+      message:
+        "Order placed successfully",
 
       order: createdOrder,
 
+      order_source:
+        order_source ||
+        "cart",
+
       location: {
-        latitude: latitudeNumber,
-        longitude: longitudeNumber,
+        latitude:
+          latitudeNumber,
+
+        longitude:
+          longitudeNumber,
+
         address:
-          location_address || null,
+          location_address ||
+          null,
       },
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    // ==========================================
+    // ROLLBACK
+    // ==========================================
+
+    await client.query(
+      "ROLLBACK"
+    );
 
     console.error(
       "Place order error:",
@@ -313,7 +564,9 @@ router.post("/place", async (req, res) => {
     );
 
     res.status(500).json({
-      error: error.message,
+      error:
+        error.message ||
+        "Failed to place order",
     });
   } finally {
     client.release();
