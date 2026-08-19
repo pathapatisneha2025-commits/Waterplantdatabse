@@ -17,38 +17,121 @@ router.post("/place", async (req, res) => {
       payment_mode,
       is_premium,
       total_amount,
+
+      // ==========================================
+      // CUSTOMER LIVE LOCATION
+      // ==========================================
+      latitude,
+      longitude,
+      location_address,
+
+      // Optional - useful if frontend sends items
+      items,
+      order_source,
     } = req.body;
 
-    if (!user_id || !customer_name || !mobile || !address || !pincode) {
-      return res.status(400).json({ message: "Missing required fields" });
+    console.log("=================================");
+    console.log("PLACE ORDER REQUEST");
+    console.log("USER ID:", user_id);
+    console.log("CUSTOMER:", customer_name);
+    console.log("MOBILE:", mobile);
+    console.log("LATITUDE:", latitude);
+    console.log("LONGITUDE:", longitude);
+    console.log("LOCATION ADDRESS:", location_address);
+    console.log("ORDER SOURCE:", order_source);
+    console.log("=================================");
+
+    // ==========================================
+    // REQUIRED CUSTOMER DETAILS
+    // ==========================================
+
+    if (
+      !user_id ||
+      !customer_name ||
+      !mobile ||
+      !address ||
+      !pincode
+    ) {
+      return res.status(400).json({
+        message: "Missing required fields",
+      });
+    }
+
+    // ==========================================
+    // VALIDATE LOCATION
+    // ==========================================
+
+    if (
+      latitude === undefined ||
+      latitude === null ||
+      longitude === undefined ||
+      longitude === null
+    ) {
+      return res.status(400).json({
+        message:
+          "Customer live location is required. Please detect your current location.",
+      });
+    }
+
+    const latitudeNumber = Number(latitude);
+    const longitudeNumber = Number(longitude);
+
+    if (
+      !Number.isFinite(latitudeNumber) ||
+      !Number.isFinite(longitudeNumber)
+    ) {
+      return res.status(400).json({
+        message: "Invalid latitude or longitude",
+      });
+    }
+
+    // Valid geographic ranges
+    if (
+      latitudeNumber < -90 ||
+      latitudeNumber > 90 ||
+      longitudeNumber < -180 ||
+      longitudeNumber > 180
+    ) {
+      return res.status(400).json({
+        message: "Invalid GPS coordinates",
+      });
     }
 
     await client.query("BEGIN");
 
+    // ==========================================
+    // 1. FETCH CART ITEMS
+    // ==========================================
 
-    // 1️⃣ Fetch cart items
     const cartResult = await client.query(
-      `SELECT item_id, qty, name, item_type, slot
+      `SELECT
+         item_id,
+         qty,
+         name,
+         item_type,
+         slot
        FROM user_cart
        WHERE user_id = $1`,
       [user_id]
     );
 
-
     if (cartResult.rows.length === 0) {
       throw new Error("Cart is empty");
     }
 
-
     const cartItems = cartResult.rows;
 
+    console.log(
+      "CART ITEMS:",
+      JSON.stringify(cartItems, null, 2)
+    );
 
+    // ==========================================
+    // 2. CHECK STOCK & REDUCE GROCERY STOCK
+    // ==========================================
 
-    // 2️⃣ Check stock & reduce grocery stock
     for (const item of cartItems) {
-
       if (item.item_type !== "water") {
-
         const stockResult = await client.query(
           `SELECT stock
            FROM grocery_items
@@ -57,19 +140,20 @@ router.post("/place", async (req, res) => {
           [item.item_id]
         );
 
-
         if (!stockResult.rows.length) {
-          throw new Error(`Item not found (ID: ${item.item_id})`);
+          throw new Error(
+            `Item not found (ID: ${item.item_id})`
+          );
         }
 
-
-        const currentStock = stockResult.rows[0].stock;
-
+        const currentStock =
+          stockResult.rows[0].stock;
 
         if (currentStock < item.qty) {
-          throw new Error(`Insufficient stock for ${item.name}`);
+          throw new Error(
+            `Insufficient stock for ${item.name}`
+          );
         }
-
 
         await client.query(
           `UPDATE grocery_items
@@ -77,17 +161,16 @@ router.post("/place", async (req, res) => {
            WHERE id = $2`,
           [
             item.qty,
-            item.item_id
+            item.item_id,
           ]
         );
-
       }
-
     }
 
+    // ==========================================
+    // 3. INSERT ORDER
+    // ==========================================
 
-
-    // 3️⃣ Insert order
     const insertOrder = await client.query(
       `INSERT INTO groceriesorders
         (
@@ -100,77 +183,140 @@ router.post("/place", async (req, res) => {
           payment_mode,
           total_amount,
           is_premium,
-          items
+          items,
+
+          -- LIVE LOCATION
+          latitude,
+          longitude,
+          location_address
         )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+
+          $11,
+          $12,
+          $13
+        )
        RETURNING *`,
       [
         user_id,
         customer_name,
         mobile,
         address,
-        landmark,
+        landmark || null,
         pincode,
-        payment_mode,
+        payment_mode || "COD",
         total_amount,
-        is_premium,
+        is_premium || false,
+
+        // Order items
         JSON.stringify(cartItems),
+
+        // ======================================
+        // LOCATION
+        // ======================================
+
+        latitudeNumber,
+        longitudeNumber,
+        location_address || null,
       ]
     );
 
+    const createdOrder =
+      insertOrder.rows[0];
 
-
-    // 4️⃣ Update water booking flag only after successful order
-    const hasWaterOrder = cartItems.some(
-      item => item.item_type === "water"
+    console.log(
+      "ORDER CREATED:",
+      createdOrder.id
     );
 
+    console.log(
+      "SAVED LATITUDE:",
+      createdOrder.latitude
+    );
+
+    console.log(
+      "SAVED LONGITUDE:",
+      createdOrder.longitude
+    );
+
+    // ==========================================
+    // 4. UPDATE WATER BOOKING FLAG
+    // ==========================================
+
+    const hasWaterOrder =
+      cartItems.some(
+        (item) =>
+          item.item_type === "water"
+      );
 
     if (hasWaterOrder) {
-
       await client.query(
         `UPDATE users
-         SET has_booked_water_cans = TRUE,
-             updated_at = CURRENT_TIMESTAMP
+         SET
+           has_booked_water_cans = TRUE,
+           updated_at = CURRENT_TIMESTAMP
          WHERE id = $1
          AND has_booked_water_cans = FALSE`,
         [user_id]
       );
-
     }
 
+    // ==========================================
+    // 5. CLEAR CART
+    // ==========================================
 
-
-    // 5️⃣ Clear cart
     await client.query(
-      "DELETE FROM user_cart WHERE user_id = $1",
+      `DELETE FROM user_cart
+       WHERE user_id = $1`,
       [user_id]
     );
 
+    // ==========================================
+    // 6. COMMIT
+    // ==========================================
 
     await client.query("COMMIT");
 
+    // ==========================================
+    // RESPONSE
+    // ==========================================
 
-    res.json({
+    res.status(201).json({
       message: "Order placed successfully",
-      order: insertOrder.rows[0],
+
+      order: createdOrder,
+
+      location: {
+        latitude: latitudeNumber,
+        longitude: longitudeNumber,
+        address:
+          location_address || null,
+      },
     });
-
-
   } catch (error) {
-
     await client.query("ROLLBACK");
 
-    console.error("Place order error:", error.message);
+    console.error(
+      "Place order error:",
+      error
+    );
 
     res.status(500).json({
-      error: error.message
+      error: error.message,
     });
-
   } finally {
-
     client.release();
-
   }
 });
 /* ------------------ GET ALL ORDERS ------------------ */

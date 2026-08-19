@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 const API_URL =
   "https://waterplantdatabse-v763.onrender.com";
 
-const BannerManagement = () => {
+const BannerManagement = ({ onBack }) => {
   const [banners, setBanners] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -418,7 +418,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           HEADER
+            HEADER
         ================================= */
 
         .banner-page-header {
@@ -429,8 +429,37 @@ const BannerManagement = () => {
           margin-bottom: 26px;
         }
 
+        .header-title-container {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .back-arrow-btn {
+          width: 42px;
+          height: 42px;
+          border: 1px solid #e5e7eb;
+          background: white;
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          color: #374151;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .back-arrow-btn:hover {
+          background: #f3f4f6;
+          border-color: #d1d5db;
+          transform: translateY(-1px);
+        }
+
         .banner-page-header h1 {
-          margin: 0 0 7px;
+          margin: 0 0 4px;
           font-size: 28px;
           font-weight: 750;
           color: #111827;
@@ -471,7 +500,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           STATS
+            STATS
         ================================= */
 
         .banner-stats {
@@ -528,7 +557,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           CARD
+            CARD
         ================================= */
 
         .banner-card {
@@ -557,7 +586,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           LOADING
+            LOADING
         ================================= */
 
         .banner-loading {
@@ -586,7 +615,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           EMPTY
+            EMPTY
         ================================= */
 
         .banner-empty {
@@ -638,7 +667,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           TABLE
+            TABLE
         ================================= */
 
         .banner-table-wrapper {
@@ -684,7 +713,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           THUMBNAIL
+            THUMBNAIL
         ================================= */
 
         .banner-thumbnail {
@@ -724,7 +753,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           BANNER INFO
+            BANNER INFO
         ================================= */
 
         .banner-info {
@@ -746,7 +775,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           TYPE
+            TYPE
         ================================= */
 
         .type-badge {
@@ -769,7 +798,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           ORDER
+            ORDER
         ================================= */
 
         .order-number {
@@ -786,7 +815,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           STATUS
+            STATUS
         ================================= */
 
         .status-toggle {
@@ -824,7 +853,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           ACTIONS
+            ACTIONS
         ================================= */
 
         .banner-actions {
@@ -867,7 +896,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           MODAL OVERLAY
+            MODAL OVERLAY
         ================================= */
 
         .banner-modal-overlay {
@@ -906,7 +935,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           MODAL HEADER
+            MODAL HEADER
         ================================= */
 
         .banner-modal-header {
@@ -953,7 +982,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           FORM
+            FORM
         ================================= */
 
         .banner-modal form {
@@ -1015,7 +1044,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           TYPE OPTIONS
+            TYPE OPTIONS
         ================================= */
 
         .banner-type-options {
@@ -1064,7 +1093,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           IMAGE UPLOAD
+            IMAGE UPLOAD
         ================================= */
 
         .image-upload-box {
@@ -1118,7 +1147,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           IMAGE PREVIEW
+            IMAGE PREVIEW
         ================================= */
 
         .image-preview-container {
@@ -1150,7 +1179,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           ENABLE BOX
+            ENABLE BOX
         ================================= */
 
         .enable-box {
@@ -1179,7 +1208,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           SWITCH
+            SWITCH
         ================================= */
 
         .switch {
@@ -1226,7 +1255,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           MODAL FOOTER
+            MODAL FOOTER
         ================================= */
 
         .banner-modal-footer {
@@ -1290,7 +1319,7 @@ const BannerManagement = () => {
         }
 
         /* ================================
-           RESPONSIVE
+            RESPONSIVE
         ================================= */
 
         @media (max-width: 900px) {
@@ -1401,15 +1430,31 @@ const BannerManagement = () => {
 
         <div className="banner-page-header">
 
-          <div>
-            <h1>
-              Banner Management
-            </h1>
+          <div className="header-title-container">
+            <button
+              className="back-arrow-btn"
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else {
+                  window.history.back();
+                }
+              }}
+              title="Go Back"
+              aria-label="Go Back"
+            >
+              ←
+            </button>
+            <div>
+              <h1>
+                Banner Management
+              </h1>
 
-            <p>
-              Manage promotional banners
-              displayed in the customer app.
-            </p>
+              <p>
+                Manage promotional banners
+                displayed in the customer app.
+              </p>
+            </div>
           </div>
 
           <button
@@ -1458,8 +1503,7 @@ const BannerManagement = () => {
               <strong>
                 {
                   banners.filter(
-                    (item) =>
-                      item.enabled
+                    (item) => item.enabled
                   ).length
                 }
               </strong>
@@ -1470,7 +1514,7 @@ const BannerManagement = () => {
           <div className="banner-stat-card">
 
             <div className="stat-icon disabled">
-              ×
+              ✕
             </div>
 
             <div>
@@ -1481,8 +1525,7 @@ const BannerManagement = () => {
               <strong>
                 {
                   banners.filter(
-                    (item) =>
-                      !item.enabled
+                    (item) => !item.enabled
                   ).length
                 }
               </strong>
@@ -1492,688 +1535,329 @@ const BannerManagement = () => {
 
         </div>
 
-        {/* TABLE */}
+        {/* CONTENT CARD / TABLE */}
 
         <div className="banner-card">
 
           <div className="banner-card-header">
-
-            <div>
-              <h2>
-                All Banners
-              </h2>
-
-              <p>
-                Control what customers see
-                in the app.
-              </p>
-            </div>
-
+            <h2>All Banners</h2>
+            <p>View, edit or control banner visibility</p>
           </div>
 
           {loading ? (
-
             <div className="banner-loading">
-
               <div className="spinner"></div>
-
-              <span>
-                Loading banners...
-              </span>
-
+              <span>Loading banners...</span>
             </div>
-
           ) : banners.length === 0 ? (
-
             <div className="banner-empty">
-
-              <div className="empty-icon">
-                🖼️
-              </div>
-
-              <h3>
-                No banners yet
-              </h3>
-
-              <p>
-                Add your first promotional
-                banner.
-              </p>
-
-              <button
-                onClick={handleAdd}
-                className="empty-add-btn"
-              >
+              <div className="empty-icon">📢</div>
+              <h3>No Banners Found</h3>
+              <p>Get started by adding your first promotional banner.</p>
+              <button className="empty-add-btn" onClick={handleAdd}>
                 + Add Banner
               </button>
-
             </div>
-
           ) : (
-
             <div className="banner-table-wrapper">
-
               <table className="banner-table">
-
                 <thead>
-
                   <tr>
-
-                    <th>
-                      Preview
-                    </th>
-
-                    <th>
-                      Banner
-                    </th>
-
-                    <th>
-                      Type
-                    </th>
-
-                    <th>
-                      Order
-                    </th>
-
-                    <th>
-                      Status
-                    </th>
-
-                    <th>
-                      Actions
-                    </th>
-
+                    <th>Preview</th>
+                    <th>Banner Details</th>
+                    <th>Type</th>
+                    <th>Order</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-
                 </thead>
-
                 <tbody>
-
-                  {banners.map(
-                    (banner) => (
-
-                      <tr
-                        key={banner.id}
-                      >
-
-                        <td>
-
-                          {banner.image_url ? (
-
-                            <img
-                              src={
-                                banner.image_url
-                              }
-                              alt={
-                                banner.title ||
-                                "Banner"
-                              }
-                              className="banner-thumbnail"
-                            />
-
-                          ) : (
-
-                            <div className="text-banner-thumbnail">
-
-                              <span>
-                                T
-                              </span>
-
-                            </div>
-
-                          )}
-
-                        </td>
-
-                        <td>
-
-                          <div className="banner-info">
-
-                            <strong>
-                              {banner.title ||
-                                "Untitled Banner"}
-                            </strong>
-
-                            {banner.subtitle && (
-
-                              <span>
-                                {
-                                  banner.subtitle
-                                }
-                              </span>
-
-                            )}
-
+                  {banners.map((banner) => (
+                    <tr key={banner.id}>
+                      <td>
+                        {banner.banner_type === "image" && banner.image_url ? (
+                          <img
+                            src={banner.image_url}
+                            alt={banner.title || "Banner"}
+                            className="banner-thumbnail"
+                          />
+                        ) : (
+                          <div className="text-banner-thumbnail">
+                            <span>T</span>
                           </div>
-
-                        </td>
-
-                        <td>
-
-                          <span
-                            className={`type-badge ${
-                              banner.banner_type ===
-                              "image"
-                                ? "image-type"
-                                : "text-type"
-                            }`}
-                          >
-
-                            {banner.banner_type ===
-                            "image"
-                              ? "Image"
-                              : "Text"}
-
-                          </span>
-
-                        </td>
-
-                        <td>
-
-                          <span className="order-number">
-                            {
-                              banner.display_order
-                            }
-                          </span>
-
-                        </td>
-
-                        <td>
-
+                        )}
+                      </td>
+                      <td>
+                        <div className="banner-info">
+                          <strong>{banner.title || "Untitled Banner"}</strong>
+                          <span>{banner.subtitle || "No subtitle provided"}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className={`type-badge ${
+                            banner.banner_type === "image"
+                              ? "image-type"
+                              : "text-type"
+                          }`}
+                        >
+                          {banner.banner_type === "image" ? "Image" : "Text"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="order-number">
+                          {banner.display_order ?? 0}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className={`status-toggle ${
+                            banner.enabled
+                              ? "status-enabled"
+                              : "status-disabled"
+                          }`}
+                          onClick={() => toggleStatus(banner)}
+                        >
+                          <span className="status-dot"></span>
+                          {banner.enabled ? "Active" : "Disabled"}
+                        </button>
+                      </td>
+                      <td>
+                        <div className="banner-actions">
                           <button
-                            className={`status-toggle ${
-                              banner.enabled
-                                ? "status-enabled"
-                                : "status-disabled"
-                            }`}
-                            onClick={() =>
-                              toggleStatus(
-                                banner
-                              )
-                            }
+                            className="action-edit"
+                            onClick={() => handleEdit(banner)}
                           >
-
-                            <span
-                              className="status-dot"
-                            ></span>
-
-                            {banner.enabled
-                              ? "Enabled"
-                              : "Disabled"}
-
+                            Edit
                           </button>
-
-                        </td>
-
-                        <td>
-
-                          <div className="banner-actions">
-
-                            <button
-                              className="action-edit"
-                              onClick={() =>
-                                handleEdit(
-                                  banner
-                                )
-                              }
-                            >
-                              ✏️
-                              <span>
-                                Edit
-                              </span>
-                            </button>
-
-                            <button
-                              className="action-delete"
-                              onClick={() =>
-                                handleDelete(
-                                  banner
-                                )
-                              }
-                            >
-                              🗑️
-                              <span>
-                                Delete
-                              </span>
-                            </button>
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-
-                    )
-                  )}
-
+                          <button
+                            className="action-delete"
+                            onClick={() => handleDelete(banner)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
-
               </table>
-
             </div>
-
           )}
 
         </div>
 
-        {/* =================================================
-            MODAL
-        ================================================= */}
+      </div>
 
-        {showModal && (
+      {/* =================================================
+          MODAL
+      ================================================= */}
 
-          <div className="banner-modal-overlay">
+      {showModal && (
+        <div className="banner-modal-overlay">
+          <div className="banner-modal">
 
-            <div className="banner-modal">
-
-              <div className="banner-modal-header">
-
-                <div>
-
-                  <h2>
-                    {editingBanner
-                      ? "Edit Banner"
-                      : "Add New Banner"}
-                  </h2>
-
-                  <p>
-                    Create a banner for
-                    your customers.
-                  </p>
-
-                </div>
-
-                <button
-                  className="modal-close"
-                  onClick={
-                    closeModal
-                  }
-                  disabled={saving}
-                >
-                  ×
-                </button>
-
+            <div className="banner-modal-header">
+              <div>
+                <h2>{editingBanner ? "Edit Banner" : "Add New Banner"}</h2>
+                <p>Configure banner appearance and action target</p>
               </div>
-
-              <form
-                onSubmit={
-                  handleSubmit
-                }
+              <button
+                className="modal-close"
+                onClick={closeModal}
+                disabled={saving}
               >
-
-                {/* BANNER TYPE */}
-
-                <div className="form-group">
-
-                  <label>
-                    Banner Type
-                  </label>
-
-                  <div className="banner-type-options">
-
-                    <label
-                      className={`type-option ${
-                        form.banner_type ===
-                        "text"
-                          ? "selected"
-                          : ""
-                      }`}
-                    >
-
-                      <input
-                        type="radio"
-                        name="banner_type"
-                        value="text"
-                        checked={
-                          form.banner_type ===
-                          "text"
-                        }
-                        onChange={
-                          handleChange
-                        }
-                      />
-
-                      <div>
-
-                        <strong>
-                          📝 Text Banner
-                        </strong>
-
-                        <small>
-                          Display text
-                          promotion
-                        </small>
-
-                      </div>
-
-                    </label>
-
-                    <label
-                      className={`type-option ${
-                        form.banner_type ===
-                        "image"
-                          ? "selected"
-                          : ""
-                      }`}
-                    >
-
-                      <input
-                        type="radio"
-                        name="banner_type"
-                        value="image"
-                        checked={
-                          form.banner_type ===
-                          "image"
-                        }
-                        onChange={
-                          handleChange
-                        }
-                      />
-
-                      <div>
-
-                        <strong>
-                          🖼️ Image Banner
-                        </strong>
-
-                        <small>
-                          Upload promotional
-                          image
-                        </small>
-
-                      </div>
-
-                    </label>
-
-                  </div>
-
-                </div>
-
-                {/* TITLE */}
-
-                <div className="form-group">
-
-                  <label>
-                    Title
-                  </label>
-
-                  <input
-                    type="text"
-                    name="title"
-                    value={
-                      form.title
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    placeholder="Example: Summer Offer"
-                  />
-
-                </div>
-
-                {/* SUBTITLE */}
-
-                <div className="form-group">
-
-                  <label>
-                    Subtitle
-                  </label>
-
-                  <textarea
-                    name="subtitle"
-                    value={
-                      form.subtitle
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    placeholder="Example: Get 20% off on your next order"
-                    rows="3"
-                  />
-
-                </div>
-
-                {/* IMAGE */}
-
-                {form.banner_type ===
-                  "image" && (
-
-                  <div className="form-group">
-
-                    <label>
-                      Banner Image
-                    </label>
-
-                    <div className="image-upload-box">
-
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg,image/webp"
-                        onChange={
-                          handleImageChange
-                        }
-                        id="banner-image"
-                      />
-
-                      <label
-                        htmlFor="banner-image"
-                        className="image-upload-label"
-                      >
-
-                        <div className="upload-icon">
-                          ⬆
-                        </div>
-
-                        <strong>
-                          Click to upload
-                        </strong>
-
-                        <span>
-                          JPG, PNG, JPEG or
-                          WEBP · Max 5MB
-                        </span>
-
-                      </label>
-
-                    </div>
-
-                    {imagePreview && (
-
-                      <div className="image-preview-container">
-
-                        <img
-                          src={
-                            imagePreview
-                          }
-                          alt="Banner preview"
-                        />
-
-                        <div className="preview-label">
-                          Preview
-                        </div>
-
-                      </div>
-
-                    )}
-
-                  </div>
-
-                )}
-
-                {/* BUTTON + ACTION */}
-
-                <div className="form-row">
-
-                  <div className="form-group">
-
-                    <label>
-                      Button Text
-                    </label>
-
-                    <input
-                      type="text"
-                      name="button_text"
-                      value={
-                        form.button_text
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Shop Now"
-                    />
-
-                  </div>
-
-                  <div className="form-group">
-
-                    <label>
-                      Button Action
-                    </label>
-
-                    <select
-                      name="button_screen"
-                      value={
-                        form.button_screen
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    >
-
-                      <option value="">
-                        No Action
-                      </option>
-
-                      <option value="GroceryScreen">
-                        Grocery
-                      </option>
-
-                      <option value="WaterScreen">
-                        Water
-                      </option>
-
-                      <option value="OrderScreen">
-                        Orders
-                      </option>
-
-                    </select>
-
-                  </div>
-
-                </div>
-
-                {/* DISPLAY ORDER */}
-
-                <div className="form-group">
-
-                  <label>
-                    Display Order
-                  </label>
-
-                  <input
-                    type="number"
-                    name="display_order"
-                    value={
-                      form.display_order
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    min="0"
-                  />
-
-                  <small className="field-help">
-                    Lower numbers appear
-                    first.
-                  </small>
-
-                </div>
-
-                {/* ENABLE */}
-
-                <div className="enable-box">
-
-                  <div>
-
-                    <strong>
-                      Show in Customer App
-                    </strong>
-
-                    <span>
-                      Enable this banner
-                      for customers.
-                    </span>
-
-                  </div>
-
-                  <label className="switch">
-
-                    <input
-                      type="checkbox"
-                      name="enabled"
-                      checked={
-                        form.enabled
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-
-                    <span className="slider"></span>
-
-                  </label>
-
-                </div>
-
-                {/* FOOTER */}
-
-                <div className="banner-modal-footer">
-
-                  <button
-                    type="button"
-                    className="cancel-btn"
-                    onClick={
-                      closeModal
-                    }
-                    disabled={saving}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="save-banner-btn"
-                    disabled={saving}
-                  >
-
-                    {saving ? (
-
-                      <>
-                        <span className="button-spinner"></span>
-                        Saving...
-                      </>
-
-                    ) : (
-
-                      editingBanner
-                        ? "Update Banner"
-                        : "Save Banner"
-
-                    )}
-
-                  </button>
-
-                </div>
-
-              </form>
-
+                &times;
+              </button>
             </div>
 
+            <form onSubmit={handleSubmit}>
+
+              <div className="form-group">
+                <label>Banner Type</label>
+                <div className="banner-type-options">
+                  <div
+                    className={`type-option ${
+                      form.banner_type === "text" ? "selected" : ""
+                    }`}
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, banner_type: "text" }))
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="banner_type"
+                      value="text"
+                      checked={form.banner_type === "text"}
+                      onChange={handleChange}
+                    />
+                    <div>
+                      <strong>Text / Clean Banner</strong>
+                      <small>Solid colored card with custom title & subtitle</small>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`type-option ${
+                      form.banner_type === "image" ? "selected" : ""
+                    }`}
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, banner_type: "image" }))
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="banner_type"
+                      value="image"
+                      checked={form.banner_type === "image"}
+                      onChange={handleChange}
+                    />
+                    <div>
+                      <strong>Image Banner</strong>
+                      <small>Promotional image banner upload</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="title">Title</label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value={form.title}
+                    onChange={handleChange}
+                    placeholder="e.g., Special Discount!"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="subtitle">Subtitle</label>
+                  <input
+                    type="text"
+                    id="subtitle"
+                    name="subtitle"
+                    value={form.subtitle}
+                    onChange={handleChange}
+                    placeholder="e.g., Get 20% off today"
+                  />
+                </div>
+              </div>
+
+              {form.banner_type === "image" && (
+                <div className="form-group">
+                  <label>Banner Image</label>
+                  <div className="image-upload-box">
+                    <input
+                      type="file"
+                      id="banner-image-file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                    <label
+                      htmlFor="banner-image-file"
+                      className="image-upload-label"
+                    >
+                      <div className="upload-icon">📷</div>
+                      <strong>Click to upload banner image</strong>
+                      <span>PNG, JPG, WEBP up to 5MB</span>
+                    </label>
+                  </div>
+
+                  {imagePreview && (
+                    <div className="image-preview-container">
+                      <span className="preview-label">Preview</span>
+                      <img src={imagePreview} alt="Banner Preview" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="button_text">Button Text (Optional)</label>
+                  <input
+                    type="text"
+                    id="button_text"
+                    name="button_text"
+                    value={form.button_text}
+                    onChange={handleChange}
+                    placeholder="e.g., Book Now"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="button_screen">Target Screen/Route</label>
+                  <input
+                    type="text"
+                    id="button_screen"
+                    name="button_screen"
+                    value={form.button_screen}
+                    onChange={handleChange}
+                    placeholder="e.g., CartScreen"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="display_order">Display Order</label>
+                  <input
+                    type="number"
+                    id="display_order"
+                    name="display_order"
+                    value={form.display_order}
+                    onChange={handleChange}
+                    min="0"
+                  />
+                  <small className="field-help">Lower numbers appear first</small>
+                </div>
+
+                <div className="form-group" style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                  <div className="enable-box">
+                    <div>
+                      <strong>Enable Banner</strong>
+                      <span>Show immediately in app</span>
+                    </div>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        name="enabled"
+                        checked={form.enabled}
+                        onChange={handleChange}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="banner-modal-footer">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={closeModal}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="save-banner-btn"
+                  disabled={saving}
+                >
+                  {saving && <span className="button-spinner"></span>}
+                  {saving ? "Saving..." : editingBanner ? "Update Banner" : "Save Banner"}
+                </button>
+              </div>
+
+            </form>
+
           </div>
-
-        )}
-
-      </div>
+        </div>
+      )}
     </>
   );
 };
