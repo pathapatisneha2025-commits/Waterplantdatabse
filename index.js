@@ -25,7 +25,7 @@ app.use("/orders", Orders);
 app.use("/waterorder", WaterOrders);
 app.use("/groceries",Groceries);
 app.use("/categories",Categories);
-app.use("/baneer",Banners);
+app.use("/banner",Banners);
 
 
 app.listen(5000, () => {
