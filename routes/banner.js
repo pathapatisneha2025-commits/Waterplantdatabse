@@ -257,7 +257,7 @@ router.get(
 // ======================================================
 
 router.post(
-  "/",
+  "/add",
   upload.single("image"),
 
   async (req, res) => {

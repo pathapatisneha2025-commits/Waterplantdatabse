@@ -11,6 +11,7 @@ import AdminDriverDashboard from "./Pages/AdminDriverdashboard";
 import GroceryDashboard from "./Pages/Dashboard";
 import AdminLogin from "./Pages/Adminlogin";
 import AdminWaterPlantCategory from "./Pages/AdminAddCategories";
+import BannerManagement from "./Pages/BannerManagement";
 function App() {
   return (
   <Router>
@@ -24,6 +25,7 @@ function App() {
     <Route path="/admincatagories" element={<AdminWaterPlantCategory />} />
 
     <Route path="/admingrocerylisting" element={<GroceryList />} />
+    <Route path="/adminbanner" element={<BannerManagement />} />
 
 <Route path="/adminGrocery" element={<AddGrocery />} />
 <Route path="/customermanagement" element={<CustomerManagement />} />

@@ -7,6 +7,7 @@ const AdminLayout = () => {
 
   const navItems = [
   
+    { name: "Banner Mangement", path: "/adminbanner", icon: <FiList /> },
 
     { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
         { name: "Driver Mangement", path: "/drivermanagement", icon: <FiList /> },
