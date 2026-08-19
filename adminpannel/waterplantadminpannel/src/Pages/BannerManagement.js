@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const API_URL =
-  "https://vanyabackenddatabase-vahr.onrender.com";
+  "https://waterplantdatabse-v763.onrender.com";
 
 const BannerManagement = () => {
   const [banners, setBanners] = useState([]);
@@ -258,7 +258,7 @@ const BannerManagement = () => {
 
       const url = editingBanner
         ? `${API_URL}/banner/${editingBanner.id}`
-        : `${API_URL}/banner`;
+        : `${API_URL}/banner/add`;
 
       const response = await fetch(
         url,

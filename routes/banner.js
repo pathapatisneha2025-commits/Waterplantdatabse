@@ -261,191 +261,127 @@ router.post(
   upload.single("image"),
 
   async (req, res) => {
-
     try {
-
       const {
-
         title,
-
         subtitle,
-
-        banner_type =
-          "text",
-
+        banner_type = "text",
         button_text,
-
         button_screen,
-
-        display_order =
-          0,
-
-        enabled =
-          "true",
-
+        display_order = 0,
+        enabled = "true",
       } = req.body;
-
 
       // ==================================================
       // VALIDATION
       // ==================================================
 
       if (!title && !subtitle) {
-
         return res.status(400).json({
-
-          message:
-            "Title or subtitle is required",
-
+          message: "Title or subtitle is required",
         });
-
       }
-
 
       // ==================================================
       // IMAGE VALIDATION
       // ==================================================
 
       if (
-        banner_type ===
-          "image" &&
+        banner_type === "image" &&
         !req.file
       ) {
-
         return res.status(400).json({
-
           message:
             "Image is required for image banner",
-
         });
-
       }
 
-
       // ==================================================
-      // CLOUDINARY IMAGE
+      // IMAGE URL
       // ==================================================
 
       let imageUrl = null;
 
-      let cloudinaryPublicId =
-        null;
-
-
       if (req.file) {
-
-        imageUrl =
-          req.file.path;
-
-        cloudinaryPublicId =
-          req.file.filename;
-
+        imageUrl = req.file.path;
       }
-
 
       // ==================================================
       // INSERT DATABASE
       // ==================================================
 
-      const result =
-        await pool.query(
-          `
-          INSERT INTO banners
-          (
-            title,
-            subtitle,
-            banner_type,
-            image_url,
-            cloudinary_public_id,
-            button_text,
-            button_screen,
-            display_order,
-            enabled,
-            updated_at
-          )
+      const result = await pool.query(
+        `
+        INSERT INTO banners
+        (
+          title,
+          subtitle,
+          banner_type,
+          image_url,
+          button_text,
+          button_screen,
+          display_order,
+          enabled,
+          updated_at
+        )
 
-          VALUES
-          (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5,
-            $6,
-            $7,
-            $8,
-            $9,
-            CURRENT_TIMESTAMP
-          )
+        VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          CURRENT_TIMESTAMP
+        )
 
-          RETURNING *
-          `,
+        RETURNING *
+        `,
+        [
+          title || null,
 
-          [
+          subtitle || null,
 
-            title ||
-              null,
+          banner_type,
 
-            subtitle ||
-              null,
+          imageUrl,
 
-            banner_type,
+          button_text || null,
 
-            imageUrl,
+          button_screen || null,
 
-            cloudinaryPublicId,
+          Number(display_order) || 0,
 
-            button_text ||
-              null,
+          enabled === true ||
+            enabled === "true",
+        ]
+      );
 
-            button_screen ||
-              null,
-
-            Number(
-              display_order
-            ) || 0,
-
-            enabled === true ||
-              enabled === "true",
-
-          ]
-        );
-
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       res.status(201).json({
-
-        message:
-          "Banner added successfully",
-
-        banner:
-          result.rows[0],
-
+        message: "Banner added successfully",
+        banner: result.rows[0],
       });
 
-
     } catch (error) {
-
       console.error(
         "ADD BANNER ERROR:",
         error
       );
 
-
       res.status(500).json({
-
-        message:
-          "Failed to add banner",
-
-        error:
-          error.message,
-
+        message: "Failed to add banner",
+        error: error.message,
       });
-
     }
-
   }
 );
-
 
 // ======================================================
 // UPDATE BANNER
