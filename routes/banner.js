@@ -1,203 +1,255 @@
 const express = require("express");
+
 const router = express.Router();
 
 const pool = require("../db");
-const cloudinary = require("../cloudinary");
 
 const multer = require("multer");
-const streamifier = require("streamifier");
+
+const path = require("path");
+
+const {
+  CloudinaryStorage,
+} = require("multer-storage-cloudinary");
+
+const cloudinary = require("../cloudinary");
 
 
 // ======================================================
-// MULTER
+// CLOUDINARY STORAGE
 // ======================================================
 
-const upload = multer({
-  storage: multer.memoryStorage(),
+const storage = new CloudinaryStorage({
 
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-  },
+  cloudinary,
 
-  fileFilter: (req, file, cb) => {
+  params: {
 
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(
-        new Error("Only image files are allowed")
+    folder: "banners",
+
+    allowed_formats: [
+      "jpg",
+      "png",
+      "jpeg",
+      "webp",
+    ],
+
+    public_id: (req, file) => {
+
+      const nameWithoutExt =
+        path.parse(
+          file.originalname
+        ).name;
+
+      return (
+        Date.now() +
+        "-" +
+        nameWithoutExt
       );
-    }
 
-    cb(null, true);
+    },
+
   },
+
 });
 
 
-// ======================================================
-// UPLOAD IMAGE TO CLOUDINARY
-// ======================================================
-
-const uploadToCloudinary = (fileBuffer) => {
-
-  return new Promise((resolve, reject) => {
-
-    const stream =
-      cloudinary.uploader.upload_stream(
-        {
-          folder: "banners",
-          resource_type: "image",
-        },
-
-        (error, result) => {
-
-          if (error) {
-            reject(error);
-          } else {
-            resolve(result);
-          }
-
-        }
-      );
-
-    streamifier
-      .createReadStream(fileBuffer)
-      .pipe(stream);
-
-  });
-
-};
+const upload = multer({
+  storage,
+});
 
 
 // ======================================================
 // GET ALL BANNERS - ADMIN
 // ======================================================
 
-router.get("/admin", async (req, res) => {
+router.get(
+  "/admin",
+  async (req, res) => {
 
-  try {
+    try {
 
-    const result = await pool.query(`
-      SELECT
-        id,
-        title,
-        subtitle,
-        banner_type,
-        image_url,
-        cloudinary_public_id,
-        button_text,
-        button_screen,
-        display_order,
-        enabled,
-        created_at,
-        updated_at
-      FROM banners
-      ORDER BY display_order ASC, id DESC
-    `);
+      const result =
+        await pool.query(`
+          SELECT
+            id,
+            title,
+            subtitle,
+            banner_type,
+            image_url,
+            cloudinary_public_id,
+            button_text,
+            button_screen,
+            display_order,
+            enabled,
+            created_at,
+            updated_at
 
-    res.json(result.rows);
+          FROM banners
 
-  } catch (error) {
+          ORDER BY
+            display_order ASC,
+            id DESC
+        `);
 
-    console.error(
-      "GET ADMIN BANNERS ERROR:",
-      error
-    );
 
-    res.status(500).json({
-      message: "Failed to fetch banners",
-      error: error.message,
-    });
+      res.json(
+        result.rows
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "GET ADMIN BANNERS ERROR:",
+        error
+      );
+
+
+      res.status(500).json({
+
+        message:
+          "Failed to fetch banners",
+
+        error:
+          error.message,
+
+      });
+
+    }
 
   }
-
-});
+);
 
 
 // ======================================================
 // GET ACTIVE BANNERS - CUSTOMER APP
 // ======================================================
 
-router.get("/active", async (req, res) => {
+router.get(
+  "/active",
+  async (req, res) => {
 
-  try {
+    try {
 
-    const result = await pool.query(`
-      SELECT
-        id,
-        title,
-        subtitle,
-        banner_type,
-        image_url,
-        button_text,
-        button_screen,
-        display_order
-      FROM banners
-      WHERE enabled = TRUE
-      ORDER BY display_order ASC, id DESC
-    `);
+      const result =
+        await pool.query(`
+          SELECT
+            id,
+            title,
+            subtitle,
+            banner_type,
+            image_url,
+            button_text,
+            button_screen,
+            display_order
 
-    res.json(result.rows);
+          FROM banners
 
-  } catch (error) {
+          WHERE enabled = TRUE
 
-    console.error(
-      "GET ACTIVE BANNERS ERROR:",
-      error
-    );
+          ORDER BY
+            display_order ASC,
+            id DESC
+        `);
 
-    res.status(500).json({
-      message: "Failed to fetch active banners",
-      error: error.message,
-    });
+
+      res.json(
+        result.rows
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "GET ACTIVE BANNERS ERROR:",
+        error
+      );
+
+
+      res.status(500).json({
+
+        message:
+          "Failed to fetch active banners",
+
+        error:
+          error.message,
+
+      });
+
+    }
 
   }
-
-});
+);
 
 
 // ======================================================
 // GET SINGLE BANNER
 // ======================================================
 
-router.get("/:id", async (req, res) => {
+router.get(
+  "/:id",
+  async (req, res) => {
 
-  try {
+    try {
 
-    const { id } = req.params;
+      const {
+        id
+      } = req.params;
 
-    const result = await pool.query(
-      `
-      SELECT *
-      FROM banners
-      WHERE id = $1
-      `,
-      [id]
-    );
 
-    if (result.rows.length === 0) {
+      const result =
+        await pool.query(
+          `
+          SELECT *
+          FROM banners
+          WHERE id = $1
+          `,
+          [id]
+        );
 
-      return res.status(404).json({
-        message: "Banner not found",
+
+      if (
+        result.rows.length === 0
+      ) {
+
+        return res.status(404).json({
+
+          message:
+            "Banner not found",
+
+        });
+
+      }
+
+
+      res.json(
+        result.rows[0]
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "GET BANNER ERROR:",
+        error
+      );
+
+
+      res.status(500).json({
+
+        message:
+          "Failed to fetch banner",
+
+        error:
+          error.message,
+
       });
 
     }
 
-    res.json(result.rows[0]);
-
-  } catch (error) {
-
-    console.error(
-      "GET BANNER ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      message: "Failed to fetch banner",
-      error: error.message,
-    });
-
   }
-
-});
+);
 
 
 // ======================================================
@@ -207,59 +259,93 @@ router.get("/:id", async (req, res) => {
 router.post(
   "/",
   upload.single("image"),
+
   async (req, res) => {
 
     try {
 
       const {
+
         title,
+
         subtitle,
-        banner_type = "text",
+
+        banner_type =
+          "text",
+
         button_text,
+
         button_screen,
-        display_order = 0,
-        enabled = "true",
+
+        display_order =
+          0,
+
+        enabled =
+          "true",
+
       } = req.body;
 
 
-      let imageUrl = null;
-      let cloudinaryPublicId = null;
+      // ==================================================
+      // VALIDATION
+      // ==================================================
 
+      if (!title && !subtitle) {
 
-      // ---------------------------------------------
-      // IMAGE BANNER
-      // ---------------------------------------------
+        return res.status(400).json({
 
-      if (banner_type === "image") {
+          message:
+            "Title or subtitle is required",
 
-        if (!req.file) {
-
-          return res.status(400).json({
-            message:
-              "Image is required for image banner",
-          });
-
-        }
-
-
-        const uploaded =
-          await uploadToCloudinary(
-            req.file.buffer
-          );
-
-
-        imageUrl =
-          uploaded.secure_url;
-
-        cloudinaryPublicId =
-          uploaded.public_id;
+        });
 
       }
 
 
-      // ---------------------------------------------
-      // INSERT
-      // ---------------------------------------------
+      // ==================================================
+      // IMAGE VALIDATION
+      // ==================================================
+
+      if (
+        banner_type ===
+          "image" &&
+        !req.file
+      ) {
+
+        return res.status(400).json({
+
+          message:
+            "Image is required for image banner",
+
+        });
+
+      }
+
+
+      // ==================================================
+      // CLOUDINARY IMAGE
+      // ==================================================
+
+      let imageUrl = null;
+
+      let cloudinaryPublicId =
+        null;
+
+
+      if (req.file) {
+
+        imageUrl =
+          req.file.path;
+
+        cloudinaryPublicId =
+          req.file.filename;
+
+      }
+
+
+      // ==================================================
+      // INSERT DATABASE
+      // ==================================================
 
       const result =
         await pool.query(
@@ -277,6 +363,7 @@ router.post(
             enabled,
             updated_at
           )
+
           VALUES
           (
             $1,
@@ -290,28 +377,51 @@ router.post(
             $9,
             CURRENT_TIMESTAMP
           )
+
           RETURNING *
           `,
+
           [
-            title || null,
-            subtitle || null,
+
+            title ||
+              null,
+
+            subtitle ||
+              null,
+
             banner_type,
+
             imageUrl,
+
             cloudinaryPublicId,
-            button_text || null,
-            button_screen || null,
-            Number(display_order) || 0,
+
+            button_text ||
+              null,
+
+            button_screen ||
+              null,
+
+            Number(
+              display_order
+            ) || 0,
+
             enabled === true ||
               enabled === "true",
+
           ]
         );
 
 
       res.status(201).json({
+
         message:
           "Banner added successfully",
-        banner: result.rows[0],
+
+        banner:
+          result.rows[0],
+
       });
+
 
     } catch (error) {
 
@@ -320,9 +430,15 @@ router.post(
         error
       );
 
+
       res.status(500).json({
-        message: "Failed to add banner",
-        error: error.message,
+
+        message:
+          "Failed to add banner",
+
+        error:
+          error.message,
+
       });
 
     }
@@ -338,27 +454,38 @@ router.post(
 router.put(
   "/:id",
   upload.single("image"),
+
   async (req, res) => {
 
     try {
 
-      const { id } = req.params;
+      const {
+        id
+      } = req.params;
 
 
       const {
+
         title,
+
         subtitle,
+
         banner_type,
+
         button_text,
+
         button_screen,
+
         display_order,
+
         enabled,
+
       } = req.body;
 
 
-      // ---------------------------------------------
-      // GET EXISTING
-      // ---------------------------------------------
+      // ==================================================
+      // GET EXISTING BANNER
+      // ==================================================
 
       const existingResult =
         await pool.query(
@@ -376,7 +503,10 @@ router.put(
       ) {
 
         return res.status(404).json({
-          message: "Banner not found",
+
+          message:
+            "Banner not found",
+
         });
 
       }
@@ -386,6 +516,10 @@ router.put(
         existingResult.rows[0];
 
 
+      // ==================================================
+      // DEFAULT OLD IMAGE
+      // ==================================================
+
       let imageUrl =
         existing.image_url;
 
@@ -393,26 +527,22 @@ router.put(
         existing.cloudinary_public_id;
 
 
-      // ---------------------------------------------
-      // NEW IMAGE
-      // ---------------------------------------------
+      // ==================================================
+      // NEW IMAGE UPLOADED
+      // ==================================================
 
       if (req.file) {
 
-        const uploaded =
-          await uploadToCloudinary(
-            req.file.buffer
-          );
-
-
         imageUrl =
-          uploaded.secure_url;
+          req.file.path;
 
         cloudinaryPublicId =
-          uploaded.public_id;
+          req.file.filename;
 
 
-        // Delete old Cloudinary image
+        // -----------------------------------------------
+        // DELETE OLD CLOUDINARY IMAGE
+        // -----------------------------------------------
 
         if (
           existing.cloudinary_public_id
@@ -427,7 +557,7 @@ router.put(
           } catch (cloudinaryError) {
 
             console.log(
-              "OLD IMAGE DELETE ERROR:",
+              "OLD CLOUDINARY IMAGE DELETE ERROR:",
               cloudinaryError.message
             );
 
@@ -438,12 +568,13 @@ router.put(
       }
 
 
-      // ---------------------------------------------
-      // CHANGED TO TEXT
-      // ---------------------------------------------
+      // ==================================================
+      // CHANGED IMAGE → TEXT
+      // ==================================================
 
       if (
-        banner_type === "text"
+        banner_type ===
+        "text"
       ) {
 
         if (
@@ -470,55 +601,93 @@ router.put(
 
         imageUrl = null;
 
-        cloudinaryPublicId = null;
+        cloudinaryPublicId =
+          null;
 
       }
 
 
-      // ---------------------------------------------
-      // UPDATE
-      // ---------------------------------------------
+      // ==================================================
+      // UPDATE DATABASE
+      // ==================================================
 
       const result =
         await pool.query(
           `
           UPDATE banners
+
           SET
+
             title = $1,
+
             subtitle = $2,
+
             banner_type = $3,
+
             image_url = $4,
+
             cloudinary_public_id = $5,
+
             button_text = $6,
+
             button_screen = $7,
+
             display_order = $8,
+
             enabled = $9,
-            updated_at = CURRENT_TIMESTAMP
+
+            updated_at =
+              CURRENT_TIMESTAMP
+
           WHERE id = $10
+
           RETURNING *
           `,
+
           [
-            title || null,
-            subtitle || null,
+
+            title ||
+              null,
+
+            subtitle ||
+              null,
+
             banner_type ||
               existing.banner_type,
+
             imageUrl,
+
             cloudinaryPublicId,
-            button_text || null,
-            button_screen || null,
-            Number(display_order) || 0,
+
+            button_text ||
+              null,
+
+            button_screen ||
+              null,
+
+            Number(
+              display_order
+            ) || 0,
+
             enabled === true ||
               enabled === "true",
+
             id,
+
           ]
         );
 
 
       res.json({
+
         message:
           "Banner updated successfully",
-        banner: result.rows[0],
+
+        banner:
+          result.rows[0],
+
       });
+
 
     } catch (error) {
 
@@ -527,10 +696,15 @@ router.put(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to update banner",
-        error: error.message,
+
+        error:
+          error.message,
+
       });
 
     }
@@ -540,19 +714,24 @@ router.put(
 
 
 // ======================================================
-// ENABLE / DISABLE
+// ENABLE / DISABLE BANNER
 // ======================================================
 
 router.patch(
   "/:id/status",
+
   async (req, res) => {
 
     try {
 
-      const { id } = req.params;
+      const {
+        id
+      } = req.params;
 
-      const { enabled } =
-        req.body;
+
+      const {
+        enabled
+      } = req.body;
 
 
       if (
@@ -561,8 +740,10 @@ router.patch(
       ) {
 
         return res.status(400).json({
+
           message:
             "enabled must be true or false",
+
         });
 
       }
@@ -572,13 +753,23 @@ router.patch(
         await pool.query(
           `
           UPDATE banners
+
           SET
+
             enabled = $1,
-            updated_at = CURRENT_TIMESTAMP
+
+            updated_at =
+              CURRENT_TIMESTAMP
+
           WHERE id = $2
+
           RETURNING *
           `,
-          [enabled, id]
+
+          [
+            enabled,
+            id
+          ]
         );
 
 
@@ -587,21 +778,27 @@ router.patch(
       ) {
 
         return res.status(404).json({
+
           message:
             "Banner not found",
+
         });
 
       }
 
 
       res.json({
-        message: enabled
-          ? "Banner enabled successfully"
-          : "Banner disabled successfully",
+
+        message:
+          enabled
+            ? "Banner enabled successfully"
+            : "Banner disabled successfully",
 
         banner:
           result.rows[0],
+
       });
+
 
     } catch (error) {
 
@@ -610,10 +807,15 @@ router.patch(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to update banner status",
-        error: error.message,
+
+        error:
+          error.message,
+
       });
 
     }
@@ -628,17 +830,19 @@ router.patch(
 
 router.delete(
   "/:id",
+
   async (req, res) => {
 
     try {
 
-      const { id } =
-        req.params;
+      const {
+        id
+      } = req.params;
 
 
-      // ---------------------------------------------
+      // ==================================================
       // GET BANNER
-      // ---------------------------------------------
+      // ==================================================
 
       const result =
         await pool.query(
@@ -656,8 +860,10 @@ router.delete(
       ) {
 
         return res.status(404).json({
+
           message:
             "Banner not found",
+
         });
 
       }
@@ -667,9 +873,9 @@ router.delete(
         result.rows[0];
 
 
-      // ---------------------------------------------
+      // ==================================================
       // DELETE CLOUDINARY IMAGE
-      // ---------------------------------------------
+      // ==================================================
 
       if (
         banner.cloudinary_public_id
@@ -693,9 +899,9 @@ router.delete(
       }
 
 
-      // ---------------------------------------------
+      // ==================================================
       // DELETE DATABASE
-      // ---------------------------------------------
+      // ==================================================
 
       await pool.query(
         `
@@ -707,9 +913,12 @@ router.delete(
 
 
       res.json({
+
         message:
           "Banner deleted successfully",
+
       });
+
 
     } catch (error) {
 
@@ -718,10 +927,15 @@ router.delete(
         error
       );
 
+
       res.status(500).json({
+
         message:
           "Failed to delete banner",
-        error: error.message,
+
+        error:
+          error.message,
+
       });
 
     }
