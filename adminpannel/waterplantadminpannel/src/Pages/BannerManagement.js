@@ -37,7 +37,7 @@ const BannerManagement = () => {
       setLoading(true);
 
       const response = await fetch(
-        `${API_URL}/banner/active`
+        `${API_URL}/banner/admin`
       );
 
       const data = await response.json();

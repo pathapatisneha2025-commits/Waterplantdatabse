@@ -66,7 +66,6 @@ const upload = multer({
 router.get(
   "/admin",
   async (req, res) => {
-
     try {
 
       const result =
@@ -77,9 +76,6 @@ router.get(
             subtitle,
             banner_type,
             image_url,
-            cloudinary_public_id,
-            button_text,
-            button_screen,
             display_order,
             enabled,
             created_at,
@@ -92,11 +88,9 @@ router.get(
             id DESC
         `);
 
-
       res.json(
         result.rows
       );
-
 
     } catch (error) {
 
@@ -105,22 +99,16 @@ router.get(
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to fetch banners",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
-
 
 // ======================================================
 // GET ACTIVE BANNERS - CUSTOMER APP
