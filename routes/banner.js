@@ -392,32 +392,18 @@ router.put(
   upload.single("image"),
 
   async (req, res) => {
-
     try {
+      const { id } = req.params;
 
       const {
-        id
-      } = req.params;
-
-
-      const {
-
         title,
-
         subtitle,
-
         banner_type,
-
         button_text,
-
         button_screen,
-
         display_order,
-
         enabled,
-
       } = req.body;
-
 
       // ==================================================
       // GET EXISTING BANNER
@@ -433,115 +419,37 @@ router.put(
           [id]
         );
 
-
-      if (
-        existingResult.rows.length === 0
-      ) {
-
+      if (existingResult.rows.length === 0) {
         return res.status(404).json({
-
-          message:
-            "Banner not found",
-
+          message: "Banner not found",
         });
-
       }
-
 
       const existing =
         existingResult.rows[0];
-
 
       // ==================================================
       // DEFAULT OLD IMAGE
       // ==================================================
 
       let imageUrl =
-        existing.image_url;
-
-      let cloudinaryPublicId =
-        existing.cloudinary_public_id;
-
+        existing.image_url || null;
 
       // ==================================================
       // NEW IMAGE UPLOADED
       // ==================================================
 
       if (req.file) {
-
-        imageUrl =
-          req.file.path;
-
-        cloudinaryPublicId =
-          req.file.filename;
-
-
-        // -----------------------------------------------
-        // DELETE OLD CLOUDINARY IMAGE
-        // -----------------------------------------------
-
-        if (
-          existing.cloudinary_public_id
-        ) {
-
-          try {
-
-            await cloudinary.uploader.destroy(
-              existing.cloudinary_public_id
-            );
-
-          } catch (cloudinaryError) {
-
-            console.log(
-              "OLD CLOUDINARY IMAGE DELETE ERROR:",
-              cloudinaryError.message
-            );
-
-          }
-
-        }
-
+        imageUrl = req.file.path;
       }
-
 
       // ==================================================
       // CHANGED IMAGE → TEXT
       // ==================================================
 
-      if (
-        banner_type ===
-        "text"
-      ) {
-
-        if (
-          existing.cloudinary_public_id
-        ) {
-
-          try {
-
-            await cloudinary.uploader.destroy(
-              existing.cloudinary_public_id
-            );
-
-          } catch (error) {
-
-            console.log(
-              "CLOUDINARY DELETE ERROR:",
-              error.message
-            );
-
-          }
-
-        }
-
-
+      if (banner_type === "text") {
         imageUrl = null;
-
-        cloudinaryPublicId =
-          null;
-
       }
-
 
       // ==================================================
       // UPDATE DATABASE
@@ -562,92 +470,73 @@ router.put(
 
             image_url = $4,
 
-            cloudinary_public_id = $5,
+            button_text = $5,
 
-            button_text = $6,
+            button_screen = $6,
 
-            button_screen = $7,
+            display_order = $7,
 
-            display_order = $8,
-
-            enabled = $9,
+            enabled = $8,
 
             updated_at =
               CURRENT_TIMESTAMP
 
-          WHERE id = $10
+          WHERE id = $9
 
           RETURNING *
           `,
 
           [
+            title || null,
 
-            title ||
-              null,
-
-            subtitle ||
-              null,
+            subtitle || null,
 
             banner_type ||
               existing.banner_type,
 
             imageUrl,
 
-            cloudinaryPublicId,
+            button_text || null,
 
-            button_text ||
-              null,
+            button_screen || null,
 
-            button_screen ||
-              null,
-
-            Number(
-              display_order
-            ) || 0,
+            Number(display_order) || 0,
 
             enabled === true ||
               enabled === "true",
 
             id,
-
           ]
         );
 
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       res.json({
-
         message:
           "Banner updated successfully",
 
         banner:
           result.rows[0],
-
       });
 
-
     } catch (error) {
-
       console.error(
         "UPDATE BANNER ERROR:",
         error
       );
 
-
       res.status(500).json({
-
         message:
           "Failed to update banner",
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
-
 
 // ======================================================
 // ENABLE / DISABLE BANNER
