@@ -56,7 +56,7 @@ export default function TodaysDealsAdmin() {
       setError("");
 
       const response = await fetch(
-        `${API_BASE}/admin/todays-deals`
+        `${API_BASE}/todaydeals/admin/todays-deals`
       );
 
       if (!response.ok) {

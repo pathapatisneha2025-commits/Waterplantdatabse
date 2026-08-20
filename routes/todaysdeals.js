@@ -51,10 +51,8 @@ const uploadToCloudinary = (file) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "todays_deals",
-
         resource_type: "image",
       },
-
       (error, result) => {
         if (error) {
           return reject(error);
@@ -69,31 +67,7 @@ const uploadToCloudinary = (file) => {
 };
 
 // ======================================================
-// CLOUDINARY DELETE HELPER
-// ======================================================
-
-const deleteFromCloudinary = async (publicId) => {
-  if (!publicId) return;
-
-  try {
-    await cloudinary.uploader.destroy(publicId, {
-      resource_type: "image",
-    });
-
-    console.log(
-      "Cloudinary image deleted:",
-      publicId
-    );
-  } catch (error) {
-    console.error(
-      "CLOUDINARY DELETE ERROR:",
-      error
-    );
-  }
-};
-
-// ======================================================
-// DATE VALIDATION HELPER
+// DATE VALIDATION
 // ======================================================
 
 const validateDates = (startDate, endDate) => {
@@ -177,7 +151,6 @@ router.get("/todays-deals", async (req, res) => {
         title,
         subtitle,
         image_url,
-        image_public_id,
         discount_text,
         price,
         old_price,
@@ -222,7 +195,6 @@ router.get("/admin/todays-deals", async (req, res) => {
         title,
         subtitle,
         image_url,
-        image_public_id,
         discount_text,
         price,
         old_price,
@@ -265,7 +237,23 @@ router.get(
 
       const result = await pool.query(
         `
-        SELECT *
+        SELECT
+          id,
+          title,
+          subtitle,
+          image_url,
+          discount_text,
+          price,
+          old_price,
+          button_text,
+          button_screen,
+          product_id,
+          category,
+          is_active,
+          start_date,
+          end_date,
+          created_at,
+          updated_at
         FROM todays_deals
         WHERE id = $1
         `,
@@ -295,8 +283,8 @@ router.get(
 
 // ======================================================
 // ADMIN - CREATE DEAL
-// Upload image to Cloudinary
-// Does NOT require image_public_id column
+// IMAGE -> CLOUDINARY
+// DATABASE -> ONLY image_url
 // ======================================================
 
 router.post(
@@ -329,27 +317,14 @@ router.post(
         });
       }
 
-      if (!start_date || !end_date) {
-        return res.status(400).json({
-          message: "Start date and end date are required",
-        });
-      }
+      const dateError = validateDates(
+        start_date,
+        end_date
+      );
 
-      const startDate = new Date(start_date);
-      const endDate = new Date(end_date);
-
-      if (
-        Number.isNaN(startDate.getTime()) ||
-        Number.isNaN(endDate.getTime())
-      ) {
+      if (dateError) {
         return res.status(400).json({
-          message: "Invalid start date or end date",
-        });
-      }
-
-      if (startDate > endDate) {
-        return res.status(400).json({
-          message: "Start date cannot be after end date",
+          message: dateError,
         });
       }
 
@@ -391,14 +366,15 @@ router.post(
       }
 
       // ==================================================
-      // CLOUDINARY IMAGE UPLOAD
+      // CLOUDINARY IMAGE
       // ==================================================
 
       let imageUrl = null;
 
       if (req.file) {
         try {
-          const uploaded = await uploadToCloudinary(req.file);
+          const uploaded =
+            await uploadToCloudinary(req.file);
 
           imageUrl = uploaded.secure_url;
 
@@ -421,6 +397,8 @@ router.post(
 
       // ==================================================
       // INSERT
+      // IMPORTANT:
+      // NO image_public_id HERE
       // ==================================================
 
       const result = await pool.query(
@@ -466,44 +444,25 @@ router.post(
 
           discount_text?.trim() || null,
 
-          price !== undefined &&
-          price !== null &&
-          price !== ""
-            ? Number(price)
-            : null,
+          nullableNumber(price),
 
-          old_price !== undefined &&
-          old_price !== null &&
-          old_price !== ""
-            ? Number(old_price)
-            : null,
+          nullableNumber(old_price),
 
           button_text?.trim() || "Order Now",
 
           button_screen?.trim() || null,
 
-          product_id !== undefined &&
-          product_id !== null &&
-          product_id !== ""
-            ? Number(product_id)
-            : null,
+          nullableNumber(product_id),
 
           category?.trim() || null,
 
-          is_active === undefined
-            ? true
-            : is_active === true ||
-              is_active === "true",
+          parseBoolean(is_active, true),
 
           start_date,
 
           end_date,
         ]
       );
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
 
       return res.status(201).json({
         message: "Deal created successfully",
@@ -522,9 +481,12 @@ router.post(
     }
   }
 );
+
 // ======================================================
 // ADMIN - UPDATE DEAL
-// IMAGE IS OPTIONAL
+// IMAGE OPTIONAL
+// NEW IMAGE -> CLOUDINARY
+// DATABASE -> ONLY image_url
 // ======================================================
 
 router.put(
@@ -549,9 +511,9 @@ router.put(
         end_date,
       } = req.body;
 
-      // ------------------------------------------
+      // ==================================================
       // VALIDATION
-      // ------------------------------------------
+      // ==================================================
 
       if (!title || !title.trim()) {
         return res.status(400).json({
@@ -570,13 +532,27 @@ router.put(
         });
       }
 
-      // ------------------------------------------
+      // ==================================================
       // GET EXISTING DEAL
-      // ------------------------------------------
+      // ==================================================
 
       const existingResult = await pool.query(
         `
-        SELECT *
+        SELECT
+          id,
+          title,
+          subtitle,
+          image_url,
+          discount_text,
+          price,
+          old_price,
+          button_text,
+          button_screen,
+          product_id,
+          category,
+          is_active,
+          start_date,
+          end_date
         FROM todays_deals
         WHERE id = $1
         `,
@@ -592,37 +568,48 @@ router.put(
       const existingDeal =
         existingResult.rows[0];
 
-      // ------------------------------------------
-      // IMAGE
-      // ------------------------------------------
+      // ==================================================
+      // KEEP OLD IMAGE BY DEFAULT
+      // ==================================================
 
       let imageUrl =
         existingDeal.image_url || null;
 
-      let imagePublicId =
-        existingDeal.image_public_id || null;
+      // ==================================================
+      // IF NEW IMAGE SELECTED
+      // UPLOAD TO CLOUDINARY
+      // ==================================================
 
-      // If admin selected a NEW image
       if (req.file) {
-        const uploaded =
-          await uploadToCloudinary(req.file);
+        try {
+          const uploaded =
+            await uploadToCloudinary(req.file);
 
-        imageUrl = uploaded.secure_url;
-        imagePublicId = uploaded.public_id;
+          imageUrl = uploaded.secure_url;
 
-        // Delete old image AFTER successful upload
-        if (
-          existingDeal.image_public_id
-        ) {
-          await deleteFromCloudinary(
-            existingDeal.image_public_id
+          console.log(
+            "Updated Today's Deal image:",
+            imageUrl
           );
+        } catch (uploadError) {
+          console.error(
+            "CLOUDINARY UPDATE UPLOAD ERROR:",
+            uploadError
+          );
+
+          return res.status(500).json({
+            message:
+              "Failed to upload new deal image",
+            error: uploadError.message,
+          });
         }
       }
 
-      // ------------------------------------------
+      // ==================================================
       // UPDATE
-      // ------------------------------------------
+      // IMPORTANT:
+      // NO image_public_id
+      // ==================================================
 
       const result = await pool.query(
         `
@@ -631,19 +618,18 @@ router.put(
           title = $1,
           subtitle = $2,
           image_url = $3,
-          image_public_id = $4,
-          discount_text = $5,
-          price = $6,
-          old_price = $7,
-          button_text = $8,
-          button_screen = $9,
-          product_id = $10,
-          category = $11,
-          is_active = $12,
-          start_date = $13,
-          end_date = $14,
+          discount_text = $4,
+          price = $5,
+          old_price = $6,
+          button_text = $7,
+          button_screen = $8,
+          product_id = $9,
+          category = $10,
+          is_active = $11,
+          start_date = $12,
+          end_date = $13,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $15
+        WHERE id = $14
         RETURNING *
         `,
         [
@@ -652,8 +638,6 @@ router.put(
           subtitle?.trim() || null,
 
           imageUrl,
-
-          imagePublicId,
 
           discount_text?.trim() || null,
 
@@ -679,7 +663,7 @@ router.put(
         ]
       );
 
-      res.json({
+      return res.json({
         message: "Deal updated successfully",
         deal: result.rows[0],
       });
@@ -689,7 +673,7 @@ router.put(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to update deal",
         error: error.message,
       });
@@ -725,7 +709,7 @@ router.patch(
         });
       }
 
-      res.json({
+      return res.json({
         message: result.rows[0].is_active
           ? "Deal activated"
           : "Deal deactivated",
@@ -738,7 +722,7 @@ router.patch(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to update deal status",
         error: error.message,
       });
@@ -748,6 +732,11 @@ router.patch(
 
 // ======================================================
 // ADMIN - DELETE DEAL
+//
+// IMPORTANT:
+// Since image_public_id is NOT stored in DB,
+// we cannot safely delete the Cloudinary file.
+// The database deal will still be deleted correctly.
 // ======================================================
 
 router.delete(
@@ -755,33 +744,6 @@ router.delete(
   async (req, res) => {
     try {
       const { id } = req.params;
-
-      // ------------------------------------------
-      // GET DEAL FIRST
-      // ------------------------------------------
-
-      const existingResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM todays_deals
-          WHERE id = $1
-          `,
-          [id]
-        );
-
-      if (existingResult.rows.length === 0) {
-        return res.status(404).json({
-          message: "Deal not found",
-        });
-      }
-
-      const deal =
-        existingResult.rows[0];
-
-      // ------------------------------------------
-      // DELETE DATABASE RECORD
-      // ------------------------------------------
 
       const result = await pool.query(
         `
@@ -792,20 +754,14 @@ router.delete(
         [id]
       );
 
-      // ------------------------------------------
-      // DELETE CLOUDINARY IMAGE
-      // ------------------------------------------
-
-      if (deal.image_public_id) {
-        await deleteFromCloudinary(
-          deal.image_public_id
-        );
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message: "Deal not found",
+        });
       }
 
-      res.json({
-        message:
-          "Deal deleted successfully",
-
+      return res.json({
+        message: "Deal deleted successfully",
         deal: result.rows[0],
       });
     } catch (error) {
@@ -814,7 +770,7 @@ router.delete(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to delete deal",
         error: error.message,
       });
