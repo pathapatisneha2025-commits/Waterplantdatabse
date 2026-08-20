@@ -28,6 +28,7 @@ import BannerManagement from "./Pages/BannerManagement";
 // ============================================================
 
 import GlobalOrderNotification from "./components/GlobalNotificationSounds";
+import TodaysDealsAdmin from "./Pages/AdminAddtodaysdeals";
 
 // ============================================================
 // APP
@@ -175,7 +176,12 @@ function App() {
             <AdminDriverDashboard />
           }
         />
-
+   <Route
+          path="/todaysdeals"
+          element={
+            <TodaysDealsAdmin/>
+          }
+        />
         {/* ====================================================
             404
             ==================================================== */}

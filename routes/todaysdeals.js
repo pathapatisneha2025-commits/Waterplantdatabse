@@ -1,14 +1,172 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+
+const multer = require("multer");
+const cloudinary = require("../cloudinary");
+
 // ======================================================
-// TODAY'S DEALS
+// MULTER CONFIGURATION
 // ======================================================
 
+const storage = multer.memoryStorage();
+
+const upload = multer({
+  storage,
+
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(
+        new Error(
+          "Only JPG, JPEG, PNG and WEBP images are allowed"
+        )
+      );
+    }
+
+    cb(null, true);
+  },
+});
+
+// ======================================================
+// CLOUDINARY UPLOAD HELPER
+// ======================================================
+
+const uploadToCloudinary = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      return resolve(null);
+    }
+
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "todays_deals",
+
+        resource_type: "image",
+      },
+
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    stream.end(file.buffer);
+  });
+};
+
+// ======================================================
+// CLOUDINARY DELETE HELPER
+// ======================================================
+
+const deleteFromCloudinary = async (publicId) => {
+  if (!publicId) return;
+
+  try {
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: "image",
+    });
+
+    console.log(
+      "Cloudinary image deleted:",
+      publicId
+    );
+  } catch (error) {
+    console.error(
+      "CLOUDINARY DELETE ERROR:",
+      error
+    );
+  }
+};
+
+// ======================================================
+// DATE VALIDATION HELPER
+// ======================================================
+
+const validateDates = (startDate, endDate) => {
+  if (!startDate || !endDate) {
+    return "Start date and end date are required";
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime())
+  ) {
+    return "Invalid start date or end date";
+  }
+
+  if (start > end) {
+    return "Start date cannot be after end date";
+  }
+
+  return null;
+};
+
+// ======================================================
+// NUMBER HELPER
+// ======================================================
+
+const nullableNumber = (value) => {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return null;
+  }
+
+  return number;
+};
+
+// ======================================================
+// BOOLEAN HELPER
+// ======================================================
+
+const parseBoolean = (value, defaultValue = true) => {
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === "true" || value === "1") {
+    return true;
+  }
+
+  if (value === "false" || value === "0") {
+    return false;
+  }
+
+  return defaultValue;
+};
 
 // ======================================================
 // GET ACTIVE TODAY'S DEALS
-// Customer App
+// CUSTOMER APP
 // ======================================================
 
 router.get("/todays-deals", async (req, res) => {
@@ -19,6 +177,7 @@ router.get("/todays-deals", async (req, res) => {
         title,
         subtitle,
         image_url,
+        image_public_id,
         discount_text,
         price,
         old_price,
@@ -39,7 +198,10 @@ router.get("/todays-deals", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error("GET TODAY'S DEALS ERROR:", error);
+    console.error(
+      "GET TODAY'S DEALS ERROR:",
+      error
+    );
 
     res.status(500).json({
       message: "Failed to fetch today's deals",
@@ -47,7 +209,6 @@ router.get("/todays-deals", async (req, res) => {
     });
   }
 });
-
 
 // ======================================================
 // ADMIN - GET ALL DEALS
@@ -61,6 +222,7 @@ router.get("/admin/todays-deals", async (req, res) => {
         title,
         subtitle,
         image_url,
+        image_public_id,
         discount_text,
         price,
         old_price,
@@ -79,7 +241,10 @@ router.get("/admin/todays-deals", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error("GET ADMIN TODAY'S DEALS ERROR:", error);
+    console.error(
+      "GET ADMIN TODAY'S DEALS ERROR:",
+      error
+    );
 
     res.status(500).json({
       message: "Failed to fetch deals",
@@ -88,96 +253,59 @@ router.get("/admin/todays-deals", async (req, res) => {
   }
 });
 
-
 // ======================================================
 // ADMIN - GET SINGLE DEAL
 // ======================================================
 
-router.get("/admin/todays-deals/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+router.get(
+  "/admin/todays-deals/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      `
-      SELECT *
-      FROM todays_deals
-      WHERE id = $1
-      `,
-      [id]
-    );
+      const result = await pool.query(
+        `
+        SELECT *
+        FROM todays_deals
+        WHERE id = $1
+        `,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Deal not found",
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message: "Deal not found",
+        });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error(
+        "GET SINGLE DEAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Failed to fetch deal",
+        error: error.message,
       });
     }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("GET SINGLE DEAL ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to fetch deal",
-      error: error.message,
-    });
   }
-});
-
+);
 
 // ======================================================
 // ADMIN - CREATE DEAL
+// IMAGE FILE UPLOAD
 // ======================================================
 
-router.post("/admin/todays-deals", async (req, res) => {
-  try {
-    const {
-      title,
-      subtitle,
-      image_url,
-      discount_text,
-      price,
-      old_price,
-      button_text,
-      button_screen,
-      product_id,
-      category,
-      is_active,
-      start_date,
-      end_date,
-    } = req.body;
-
-    // ------------------------------------------
-    // VALIDATION
-    // ------------------------------------------
-
-    if (!title || !title.trim()) {
-      return res.status(400).json({
-        message: "Deal title is required",
-      });
-    }
-
-    if (!start_date || !end_date) {
-      return res.status(400).json({
-        message: "Start date and end date are required",
-      });
-    }
-
-    if (new Date(start_date) > new Date(end_date)) {
-      return res.status(400).json({
-        message: "Start date cannot be after end date",
-      });
-    }
-
-    // ------------------------------------------
-    // INSERT
-    // ------------------------------------------
-
-    const result = await pool.query(
-      `
-      INSERT INTO todays_deals (
+router.post(
+  "/admin/todays-deals",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const {
         title,
         subtitle,
-        image_url,
         discount_text,
         price,
         old_price,
@@ -187,273 +315,497 @@ router.post("/admin/todays-deals", async (req, res) => {
         category,
         is_active,
         start_date,
-        end_date
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12,
-        $13
-      )
-      RETURNING *
-      `,
-      [
-        title.trim(),
-        subtitle?.trim() || null,
-        image_url?.trim() || null,
-        discount_text?.trim() || null,
-
-        price !== "" && price != null
-          ? Number(price)
-          : null,
-
-        old_price !== "" && old_price != null
-          ? Number(old_price)
-          : null,
-
-        button_text?.trim() || "Order Now",
-
-        button_screen?.trim() || null,
-
-        product_id !== "" && product_id != null
-          ? Number(product_id)
-          : null,
-
-        category?.trim() || null,
-
-        is_active !== false,
-
-        start_date,
         end_date,
-      ]
-    );
+      } = req.body;
 
-    res.status(201).json({
-      message: "Deal created successfully",
-      deal: result.rows[0],
-    });
-  } catch (error) {
-    console.error("CREATE DEAL ERROR:", error);
+      // ------------------------------------------
+      // VALIDATION
+      // ------------------------------------------
 
-    res.status(500).json({
-      message: "Failed to create deal",
-      error: error.message,
-    });
+      if (!title || !title.trim()) {
+        return res.status(400).json({
+          message: "Deal title is required",
+        });
+      }
+
+      const dateError = validateDates(
+        start_date,
+        end_date
+      );
+
+      if (dateError) {
+        return res.status(400).json({
+          message: dateError,
+        });
+      }
+
+      // ------------------------------------------
+      // PRICE VALIDATION
+      // ------------------------------------------
+
+      if (
+        price !== undefined &&
+        price !== "" &&
+        Number.isNaN(Number(price))
+      ) {
+        return res.status(400).json({
+          message: "Invalid price",
+        });
+      }
+
+      if (
+        old_price !== undefined &&
+        old_price !== "" &&
+        Number.isNaN(Number(old_price))
+      ) {
+        return res.status(400).json({
+          message: "Invalid old price",
+        });
+      }
+
+      if (
+        product_id !== undefined &&
+        product_id !== "" &&
+        Number.isNaN(Number(product_id))
+      ) {
+        return res.status(400).json({
+          message: "Product ID must be a number",
+        });
+      }
+
+      // ------------------------------------------
+      // UPLOAD IMAGE
+      // ------------------------------------------
+
+      let imageUrl = null;
+      let imagePublicId = null;
+
+      if (req.file) {
+        const uploaded =
+          await uploadToCloudinary(req.file);
+
+        imageUrl = uploaded.secure_url;
+        imagePublicId = uploaded.public_id;
+      }
+
+      // ------------------------------------------
+      // INSERT
+      // ------------------------------------------
+
+      const result = await pool.query(
+        `
+        INSERT INTO todays_deals (
+          title,
+          subtitle,
+          image_url,
+          image_public_id,
+          discount_text,
+          price,
+          old_price,
+          button_text,
+          button_screen,
+          product_id,
+          category,
+          is_active,
+          start_date,
+          end_date
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
+          $14
+        )
+        RETURNING *
+        `,
+        [
+          title.trim(),
+
+          subtitle?.trim() || null,
+
+          imageUrl,
+
+          imagePublicId,
+
+          discount_text?.trim() || null,
+
+          nullableNumber(price),
+
+          nullableNumber(old_price),
+
+          button_text?.trim() || "Order Now",
+
+          button_screen?.trim() || null,
+
+          nullableNumber(product_id),
+
+          category?.trim() || null,
+
+          parseBoolean(is_active, true),
+
+          start_date,
+
+          end_date,
+        ]
+      );
+
+      res.status(201).json({
+        message: "Deal created successfully",
+        deal: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        "CREATE DEAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Failed to create deal",
+        error: error.message,
+      });
+    }
   }
-});
-
+);
 
 // ======================================================
 // ADMIN - UPDATE DEAL
+// IMAGE IS OPTIONAL
 // ======================================================
 
-router.put("/admin/todays-deals/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+router.put(
+  "/admin/todays-deals/:id",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const {
-      title,
-      subtitle,
-      image_url,
-      discount_text,
-      price,
-      old_price,
-      button_text,
-      button_screen,
-      product_id,
-      category,
-      is_active,
-      start_date,
-      end_date,
-    } = req.body;
-
-    // ------------------------------------------
-    // VALIDATION
-    // ------------------------------------------
-
-    if (!title || !title.trim()) {
-      return res.status(400).json({
-        message: "Deal title is required",
-      });
-    }
-
-    if (!start_date || !end_date) {
-      return res.status(400).json({
-        message: "Start date and end date are required",
-      });
-    }
-
-    if (new Date(start_date) > new Date(end_date)) {
-      return res.status(400).json({
-        message: "Start date cannot be after end date",
-      });
-    }
-
-    // ------------------------------------------
-    // UPDATE
-    // ------------------------------------------
-
-    const result = await pool.query(
-      `
-      UPDATE todays_deals
-      SET
-        title = $1,
-        subtitle = $2,
-        image_url = $3,
-        discount_text = $4,
-        price = $5,
-        old_price = $6,
-        button_text = $7,
-        button_screen = $8,
-        product_id = $9,
-        category = $10,
-        is_active = $11,
-        start_date = $12,
-        end_date = $13,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
-      RETURNING *
-      `,
-      [
-        title.trim(),
-        subtitle?.trim() || null,
-        image_url?.trim() || null,
-        discount_text?.trim() || null,
-
-        price !== "" && price != null
-          ? Number(price)
-          : null,
-
-        old_price !== "" && old_price != null
-          ? Number(old_price)
-          : null,
-
-        button_text?.trim() || "Order Now",
-
-        button_screen?.trim() || null,
-
-        product_id !== "" && product_id != null
-          ? Number(product_id)
-          : null,
-
-        category?.trim() || null,
-
-        is_active === true,
-
+      const {
+        title,
+        subtitle,
+        discount_text,
+        price,
+        old_price,
+        button_text,
+        button_screen,
+        product_id,
+        category,
+        is_active,
         start_date,
         end_date,
+      } = req.body;
 
-        id,
-      ]
-    );
+      // ------------------------------------------
+      // VALIDATION
+      // ------------------------------------------
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Deal not found",
+      if (!title || !title.trim()) {
+        return res.status(400).json({
+          message: "Deal title is required",
+        });
+      }
+
+      const dateError = validateDates(
+        start_date,
+        end_date
+      );
+
+      if (dateError) {
+        return res.status(400).json({
+          message: dateError,
+        });
+      }
+
+      // ------------------------------------------
+      // GET EXISTING DEAL
+      // ------------------------------------------
+
+      const existingResult = await pool.query(
+        `
+        SELECT *
+        FROM todays_deals
+        WHERE id = $1
+        `,
+        [id]
+      );
+
+      if (existingResult.rows.length === 0) {
+        return res.status(404).json({
+          message: "Deal not found",
+        });
+      }
+
+      const existingDeal =
+        existingResult.rows[0];
+
+      // ------------------------------------------
+      // IMAGE
+      // ------------------------------------------
+
+      let imageUrl =
+        existingDeal.image_url || null;
+
+      let imagePublicId =
+        existingDeal.image_public_id || null;
+
+      // If admin selected a NEW image
+      if (req.file) {
+        const uploaded =
+          await uploadToCloudinary(req.file);
+
+        imageUrl = uploaded.secure_url;
+        imagePublicId = uploaded.public_id;
+
+        // Delete old image AFTER successful upload
+        if (
+          existingDeal.image_public_id
+        ) {
+          await deleteFromCloudinary(
+            existingDeal.image_public_id
+          );
+        }
+      }
+
+      // ------------------------------------------
+      // UPDATE
+      // ------------------------------------------
+
+      const result = await pool.query(
+        `
+        UPDATE todays_deals
+        SET
+          title = $1,
+          subtitle = $2,
+          image_url = $3,
+          image_public_id = $4,
+          discount_text = $5,
+          price = $6,
+          old_price = $7,
+          button_text = $8,
+          button_screen = $9,
+          product_id = $10,
+          category = $11,
+          is_active = $12,
+          start_date = $13,
+          end_date = $14,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $15
+        RETURNING *
+        `,
+        [
+          title.trim(),
+
+          subtitle?.trim() || null,
+
+          imageUrl,
+
+          imagePublicId,
+
+          discount_text?.trim() || null,
+
+          nullableNumber(price),
+
+          nullableNumber(old_price),
+
+          button_text?.trim() || "Order Now",
+
+          button_screen?.trim() || null,
+
+          nullableNumber(product_id),
+
+          category?.trim() || null,
+
+          parseBoolean(is_active, false),
+
+          start_date,
+
+          end_date,
+
+          id,
+        ]
+      );
+
+      res.json({
+        message: "Deal updated successfully",
+        deal: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        "UPDATE DEAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Failed to update deal",
+        error: error.message,
       });
     }
-
-    res.json({
-      message: "Deal updated successfully",
-      deal: result.rows[0],
-    });
-  } catch (error) {
-    console.error("UPDATE DEAL ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to update deal",
-      error: error.message,
-    });
   }
-});
-
+);
 
 // ======================================================
 // ADMIN - TOGGLE ACTIVE / INACTIVE
 // ======================================================
 
-router.patch("/admin/todays-deals/:id/toggle", async (req, res) => {
-  try {
-    const { id } = req.params;
+router.patch(
+  "/admin/todays-deals/:id/toggle",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      `
-      UPDATE todays_deals
-      SET
-        is_active = NOT is_active,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING *
-      `,
-      [id]
-    );
+      const result = await pool.query(
+        `
+        UPDATE todays_deals
+        SET
+          is_active = NOT is_active,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+        `,
+        [id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Deal not found",
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          message: "Deal not found",
+        });
+      }
+
+      res.json({
+        message: result.rows[0].is_active
+          ? "Deal activated"
+          : "Deal deactivated",
+
+        deal: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        "TOGGLE DEAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Failed to update deal status",
+        error: error.message,
       });
     }
-
-    res.json({
-      message: result.rows[0].is_active
-        ? "Deal activated"
-        : "Deal deactivated",
-      deal: result.rows[0],
-    });
-  } catch (error) {
-    console.error("TOGGLE DEAL ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to update deal status",
-      error: error.message,
-    });
   }
-});
-
+);
 
 // ======================================================
 // ADMIN - DELETE DEAL
 // ======================================================
 
-router.delete("/admin/todays-deals/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+router.delete(
+  "/admin/todays-deals/:id",
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const result = await pool.query(
-      `
-      DELETE FROM todays_deals
-      WHERE id = $1
-      RETURNING *
-      `,
-      [id]
-    );
+      // ------------------------------------------
+      // GET DEAL FIRST
+      // ------------------------------------------
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Deal not found",
+      const existingResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM todays_deals
+          WHERE id = $1
+          `,
+          [id]
+        );
+
+      if (existingResult.rows.length === 0) {
+        return res.status(404).json({
+          message: "Deal not found",
+        });
+      }
+
+      const deal =
+        existingResult.rows[0];
+
+      // ------------------------------------------
+      // DELETE DATABASE RECORD
+      // ------------------------------------------
+
+      const result = await pool.query(
+        `
+        DELETE FROM todays_deals
+        WHERE id = $1
+        RETURNING *
+        `,
+        [id]
+      );
+
+      // ------------------------------------------
+      // DELETE CLOUDINARY IMAGE
+      // ------------------------------------------
+
+      if (deal.image_public_id) {
+        await deleteFromCloudinary(
+          deal.image_public_id
+        );
+      }
+
+      res.json({
+        message:
+          "Deal deleted successfully",
+
+        deal: result.rows[0],
+      });
+    } catch (error) {
+      console.error(
+        "DELETE DEAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Failed to delete deal",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// ======================================================
+// MULTER ERROR HANDLER
+// ======================================================
+
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        message:
+          "Image size must be less than 5 MB",
       });
     }
 
-    res.json({
-      message: "Deal deleted successfully",
-      deal: result.rows[0],
-    });
-  } catch (error) {
-    console.error("DELETE DEAL ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to delete deal",
-      error: error.message,
+    return res.status(400).json({
+      message: error.message,
     });
   }
+
+  if (error) {
+    return res.status(400).json({
+      message: error.message,
+    });
+  }
+
+  next();
 });
+
+// ======================================================
+// EXPORT
+// ======================================================
+
 module.exports = router;
