@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-const API_BASE = "https://waterplantdatabse-v763.onrender.com";
+const API_BASE =
+  "https://waterplantdatabse-v763.onrender.com";
 
 const EMPTY_FORM = {
   title: "",
   subtitle: "",
-  image_url: "",
   discount_text: "",
   price: "",
   old_price: "",
@@ -26,11 +30,21 @@ export default function TodaysDealsAdmin() {
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const [editingDeal, setEditingDeal] = useState(null);
+  const [editingDeal, setEditingDeal] =
+    useState(null);
 
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] =
+    useState(EMPTY_FORM);
+
+  const [selectedImage, setSelectedImage] =
+    useState(null);
+
+  const [imagePreview, setImagePreview] =
+    useState("");
 
   const [error, setError] = useState("");
+
+  const fileInputRef = useRef(null);
 
   // =====================================================
   // FETCH DEALS
@@ -46,15 +60,22 @@ export default function TodaysDealsAdmin() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch deals");
+        throw new Error(
+          "Failed to fetch deals"
+        );
       }
 
       const data = await response.json();
 
-      setDeals(Array.isArray(data) ? data : []);
+      setDeals(
+        Array.isArray(data) ? data : []
+      );
     } catch (err) {
       console.error(err);
-      setError("Failed to load today's deals");
+
+      setError(
+        "Failed to load today's deals"
+      );
     } finally {
       setLoading(false);
     }
@@ -68,7 +89,10 @@ export default function TodaysDealsAdmin() {
   // FORM HANDLER
   // =====================================================
 
-  const handleChange = (field, value) => {
+  const handleChange = (
+    field,
+    value
+  ) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -76,13 +100,91 @@ export default function TodaysDealsAdmin() {
   };
 
   // =====================================================
+  // RESET IMAGE
+  // =====================================================
+
+  const resetImage = () => {
+    setSelectedImage(null);
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setImagePreview("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // =====================================================
+  // IMAGE SELECT
+  // =====================================================
+
+  const handleImageChange = (event) => {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) return;
+
+    // -------------------------------------------------
+    // TYPE
+    // -------------------------------------------------
+
+    if (!file.type.startsWith("image/")) {
+      alert(
+        "Please select an image file."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    // -------------------------------------------------
+    // SIZE - 5 MB
+    // -------------------------------------------------
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert(
+        "Image size must be less than 5 MB."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    // -------------------------------------------------
+    // CLEAN OLD PREVIEW
+    // -------------------------------------------------
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setSelectedImage(file);
+
+    setImagePreview(
+      URL.createObjectURL(file)
+    );
+  };
+
+  // =====================================================
+  // OPEN FILE PICKER
+  // =====================================================
+
+  const chooseImage = () => {
+    fileInputRef.current?.click();
+  };
+
+  // =====================================================
   // OPEN ADD
   // =====================================================
 
   const openAddModal = () => {
-    const today = new Date()
-      .toISOString()
-      .split("T")[0];
+    const today =
+      new Date()
+        .toISOString()
+        .split("T")[0];
 
     setEditingDeal(null);
 
@@ -91,6 +193,8 @@ export default function TodaysDealsAdmin() {
       start_date: today,
       end_date: today,
     });
+
+    resetImage();
 
     setModalOpen(true);
   };
@@ -104,48 +208,109 @@ export default function TodaysDealsAdmin() {
 
     setForm({
       title: deal.title || "",
-      subtitle: deal.subtitle || "",
-      image_url: deal.image_url || "",
-      discount_text: deal.discount_text || "",
+
+      subtitle:
+        deal.subtitle || "",
+
+      discount_text:
+        deal.discount_text || "",
+
       price:
-        deal.price !== null && deal.price !== undefined
+        deal.price !== null &&
+        deal.price !== undefined
           ? String(deal.price)
           : "",
+
       old_price:
         deal.old_price !== null &&
         deal.old_price !== undefined
           ? String(deal.old_price)
           : "",
-      button_text: deal.button_text || "Order Now",
-      button_screen: deal.button_screen || "WaterScreen",
+
+      button_text:
+        deal.button_text ||
+        "Order Now",
+
+      button_screen:
+        deal.button_screen ||
+        "WaterScreen",
+
       product_id:
         deal.product_id !== null &&
         deal.product_id !== undefined
           ? String(deal.product_id)
           : "",
-      category: deal.category || "",
-      is_active: deal.is_active === true,
-      start_date: formatDateForInput(deal.start_date),
-      end_date: formatDateForInput(deal.end_date),
+
+      category:
+        deal.category || "",
+
+      is_active:
+        deal.is_active === true,
+
+      start_date:
+        formatDateForInput(
+          deal.start_date
+        ),
+
+      end_date:
+        formatDateForInput(
+          deal.end_date
+        ),
     });
+
+    resetImage();
+
+    // Existing Cloudinary image
+    if (deal.image_url) {
+      setImagePreview(
+        deal.image_url
+      );
+    }
 
     setModalOpen(true);
   };
 
   // =====================================================
-  // DATE FORMAT
+  // CLOSE MODAL
   // =====================================================
 
-  const formatDateForInput = (value) => {
+  const closeModal = () => {
+    if (saving) return;
+
+    setModalOpen(false);
+
+    setEditingDeal(null);
+
+    setForm(EMPTY_FORM);
+
+    resetImage();
+  };
+
+  // =====================================================
+  // DATE FORMAT INPUT
+  // =====================================================
+
+  const formatDateForInput = (
+    value
+  ) => {
     if (!value) return "";
 
     const date = new Date(value);
 
-    if (Number.isNaN(date.getTime())) {
-      return String(value).substring(0, 10);
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return String(value).substring(
+        0,
+        10
+      );
     }
 
-    return date.toISOString().split("T")[0];
+    return date
+      .toISOString()
+      .split("T")[0];
   };
 
   // =====================================================
@@ -154,46 +319,76 @@ export default function TodaysDealsAdmin() {
 
   const validateForm = () => {
     if (!form.title.trim()) {
-      alert("Please enter deal title");
+      alert(
+        "Please enter deal title"
+      );
+
       return false;
     }
 
     if (!form.start_date) {
-      alert("Please select start date");
+      alert(
+        "Please select start date"
+      );
+
       return false;
     }
 
     if (!form.end_date) {
-      alert("Please select end date");
+      alert(
+        "Please select end date"
+      );
+
       return false;
     }
 
-    if (form.start_date > form.end_date) {
-      alert("End date cannot be before start date");
+    if (
+      form.start_date >
+      form.end_date
+    ) {
+      alert(
+        "End date cannot be before start date"
+      );
+
       return false;
     }
 
     if (
       form.price !== "" &&
-      Number.isNaN(Number(form.price))
+      Number.isNaN(
+        Number(form.price)
+      )
     ) {
-      alert("Please enter a valid price");
+      alert(
+        "Please enter a valid price"
+      );
+
       return false;
     }
 
     if (
       form.old_price !== "" &&
-      Number.isNaN(Number(form.old_price))
+      Number.isNaN(
+        Number(form.old_price)
+      )
     ) {
-      alert("Please enter a valid old price");
+      alert(
+        "Please enter a valid old price"
+      );
+
       return false;
     }
 
     if (
       form.product_id !== "" &&
-      Number.isNaN(Number(form.product_id))
+      Number.isNaN(
+        Number(form.product_id)
+      )
     ) {
-      alert("Product ID must be a number");
+      alert(
+        "Product ID must be a number"
+      );
+
       return false;
     }
 
@@ -201,7 +396,7 @@ export default function TodaysDealsAdmin() {
   };
 
   // =====================================================
-  // SAVE
+  // SAVE DEAL
   // =====================================================
 
   const saveDeal = async () => {
@@ -210,60 +405,121 @@ export default function TodaysDealsAdmin() {
     try {
       setSaving(true);
 
-      const payload = {
-        title: form.title.trim(),
-        subtitle: form.subtitle.trim(),
-        image_url: form.image_url.trim(),
-        discount_text: form.discount_text.trim(),
+      // =================================================
+      // FORMDATA
+      // =================================================
 
-        price:
-          form.price === ""
-            ? null
-            : Number(form.price),
+      const formData =
+        new FormData();
 
-        old_price:
-          form.old_price === ""
-            ? null
-            : Number(form.old_price),
+      formData.append(
+        "title",
+        form.title.trim()
+      );
 
-        button_text:
-          form.button_text.trim() || "Order Now",
+      formData.append(
+        "subtitle",
+        form.subtitle.trim()
+      );
 
-        button_screen:
-          form.button_screen.trim() || null,
+      formData.append(
+        "discount_text",
+        form.discount_text.trim()
+      );
 
-        product_id:
-          form.product_id === ""
-            ? null
-            : Number(form.product_id),
+      formData.append(
+        "price",
+        form.price === ""
+          ? ""
+          : String(form.price)
+      );
 
-        category: form.category.trim(),
+      formData.append(
+        "old_price",
+        form.old_price === ""
+          ? ""
+          : String(form.old_price)
+      );
 
-        is_active: form.is_active,
+      formData.append(
+        "button_text",
+        form.button_text.trim() ||
+          "Order Now"
+      );
 
-        start_date: form.start_date,
-        end_date: form.end_date,
-      };
+      formData.append(
+        "button_screen",
+        form.button_screen.trim()
+      );
+
+      formData.append(
+        "product_id",
+        form.product_id === ""
+          ? ""
+          : String(form.product_id)
+      );
+
+      formData.append(
+        "category",
+        form.category.trim()
+      );
+
+      formData.append(
+        "is_active",
+        String(form.is_active)
+      );
+
+      formData.append(
+        "start_date",
+        form.start_date
+      );
+
+      formData.append(
+        "end_date",
+        form.end_date
+      );
+
+      // =================================================
+      // IMAGE
+      // =================================================
+
+      if (selectedImage) {
+        formData.append(
+          "image",
+          selectedImage
+        );
+      }
+
+      // =================================================
+      // URL
+      // =================================================
 
       const url = editingDeal
-        ? `${API_BASE}/admin/todays-deals/${editingDeal.id}`
-        : `${API_BASE}/admin/todays-deals`;
+        ? `${API_BASE}/todaydeals/${editingDeal.id}`
+        : `${API_BASE}/todaydeals/admin/todays-deals`;
 
-      const method = editingDeal ? "PUT" : "POST";
+      const method =
+        editingDeal
+          ? "PUT"
+          : "POST";
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      // =================================================
+      // REQUEST
+      // =================================================
 
-      const data = await response.json();
+      const response =
+        await fetch(url, {
+          method,
+          body: formData,
+        });
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to save deal"
+          data.message ||
+            "Failed to save deal"
         );
       }
 
@@ -273,16 +529,18 @@ export default function TodaysDealsAdmin() {
           : "Deal created successfully"
       );
 
-      setModalOpen(false);
-      setEditingDeal(null);
-      setForm(EMPTY_FORM);
+      closeModal();
 
       await fetchDeals();
     } catch (err) {
-      console.error("SAVE DEAL ERROR:", err);
+      console.error(
+        "SAVE DEAL ERROR:",
+        err
+      );
 
       alert(
-        err.message || "Failed to save today's deal"
+        err.message ||
+          "Failed to save today's deal"
       );
     } finally {
       setSaving(false);
@@ -294,36 +552,43 @@ export default function TodaysDealsAdmin() {
   // =====================================================
 
   const deleteDeal = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this deal?"
-    );
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this deal?\n\nThe Cloudinary image will also be deleted."
+      );
 
     if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE}/admin/todays-deals/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response =
+        await fetch(
+          `${API_BASE}/admin/todays-deals/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to delete deal"
+          data.message ||
+            "Failed to delete deal"
         );
       }
 
-      alert("Deal deleted successfully");
+      alert(
+        "Deal deleted successfully"
+      );
 
       await fetchDeals();
     } catch (err) {
       console.error(err);
 
       alert(
-        err.message || "Failed to delete deal"
+        err.message ||
+          "Failed to delete deal"
       );
     }
   };
@@ -334,18 +599,21 @@ export default function TodaysDealsAdmin() {
 
   const toggleDeal = async (id) => {
     try {
-      const response = await fetch(
-        `${API_BASE}/admin/todays-deals/${id}/toggle`,
-        {
-          method: "PATCH",
-        }
-      );
+      const response =
+        await fetch(
+          `${API_BASE}/admin/todays-deals/${id}/toggle`,
+          {
+            method: "PATCH",
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to update status"
+          data.message ||
+            "Failed to update status"
         );
       }
 
@@ -354,7 +622,8 @@ export default function TodaysDealsAdmin() {
       console.error(err);
 
       alert(
-        err.message || "Failed to update deal status"
+        err.message ||
+          "Failed to update deal status"
       );
     }
   };
@@ -379,7 +648,6 @@ export default function TodaysDealsAdmin() {
 
   return (
     <div style={styles.page}>
-
       {/* HEADER */}
 
       <div style={styles.header}>
@@ -389,8 +657,8 @@ export default function TodaysDealsAdmin() {
           </h1>
 
           <p style={styles.description}>
-            Manage promotional offers displayed to
-            customers.
+            Manage promotional offers
+            displayed to customers.
           </p>
         </div>
 
@@ -410,21 +678,27 @@ export default function TodaysDealsAdmin() {
         </div>
       )}
 
-      {/* DEAL COUNT */}
+      {/* SUMMARY */}
 
       <div style={styles.summary}>
         <div style={styles.summaryCard}>
-          <span style={styles.summaryLabel}>
+          <span
+            style={styles.summaryLabel}
+          >
             Total Deals
           </span>
 
-          <strong style={styles.summaryValue}>
+          <strong
+            style={styles.summaryValue}
+          >
             {deals.length}
           </strong>
         </div>
 
         <div style={styles.summaryCard}>
-          <span style={styles.summaryLabel}>
+          <span
+            style={styles.summaryLabel}
+          >
             Active
           </span>
 
@@ -436,14 +710,17 @@ export default function TodaysDealsAdmin() {
           >
             {
               deals.filter(
-                (deal) => deal.is_active
+                (deal) =>
+                  deal.is_active
               ).length
             }
           </strong>
         </div>
 
         <div style={styles.summaryCard}>
-          <span style={styles.summaryLabel}>
+          <span
+            style={styles.summaryLabel}
+          >
             Inactive
           </span>
 
@@ -455,7 +732,8 @@ export default function TodaysDealsAdmin() {
           >
             {
               deals.filter(
-                (deal) => !deal.is_active
+                (deal) =>
+                  !deal.is_active
               ).length
             }
           </strong>
@@ -473,7 +751,8 @@ export default function TodaysDealsAdmin() {
           <h3>No deals found</h3>
 
           <p>
-            Create your first Today's Deal.
+            Create your first
+            Today's Deal.
           </p>
 
           <button
@@ -490,10 +769,13 @@ export default function TodaysDealsAdmin() {
               key={deal.id}
               style={styles.card}
             >
-
               {/* IMAGE */}
 
-              <div style={styles.imageContainer}>
+              <div
+                style={
+                  styles.imageContainer
+                }
+              >
                 {deal.image_url ? (
                   <img
                     src={deal.image_url}
@@ -501,13 +783,19 @@ export default function TodaysDealsAdmin() {
                     style={styles.image}
                   />
                 ) : (
-                  <div style={styles.noImage}>
+                  <div
+                    style={styles.noImage}
+                  >
                     No Image
                   </div>
                 )}
 
                 {deal.discount_text && (
-                  <div style={styles.discountBadge}>
+                  <div
+                    style={
+                      styles.discountBadge
+                    }
+                  >
                     {deal.discount_text}
                   </div>
                 )}
@@ -515,12 +803,14 @@ export default function TodaysDealsAdmin() {
                 <div
                   style={{
                     ...styles.statusBadge,
-                    backgroundColor: deal.is_active
-                      ? "#dcfce7"
-                      : "#fee2e2",
-                    color: deal.is_active
-                      ? "#166534"
-                      : "#991b1b",
+                    backgroundColor:
+                      deal.is_active
+                        ? "#dcfce7"
+                        : "#fee2e2",
+                    color:
+                      deal.is_active
+                        ? "#166534"
+                        : "#991b1b",
                   }}
                 >
                   {deal.is_active
@@ -531,68 +821,123 @@ export default function TodaysDealsAdmin() {
 
               {/* CONTENT */}
 
-              <div style={styles.cardContent}>
-
-                <h3 style={styles.cardTitle}>
+              <div
+                style={
+                  styles.cardContent
+                }
+              >
+                <h3
+                  style={
+                    styles.cardTitle
+                  }
+                >
                   {deal.title}
                 </h3>
 
                 {deal.subtitle && (
-                  <p style={styles.cardSubtitle}>
+                  <p
+                    style={
+                      styles.cardSubtitle
+                    }
+                  >
                     {deal.subtitle}
                   </p>
                 )}
 
                 {/* PRICE */}
 
-                <div style={styles.priceRow}>
-                  {deal.price !== null &&
-                    deal.price !== undefined && (
-                      <strong style={styles.price}>
+                <div
+                  style={
+                    styles.priceRow
+                  }
+                >
+                  {deal.price !==
+                    null &&
+                    deal.price !==
+                      undefined && (
+                      <strong
+                        style={
+                          styles.price
+                        }
+                      >
                         ₹{deal.price}
                       </strong>
                     )}
 
-                  {deal.old_price !== null &&
-                    deal.old_price !== undefined && (
+                  {deal.old_price !==
+                    null &&
+                    deal.old_price !==
+                      undefined && (
                       <span
-                        style={styles.oldPrice}
+                        style={
+                          styles.oldPrice
+                        }
                       >
-                        ₹{deal.old_price}
+                        ₹
+                        {
+                          deal.old_price
+                        }
                       </span>
                     )}
                 </div>
 
                 {/* DETAILS */}
 
-                <div style={styles.details}>
-
+                <div
+                  style={styles.details}
+                >
                   <div>
-                    <span style={styles.detailLabel}>
+                    <span
+                      style={
+                        styles.detailLabel
+                      }
+                    >
                       Category
                     </span>
 
-                    <span style={styles.detailValue}>
-                      {deal.category || "-"}
+                    <span
+                      style={
+                        styles.detailValue
+                      }
+                    >
+                      {deal.category ||
+                        "-"}
                     </span>
                   </div>
 
                   <div>
-                    <span style={styles.detailLabel}>
+                    <span
+                      style={
+                        styles.detailLabel
+                      }
+                    >
                       Product ID
                     </span>
 
-                    <span style={styles.detailValue}>
-                      {deal.product_id || "-"}
+                    <span
+                      style={
+                        styles.detailValue
+                      }
+                    >
+                      {deal.product_id ||
+                        "-"}
                     </span>
                   </div>
 
                   <div>
-                    <span style={styles.detailLabel}>
+                    <span
+                      style={
+                        styles.detailLabel
+                      }
+                    >
                       Valid From
                     </span>
 
-                    <span style={styles.detailValue}>
+                    <span
+                      style={
+                        styles.detailValue
+                      }
+                    >
                       {formatDateForDisplay(
                         deal.start_date
                       )}
@@ -600,27 +945,39 @@ export default function TodaysDealsAdmin() {
                   </div>
 
                   <div>
-                    <span style={styles.detailLabel}>
+                    <span
+                      style={
+                        styles.detailLabel
+                      }
+                    >
                       Valid Until
                     </span>
 
-                    <span style={styles.detailValue}>
+                    <span
+                      style={
+                        styles.detailValue
+                      }
+                    >
                       {formatDateForDisplay(
                         deal.end_date
                       )}
                     </span>
                   </div>
-
                 </div>
 
                 {/* ACTIONS */}
 
-                <div style={styles.actions}>
-
+                <div
+                  style={styles.actions}
+                >
                   <button
-                    style={styles.editButton}
+                    style={
+                      styles.editButton
+                    }
                     onClick={() =>
-                      openEditModal(deal)
+                      openEditModal(
+                        deal
+                      )
                     }
                   >
                     ✏️ Edit
@@ -633,7 +990,9 @@ export default function TodaysDealsAdmin() {
                         : styles.enableButton
                     }
                     onClick={() =>
-                      toggleDeal(deal.id)
+                      toggleDeal(
+                        deal.id
+                      )
                     }
                   >
                     {deal.is_active
@@ -642,16 +1001,18 @@ export default function TodaysDealsAdmin() {
                   </button>
 
                   <button
-                    style={styles.deleteButton}
+                    style={
+                      styles.deleteButton
+                    }
                     onClick={() =>
-                      deleteDeal(deal.id)
+                      deleteDeal(
+                        deal.id
+                      )
                     }
                   >
                     🗑 Delete
                   </button>
-
                 </div>
-
               </div>
             </div>
           ))}
@@ -663,45 +1024,68 @@ export default function TodaysDealsAdmin() {
       ================================================= */}
 
       {modalOpen && (
-        <div style={styles.modalOverlay}>
+        <div
+          style={
+            styles.modalOverlay
+          }
+        >
+          <div
+            style={styles.modal}
+          >
+            {/* HEADER */}
 
-          <div style={styles.modal}>
-
-            {/* MODAL HEADER */}
-
-            <div style={styles.modalHeader}>
-
+            <div
+              style={
+                styles.modalHeader
+              }
+            >
               <div>
-                <h2 style={styles.modalTitle}>
+                <h2
+                  style={
+                    styles.modalTitle
+                  }
+                >
                   {editingDeal
                     ? "Edit Deal"
                     : "Add Today's Deal"}
                 </h2>
 
-                <p style={styles.modalSubtitle}>
-                  Configure the customer promotion.
+                <p
+                  style={
+                    styles.modalSubtitle
+                  }
+                >
+                  Configure the customer
+                  promotion.
                 </p>
               </div>
 
               <button
-                style={styles.closeButton}
-                onClick={() =>
-                  setModalOpen(false)
+                style={
+                  styles.closeButton
                 }
+                onClick={closeModal}
+                disabled={saving}
               >
                 ✕
               </button>
-
             </div>
 
             {/* FORM */}
 
-            <div style={styles.form}>
-
+            <div
+              style={styles.form}
+            >
               {/* TITLE */}
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
+              <div
+                style={
+                  styles.formGroup
+                }
+              >
+                <label
+                  style={styles.label}
+                >
                   Deal Title *
                 </label>
 
@@ -720,8 +1104,14 @@ export default function TodaysDealsAdmin() {
 
               {/* SUBTITLE */}
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
+              <div
+                style={
+                  styles.formGroup
+                }
+              >
+                <label
+                  style={styles.label}
+                >
                   Subtitle
                 </label>
 
@@ -738,50 +1128,150 @@ export default function TodaysDealsAdmin() {
                 />
               </div>
 
-              {/* IMAGE */}
+              {/* IMAGE UPLOAD */}
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
-                  Image URL
+              <div
+                style={
+                  styles.formGroup
+                }
+              >
+                <label
+                  style={styles.label}
+                >
+                  Deal Image
                 </label>
 
                 <input
-                  style={styles.input}
-                  value={form.image_url}
-                  onChange={(e) =>
-                    handleChange(
-                      "image_url",
-                      e.target.value
-                    )
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={
+                    handleImageChange
                   }
-                  placeholder="https://..."
+                  style={
+                    styles.hiddenFileInput
+                  }
                 />
 
-                {form.image_url && (
-                  <img
-                    src={form.image_url}
-                    alt="Preview"
-                    style={styles.preview}
-                    onError={(e) => {
-                      e.currentTarget.style.display =
-                        "none";
-                    }}
-                  />
-                )}
+                <div
+                  style={
+                    styles.imageUploadBox
+                  }
+                >
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="Deal Preview"
+                      style={
+                        styles.largePreview
+                      }
+                    />
+                  ) : (
+                    <div
+                      style={
+                        styles.uploadPlaceholder
+                      }
+                    >
+                      <div
+                        style={
+                          styles.uploadIcon
+                        }
+                      >
+                        🖼️
+                      </div>
+
+                      <div
+                        style={
+                          styles.uploadText
+                        }
+                      >
+                        No image selected
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={
+                    styles.imageButtons
+                  }
+                >
+                  <button
+                    type="button"
+                    style={
+                      styles.chooseImageButton
+                    }
+                    onClick={
+                      chooseImage
+                    }
+                  >
+                    📁{" "}
+                    {selectedImage
+                      ? "Change Image"
+                      : "Choose Image"}
+                  </button>
+
+                  {selectedImage && (
+                    <button
+                      type="button"
+                      style={
+                        styles.removeImageButton
+                      }
+                      onClick={
+                        resetImage
+                      }
+                    >
+                      ✕ Remove
+                    </button>
+                  )}
+                </div>
+
+                <p
+                  style={
+                    styles.imageHelp
+                  }
+                >
+                  JPG, PNG, WEBP • Maximum
+                  5 MB
+                </p>
+
+                {editingDeal &&
+                  !selectedImage &&
+                  editingDeal.image_url && (
+                    <p
+                      style={
+                        styles.existingImageText
+                      }
+                    >
+                      Existing Cloudinary
+                      image will be kept
+                      unless you select a
+                      new image.
+                    </p>
+                  )}
               </div>
 
-              {/* TWO COLUMN */}
+              {/* DISCOUNT / CATEGORY */}
 
-              <div style={styles.formRow}>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+              <div
+                style={styles.formRow}
+              >
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Discount
                   </label>
 
                   <input
                     style={styles.input}
-                    value={form.discount_text}
+                    value={
+                      form.discount_text
+                    }
                     onChange={(e) =>
                       handleChange(
                         "discount_text",
@@ -792,14 +1282,22 @@ export default function TodaysDealsAdmin() {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Category
                   </label>
 
                   <input
                     style={styles.input}
-                    value={form.category}
+                    value={
+                      form.category
+                    }
                     onChange={(e) =>
                       handleChange(
                         "category",
@@ -809,15 +1307,21 @@ export default function TodaysDealsAdmin() {
                     placeholder="Water / Grocery"
                   />
                 </div>
-
               </div>
 
               {/* PRICE */}
 
-              <div style={styles.formRow}>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+              <div
+                style={styles.formRow}
+              >
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Current Price
                   </label>
 
@@ -835,15 +1339,23 @@ export default function TodaysDealsAdmin() {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Old Price
                   </label>
 
                   <input
                     type="number"
                     style={styles.input}
-                    value={form.old_price}
+                    value={
+                      form.old_price
+                    }
                     onChange={(e) =>
                       handleChange(
                         "old_price",
@@ -853,22 +1365,30 @@ export default function TodaysDealsAdmin() {
                     placeholder="50"
                   />
                 </div>
-
               </div>
 
               {/* PRODUCT */}
 
-              <div style={styles.formRow}>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+              <div
+                style={styles.formRow}
+              >
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Product ID
                   </label>
 
                   <input
                     type="number"
                     style={styles.input}
-                    value={form.product_id}
+                    value={
+                      form.product_id
+                    }
                     onChange={(e) =>
                       handleChange(
                         "product_id",
@@ -879,14 +1399,22 @@ export default function TodaysDealsAdmin() {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Button Text
                   </label>
 
                   <input
                     style={styles.input}
-                    value={form.button_text}
+                    value={
+                      form.button_text
+                    }
                     onChange={(e) =>
                       handleChange(
                         "button_text",
@@ -896,19 +1424,26 @@ export default function TodaysDealsAdmin() {
                     placeholder="Order Now"
                   />
                 </div>
-
               </div>
 
               {/* SCREEN */}
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>
+              <div
+                style={
+                  styles.formGroup
+                }
+              >
+                <label
+                  style={styles.label}
+                >
                   Button Screen
                 </label>
 
                 <select
                   style={styles.input}
-                  value={form.button_screen}
+                  value={
+                    form.button_screen
+                  }
                   onChange={(e) =>
                     handleChange(
                       "button_screen",
@@ -936,17 +1471,26 @@ export default function TodaysDealsAdmin() {
 
               {/* DATES */}
 
-              <div style={styles.formRow}>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+              <div
+                style={styles.formRow}
+              >
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     Start Date *
                   </label>
 
                   <input
                     type="date"
                     style={styles.input}
-                    value={form.start_date}
+                    value={
+                      form.start_date
+                    }
                     onChange={(e) =>
                       handleChange(
                         "start_date",
@@ -956,15 +1500,23 @@ export default function TodaysDealsAdmin() {
                   />
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
+                <div
+                  style={
+                    styles.formGroup
+                  }
+                >
+                  <label
+                    style={styles.label}
+                  >
                     End Date *
                   </label>
 
                   <input
                     type="date"
                     style={styles.input}
-                    value={form.end_date}
+                    value={
+                      form.end_date
+                    }
                     onChange={(e) =>
                       handleChange(
                         "end_date",
@@ -973,16 +1525,18 @@ export default function TodaysDealsAdmin() {
                     }
                   />
                 </div>
-
               </div>
 
               {/* ACTIVE */}
 
-              <label style={styles.activeRow}>
-
+              <label
+                style={styles.activeRow}
+              >
                 <input
                   type="checkbox"
-                  checked={form.is_active}
+                  checked={
+                    form.is_active
+                  }
                   onChange={(e) =>
                     handleChange(
                       "is_active",
@@ -992,70 +1546,81 @@ export default function TodaysDealsAdmin() {
                 />
 
                 <span>
-                  Show this deal to customers
+                  Show this deal to
+                  customers
                 </span>
-
               </label>
-
             </div>
 
             {/* FOOTER */}
 
-            <div style={styles.modalFooter}>
-
+            <div
+              style={
+                styles.modalFooter
+              }
+            >
               <button
-                style={styles.cancelButton}
-                onClick={() =>
-                  setModalOpen(false)
+                style={
+                  styles.cancelButton
                 }
+                onClick={closeModal}
                 disabled={saving}
               >
                 Cancel
               </button>
 
               <button
-                style={styles.saveButton}
+                style={
+                  styles.saveButton
+                }
                 onClick={saveDeal}
                 disabled={saving}
               >
                 {saving
-                  ? "Saving..."
+                  ? "Uploading & Saving..."
                   : editingDeal
                   ? "Update Deal"
                   : "Create Deal"}
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
     </div>
   );
 }
 
-
 // ======================================================
 // DATE DISPLAY
 // ======================================================
 
-function formatDateForDisplay(value) {
+function formatDateForDisplay(
+  value
+) {
   if (!value) return "-";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return String(value).substring(0, 10);
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return String(value).substring(
+      0,
+      10
+    );
   }
 
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  );
 }
-
 
 // ======================================================
 // STYLES
@@ -1129,7 +1694,8 @@ const styles = {
     borderRadius: "10px",
     padding: "16px 22px",
     minWidth: "150px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    boxShadow:
+      "0 1px 3px rgba(0,0,0,0.04)",
   },
 
   summaryLabel: {
@@ -1156,7 +1722,8 @@ const styles = {
     borderRadius: "12px",
     overflow: "hidden",
     border: "1px solid #e5e7eb",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+    boxShadow:
+      "0 2px 8px rgba(0,0,0,0.05)",
   },
 
   imageContainer: {
@@ -1232,15 +1799,19 @@ const styles = {
   oldPrice: {
     color: "#9ca3af",
     fontSize: "13px",
-    textDecoration: "line-through",
+    textDecoration:
+      "line-through",
   },
 
   details: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns:
+      "1fr 1fr",
     gap: "10px",
-    borderTop: "1px solid #f0f0f0",
-    borderBottom: "1px solid #f0f0f0",
+    borderTop:
+      "1px solid #f0f0f0",
+    borderBottom:
+      "1px solid #f0f0f0",
     padding: "12px 0",
   },
 
@@ -1267,7 +1838,8 @@ const styles = {
 
   editButton: {
     flex: 1,
-    border: "1px solid #2563eb",
+    border:
+      "1px solid #2563eb",
     backgroundColor: "#eff6ff",
     color: "#2563eb",
     padding: "8px 10px",
@@ -1278,7 +1850,8 @@ const styles = {
 
   disableButton: {
     flex: 1,
-    border: "1px solid #d97706",
+    border:
+      "1px solid #d97706",
     backgroundColor: "#fff7ed",
     color: "#c2410c",
     padding: "8px 10px",
@@ -1289,7 +1862,8 @@ const styles = {
 
   enableButton: {
     flex: 1,
-    border: "1px solid #16a34a",
+    border:
+      "1px solid #16a34a",
     backgroundColor: "#f0fdf4",
     color: "#15803d",
     padding: "8px 10px",
@@ -1300,7 +1874,8 @@ const styles = {
 
   deleteButton: {
     flex: 1,
-    border: "1px solid #dc2626",
+    border:
+      "1px solid #dc2626",
     backgroundColor: "#fef2f2",
     color: "#dc2626",
     padding: "8px 10px",
@@ -1314,7 +1889,8 @@ const styles = {
     borderRadius: "12px",
     padding: "60px 20px",
     textAlign: "center",
-    border: "1px solid #e5e7eb",
+    border:
+      "1px solid #e5e7eb",
   },
 
   emptyIcon: {
@@ -1322,10 +1898,15 @@ const styles = {
     marginBottom: "10px",
   },
 
+  // ====================================================
+  // MODAL
+  // ====================================================
+
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor:
+      "rgba(0,0,0,0.55)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -1347,9 +1928,11 @@ const styles = {
 
   modalHeader: {
     padding: "20px 22px",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom:
+      "1px solid #e5e7eb",
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "flex-start",
   },
 
@@ -1383,6 +1966,7 @@ const styles = {
   formGroup: {
     flex: 1,
     marginBottom: "15px",
+    minWidth: 0,
   },
 
   formRow: {
@@ -1401,7 +1985,8 @@ const styles = {
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #d1d5db",
+    border:
+      "1px solid #d1d5db",
     borderRadius: "7px",
     padding: "10px 11px",
     fontSize: "13px",
@@ -1409,13 +1994,89 @@ const styles = {
     backgroundColor: "#fff",
   },
 
-  preview: {
-    width: "100px",
-    height: "70px",
+  // ====================================================
+  // IMAGE UPLOAD
+  // ====================================================
+
+  hiddenFileInput: {
+    display: "none",
+  },
+
+  imageUploadBox: {
+    width: "100%",
+    height: "190px",
+    border:
+      "2px dashed #d1d5db",
+    borderRadius: "10px",
+    backgroundColor: "#f9fafb",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  largePreview: {
+    width: "100%",
+    height: "100%",
     objectFit: "cover",
+  },
+
+  uploadPlaceholder: {
+    textAlign: "center",
+    color: "#9ca3af",
+  },
+
+  uploadIcon: {
+    fontSize: "40px",
+    marginBottom: "8px",
+  },
+
+  uploadText: {
+    fontSize: "13px",
+    fontWeight: 600,
+  },
+
+  imageButtons: {
+    display: "flex",
+    gap: "8px",
+    marginTop: "9px",
+    flexWrap: "wrap",
+  },
+
+  chooseImageButton: {
+    border:
+      "1px solid #2563eb",
+    backgroundColor: "#eff6ff",
+    color: "#2563eb",
+    padding: "9px 14px",
     borderRadius: "7px",
-    marginTop: "8px",
-    border: "1px solid #ddd",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: "12px",
+  },
+
+  removeImageButton: {
+    border:
+      "1px solid #dc2626",
+    backgroundColor: "#fef2f2",
+    color: "#dc2626",
+    padding: "9px 14px",
+    borderRadius: "7px",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: "12px",
+  },
+
+  imageHelp: {
+    margin: "6px 0 0",
+    color: "#9ca3af",
+    fontSize: "11px",
+  },
+
+  existingImageText: {
+    margin: "5px 0 0",
+    color: "#16a34a",
+    fontSize: "11px",
   },
 
   activeRow: {
@@ -1429,14 +2090,17 @@ const styles = {
 
   modalFooter: {
     padding: "15px 22px",
-    borderTop: "1px solid #e5e7eb",
+    borderTop:
+      "1px solid #e5e7eb",
     display: "flex",
-    justifyContent: "flex-end",
+    justifyContent:
+      "flex-end",
     gap: "10px",
   },
 
   cancelButton: {
-    border: "1px solid #d1d5db",
+    border:
+      "1px solid #d1d5db",
     backgroundColor: "#fff",
     color: "#374151",
     padding: "10px 18px",

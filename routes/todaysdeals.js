@@ -295,7 +295,8 @@ router.get(
 
 // ======================================================
 // ADMIN - CREATE DEAL
-// IMAGE FILE UPLOAD
+// Upload image to Cloudinary
+// Does NOT require image_public_id column
 // ======================================================
 
 router.post(
@@ -318,9 +319,9 @@ router.post(
         end_date,
       } = req.body;
 
-      // ------------------------------------------
+      // ==================================================
       // VALIDATION
-      // ------------------------------------------
+      // ==================================================
 
       if (!title || !title.trim()) {
         return res.status(400).json({
@@ -328,23 +329,37 @@ router.post(
         });
       }
 
-      const dateError = validateDates(
-        start_date,
-        end_date
-      );
-
-      if (dateError) {
+      if (!start_date || !end_date) {
         return res.status(400).json({
-          message: dateError,
+          message: "Start date and end date are required",
         });
       }
 
-      // ------------------------------------------
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        return res.status(400).json({
+          message: "Invalid start date or end date",
+        });
+      }
+
+      if (startDate > endDate) {
+        return res.status(400).json({
+          message: "Start date cannot be after end date",
+        });
+      }
+
+      // ==================================================
       // PRICE VALIDATION
-      // ------------------------------------------
+      // ==================================================
 
       if (
         price !== undefined &&
+        price !== null &&
         price !== "" &&
         Number.isNaN(Number(price))
       ) {
@@ -355,6 +370,7 @@ router.post(
 
       if (
         old_price !== undefined &&
+        old_price !== null &&
         old_price !== "" &&
         Number.isNaN(Number(old_price))
       ) {
@@ -365,6 +381,7 @@ router.post(
 
       if (
         product_id !== undefined &&
+        product_id !== null &&
         product_id !== "" &&
         Number.isNaN(Number(product_id))
       ) {
@@ -373,24 +390,38 @@ router.post(
         });
       }
 
-      // ------------------------------------------
-      // UPLOAD IMAGE
-      // ------------------------------------------
+      // ==================================================
+      // CLOUDINARY IMAGE UPLOAD
+      // ==================================================
 
       let imageUrl = null;
-      let imagePublicId = null;
 
       if (req.file) {
-        const uploaded =
-          await uploadToCloudinary(req.file);
+        try {
+          const uploaded = await uploadToCloudinary(req.file);
 
-        imageUrl = uploaded.secure_url;
-        imagePublicId = uploaded.public_id;
+          imageUrl = uploaded.secure_url;
+
+          console.log(
+            "Today's Deal image uploaded:",
+            imageUrl
+          );
+        } catch (uploadError) {
+          console.error(
+            "CLOUDINARY UPLOAD ERROR:",
+            uploadError
+          );
+
+          return res.status(500).json({
+            message: "Failed to upload deal image",
+            error: uploadError.message,
+          });
+        }
       }
 
-      // ------------------------------------------
+      // ==================================================
       // INSERT
-      // ------------------------------------------
+      // ==================================================
 
       const result = await pool.query(
         `
@@ -398,7 +429,6 @@ router.post(
           title,
           subtitle,
           image_url,
-          image_public_id,
           discount_text,
           price,
           old_price,
@@ -423,8 +453,7 @@ router.post(
           $10,
           $11,
           $12,
-          $13,
-          $14
+          $13
         )
         RETURNING *
         `,
@@ -435,23 +464,36 @@ router.post(
 
           imageUrl,
 
-          imagePublicId,
-
           discount_text?.trim() || null,
 
-          nullableNumber(price),
+          price !== undefined &&
+          price !== null &&
+          price !== ""
+            ? Number(price)
+            : null,
 
-          nullableNumber(old_price),
+          old_price !== undefined &&
+          old_price !== null &&
+          old_price !== ""
+            ? Number(old_price)
+            : null,
 
           button_text?.trim() || "Order Now",
 
           button_screen?.trim() || null,
 
-          nullableNumber(product_id),
+          product_id !== undefined &&
+          product_id !== null &&
+          product_id !== ""
+            ? Number(product_id)
+            : null,
 
           category?.trim() || null,
 
-          parseBoolean(is_active, true),
+          is_active === undefined
+            ? true
+            : is_active === true ||
+              is_active === "true",
 
           start_date,
 
@@ -459,7 +501,11 @@ router.post(
         ]
       );
 
-      res.status(201).json({
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      return res.status(201).json({
         message: "Deal created successfully",
         deal: result.rows[0],
       });
@@ -469,14 +515,13 @@ router.post(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to create deal",
         error: error.message,
       });
     }
   }
 );
-
 // ======================================================
 // ADMIN - UPDATE DEAL
 // IMAGE IS OPTIONAL
