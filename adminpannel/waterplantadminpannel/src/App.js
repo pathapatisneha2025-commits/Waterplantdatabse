@@ -1,4 +1,14 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
+// ============================================================
+// PAGES
+// ============================================================
+
 import GroceryList from "./Pages/AdmingroceryListing";
 import AddGrocery from "./Pages/AdminAddGrocery";
 import AdminLayout from "./components/AdminLayout";
@@ -12,39 +22,183 @@ import GroceryDashboard from "./Pages/Dashboard";
 import AdminLogin from "./Pages/Adminlogin";
 import AdminWaterPlantCategory from "./Pages/AdminAddCategories";
 import BannerManagement from "./Pages/BannerManagement";
+
+// ============================================================
+// GLOBAL NOTIFICATION
+// ============================================================
+
+import GlobalOrderNotification from "./components/GlobalNotificationSounds";
+
+// ============================================================
+// APP
+// ============================================================
+
 function App() {
   return (
-  <Router>
-  <Routes>
-    <Route path="/" element={<Navigate to="/login" />} />
-<Route path="/login" element={<AdminLogin/>} />
+    <Router>
 
-    <Route path="/" element={<AdminLayout />} >
-    <Route path="/dashboard" element={<GroceryDashboard />} />
-</Route>
-    <Route path="/admincatagories" element={<AdminWaterPlantCategory />} />
+      {/* ======================================================
+          GLOBAL ORDER NOTIFICATION
 
-    <Route path="/admingrocerylisting" element={<GroceryList />} />
-    <Route path="/adminbanner" element={<BannerManagement />} />
+          IMPORTANT:
+          This is OUTSIDE <Routes>.
 
-<Route path="/adminGrocery" element={<AddGrocery />} />
-<Route path="/customermanagement" element={<CustomerManagement />} />
-<Route path="/ordersassigndriver" element={<OrdersAssignDriver />} />
-<Route path="/drivermanagement" element={<DriverManagement />} />
-<Route path="/adminorders" element={<AdminOrdersScreen />} />
-<Route path="/stockinventory" element={<GroceryListStock />} />
-<Route path="/driverearnings" element={<AdminDriverDashboard />} />
+          Therefore it stays mounted while navigating between:
+          Dashboard
+          Orders
+          Grocery
+          Inventory
+          Drivers
+          Customers
+          Categories
+          etc.
 
+          The order count and sound will continue globally.
+          ====================================================== */}
 
+      <GlobalOrderNotification />
 
+      {/* ======================================================
+          ROUTES
+          ====================================================== */}
 
+      <Routes>
 
+        {/* ====================================================
+            DEFAULT
+            ==================================================== */}
 
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to="/login"
+              replace
+            />
+          }
+        />
 
-    <Route path="*" element={<h2>Page Not Found</h2>} />
-  </Routes>
-</Router>
+        {/* ====================================================
+            LOGIN
+            ==================================================== */}
 
+        <Route
+          path="/login"
+          element={<AdminLogin />}
+        />
+
+        {/* ====================================================
+            ADMIN LAYOUT
+            ==================================================== */}
+
+        <Route
+          element={<AdminLayout />}
+        >
+
+          <Route
+            path="/dashboard"
+            element={<GroceryDashboard />}
+          />
+
+        </Route>
+
+        {/* ====================================================
+            ADMIN PAGES
+            ==================================================== */}
+
+        <Route
+          path="/admincatagories"
+          element={
+            <AdminWaterPlantCategory />
+          }
+        />
+
+        <Route
+          path="/admingrocerylisting"
+          element={
+            <GroceryList />
+          }
+        />
+
+        <Route
+          path="/adminbanner"
+          element={
+            <BannerManagement />
+          }
+        />
+
+        <Route
+          path="/adminGrocery"
+          element={
+            <AddGrocery />
+          }
+        />
+
+        <Route
+          path="/customermanagement"
+          element={
+            <CustomerManagement />
+          }
+        />
+
+        <Route
+          path="/ordersassigndriver"
+          element={
+            <OrdersAssignDriver />
+          }
+        />
+
+        <Route
+          path="/drivermanagement"
+          element={
+            <DriverManagement />
+          }
+        />
+
+        <Route
+          path="/adminorders"
+          element={
+            <AdminOrdersScreen />
+          }
+        />
+
+        <Route
+          path="/stockinventory"
+          element={
+            <GroceryListStock />
+          }
+        />
+
+        <Route
+          path="/driverearnings"
+          element={
+            <AdminDriverDashboard />
+          }
+        />
+
+        {/* ====================================================
+            404
+            ==================================================== */}
+
+        <Route
+          path="*"
+          element={
+            <div
+              style={{
+                padding: "40px",
+                textAlign: "center",
+              }}
+            >
+              <h2>
+                Page Not Found
+              </h2>
+            </div>
+          }
+        />
+
+      </Routes>
+
+    </Router>
   );
 }
 
