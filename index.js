@@ -8,6 +8,7 @@ const Groceries = require("./routes/Groceriesadd");
 const Categories = require("./routes/categories");
 const Banners = require("./routes/banner");
 const todaysdeals = require("./routes/todaysdeals");
+const wishlists = require("./routes/wishlists");
 
 
 
@@ -28,6 +29,8 @@ app.use("/groceries",Groceries);
 app.use("/categories",Categories);
 app.use("/banner",Banners);
 app.use("/todaydeals",todaysdeals);
+app.use("/wishlists",wishlists);
+
 
 
 app.listen(5000, () => {

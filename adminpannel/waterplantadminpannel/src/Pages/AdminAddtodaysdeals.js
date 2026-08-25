@@ -3,7 +3,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-
+import { useNavigate } from "react-router-dom";
 const API_BASE =
   "https://waterplantdatabse-v763.onrender.com";
 
@@ -23,6 +23,7 @@ const EMPTY_FORM = {
 };
 
 export default function TodaysDealsAdmin() {
+    const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -495,7 +496,7 @@ export default function TodaysDealsAdmin() {
       // =================================================
 
       const url = editingDeal
-        ? `${API_BASE}/todaydeals/${editingDeal.id}`
+        ? `${API_BASE}/todaydeals/admin/todays-deals/${editingDeal.id}`
         : `${API_BASE}/todaydeals/admin/todays-deals`;
 
       const method =
@@ -649,27 +650,48 @@ export default function TodaysDealsAdmin() {
   return (
     <div style={styles.page}>
       {/* HEADER */}
+{/* HEADER */}
 
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.heading}>
-            Today's Deals
-          </h1>
+<div style={styles.header}>
 
-          <p style={styles.description}>
-            Manage promotional offers
-            displayed to customers.
-          </p>
-        </div>
+  {/* LEFT SIDE */}
 
-        <button
-          style={styles.addButton}
-          onClick={openAddModal}
-        >
-          + Add Deal
-        </button>
-      </div>
+  <div style={styles.headerLeft}>
 
+    {/* BACK BUTTON */}
+
+    <button
+      type="button"
+      style={styles.backButton}
+      onClick={() => navigate(-1)}
+      title="Go Back"
+    >
+      ←
+    </button>
+
+    <div>
+      <h1 style={styles.heading}>
+        Today's Deals
+      </h1>
+
+      <p style={styles.description}>
+        Manage promotional offers
+        displayed to customers.
+      </p>
+    </div>
+
+  </div>
+
+  {/* ADD DEAL */}
+
+  <button
+    style={styles.addButton}
+    onClick={openAddModal}
+  >
+    + Add Deal
+  </button>
+
+</div>
       {/* ERROR */}
 
       {error && (
@@ -2118,4 +2140,25 @@ const styles = {
     cursor: "pointer",
     fontWeight: 700,
   },
+  headerLeft: {
+  display: "flex",
+  alignItems: "center",
+  gap: "14px",
+},
+
+backButton: {
+  width: "42px",
+  height: "42px",
+  borderRadius: "9px",
+  border: "1px solid #e5e7eb",
+  backgroundColor: "#ffffff",
+  color: "#374151",
+  fontSize: "24px",
+  fontWeight: 700,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "all 0.2s ease",
+},
 };
