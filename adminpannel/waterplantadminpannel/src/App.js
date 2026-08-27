@@ -1,8 +1,11 @@
+import React from "react";
+
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 
 // ============================================================
@@ -22,13 +25,28 @@ import GroceryDashboard from "./Pages/Dashboard";
 import AdminLogin from "./Pages/Adminlogin";
 import AdminWaterPlantCategory from "./Pages/AdminAddCategories";
 import BannerManagement from "./Pages/BannerManagement";
+import TodaysDealsAdmin from "./Pages/AdminAddtodaysdeals";
 
 // ============================================================
 // GLOBAL NOTIFICATION
 // ============================================================
 
 import GlobalOrderNotification from "./components/GlobalNotificationSounds";
-import TodaysDealsAdmin from "./Pages/AdminAddtodaysdeals";
+
+// ============================================================
+// GLOBAL NOTIFICATION WRAPPER
+// ============================================================
+
+function GlobalNotificationWrapper() {
+  const location = useLocation();
+
+  // Don't show notification on login page
+  if (location.pathname === "/login") {
+    return null;
+  }
+
+  return <GlobalOrderNotification />;
+}
 
 // ============================================================
 // APP
@@ -41,23 +59,10 @@ function App() {
       {/* ======================================================
           GLOBAL ORDER NOTIFICATION
 
-          IMPORTANT:
-          This is OUTSIDE <Routes>.
-
-          Therefore it stays mounted while navigating between:
-          Dashboard
-          Orders
-          Grocery
-          Inventory
-          Drivers
-          Customers
-          Categories
-          etc.
-
-          The order count and sound will continue globally.
+          It will work on all pages EXCEPT /login
           ====================================================== */}
 
-      <GlobalOrderNotification />
+      <GlobalNotificationWrapper />
 
       {/* ======================================================
           ROUTES
@@ -109,79 +114,59 @@ function App() {
 
         <Route
           path="/admincatagories"
-          element={
-            <AdminWaterPlantCategory />
-          }
+          element={<AdminWaterPlantCategory />}
         />
 
         <Route
           path="/admingrocerylisting"
-          element={
-            <GroceryList />
-          }
+          element={<GroceryList />}
         />
 
         <Route
           path="/adminbanner"
-          element={
-            <BannerManagement />
-          }
+          element={<BannerManagement />}
         />
 
         <Route
           path="/adminGrocery"
-          element={
-            <AddGrocery />
-          }
+          element={<AddGrocery />}
         />
 
         <Route
           path="/customermanagement"
-          element={
-            <CustomerManagement />
-          }
+          element={<CustomerManagement />}
         />
 
         <Route
           path="/ordersassigndriver"
-          element={
-            <OrdersAssignDriver />
-          }
+          element={<OrdersAssignDriver />}
         />
 
         <Route
           path="/drivermanagement"
-          element={
-            <DriverManagement />
-          }
+          element={<DriverManagement />}
         />
 
         <Route
           path="/adminorders"
-          element={
-            <AdminOrdersScreen />
-          }
+          element={<AdminOrdersScreen />}
         />
 
         <Route
           path="/stockinventory"
-          element={
-            <GroceryListStock />
-          }
+          element={<GroceryListStock />}
         />
 
         <Route
           path="/driverearnings"
-          element={
-            <AdminDriverDashboard />
-          }
+          element={<AdminDriverDashboard />}
         />
-   <Route
+
+        <Route
           path="/todaysdeals"
-          element={
-            <TodaysDealsAdmin/>
-          }
+          element={<TodaysDealsAdmin />}
         />
+
         {/* ====================================================
             404
             ==================================================== */}
@@ -195,9 +180,7 @@ function App() {
                 textAlign: "center",
               }}
             >
-              <h2>
-                Page Not Found
-              </h2>
+              <h2>Page Not Found</h2>
             </div>
           }
         />

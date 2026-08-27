@@ -35,10 +35,11 @@ router.post("/add", upload.single("image"), async (req, res) => {
       subcategory,
       description,
       discount,
+      premiumDiscount, // ✅ ADDED
       quantity,
       unit,
       stock,
-      mrp,              // ✅ ADDED
+      mrp,
       price,
       premiumPrice,
     } = req.body;
@@ -54,6 +55,9 @@ router.post("/add", upload.single("image"), async (req, res) => {
 
     const imgUrl = file.path;
 
+    // ==========================================
+    // INSERT GROCERY ITEM
+    // ==========================================
     const insertQuery = `
       INSERT INTO grocery_items (
         name,
@@ -62,15 +66,31 @@ router.post("/add", upload.single("image"), async (req, res) => {
         subcategory,
         description,
         discount,
+        premiumdiscount,
         quantity,
         unit,
         stock,
         mrp,
         price,
-        premiumPrice,
+        premiumprice,
         img
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12,
+        $13,
+        $14
+      )
       RETURNING *
     `;
 
@@ -80,17 +100,30 @@ router.post("/add", upload.single("image"), async (req, res) => {
       category,
       subcategory,
       description,
+
+      // Normal discount
       discount,
+
+      // Premium discount
+      premiumDiscount,
+
       quantity,
       unit,
       stock,
-      mrp,            // ✅ ADDED
+
+      // Prices
+      mrp,
       price,
       premiumPrice,
+
+      // Cloudinary image URL
       imgUrl,
     ];
 
-    const result = await pool.query(insertQuery, values);
+    const result = await pool.query(
+      insertQuery,
+      values
+    );
 
     return res.status(201).json({
       success: true,
@@ -99,14 +132,18 @@ router.post("/add", upload.single("image"), async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Add Grocery Error:", error);
+    console.error(
+      "Add Grocery Error:",
+      error
+    );
+
     return res.status(500).json({
       success: false,
       message: "Server Error",
+      error: error.message,
     });
   }
-});
-// ===============================
+});// ===============================
 // FETCH All Grocery Items
 // ===============================
 router.get("/all", async (req, res) => {
@@ -164,10 +201,11 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     subcategory,
     description,
     discount,
+    premiumDiscount, // ✅ ADDED
     quantity,
     unit,
     stock,
-    mrp,              // ✅ ADDED
+    mrp,
     price,
     premiumPrice,
   } = req.body;
@@ -175,7 +213,9 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
   const file = req.file;
 
   try {
-    // Get existing item
+    // ==========================================
+    // GET EXISTING ITEM
+    // ==========================================
     const existing = await pool.query(
       "SELECT * FROM grocery_items WHERE id = $1",
       [id]
@@ -190,8 +230,17 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
 
     const existingItem = existing.rows[0];
 
-    const imgUrl = file ? file.path : existingItem.img;
+    // ==========================================
+    // IMAGE
+    // Keep old image if new image is not uploaded
+    // ==========================================
+    const imgUrl = file
+      ? file.path
+      : existingItem.img;
 
+    // ==========================================
+    // UPDATE QUERY
+    // ==========================================
     const updateQuery = `
       UPDATE grocery_items SET
         name = $1,
@@ -200,44 +249,75 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
         subcategory = $4,
         description = $5,
         discount = $6,
-        quantity = $7,
-        unit = $8,
-        stock = $9,
-        mrp = $10,              -- ✅ ADDED
-        price = $11,
-        premiumPrice = $12,
-        img = $13
-      WHERE id = $14
+        premiumdiscount = $7,
+        quantity = $8,
+        unit = $9,
+        stock = $10,
+        mrp = $11,
+        price = $12,
+        premiumprice = $13,
+        img = $14,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $15
       RETURNING *
     `;
 
+    // ==========================================
+    // VALUES
+    // ==========================================
     const values = [
-      name || existingItem.name,
-      brand || existingItem.brand,
-      category || existingItem.category,
-      subcategory || existingItem.subcategory,
-      description || existingItem.description,
-      discount || existingItem.discount,
-      quantity || existingItem.quantity,
-      unit || existingItem.unit,
-      stock || existingItem.stock,
-      mrp || existingItem.mrp,        // ✅ ADDED
-      price || existingItem.price,
-      premiumPrice || existingItem.premiumprice,
+      name ?? existingItem.name,
+      brand ?? existingItem.brand,
+      category ?? existingItem.category,
+      subcategory ?? existingItem.subcategory,
+      description ?? existingItem.description,
+
+      // Normal discount
+      discount ?? existingItem.discount,
+
+      // Premium discount
+      premiumDiscount ??
+        existingItem.premiumdiscount,
+
+      quantity ?? existingItem.quantity,
+      unit ?? existingItem.unit,
+      stock ?? existingItem.stock,
+
+      // Prices
+      mrp ?? existingItem.mrp,
+      price ?? existingItem.price,
+      premiumPrice ??
+        existingItem.premiumprice,
+
+      // Image
       imgUrl,
+
+      // ID
       id,
     ];
 
-    const result = await pool.query(updateQuery, values);
+    const result = await pool.query(
+      updateQuery,
+      values
+    );
 
     return res.json({
       success: true,
       message: "Item Updated Successfully",
       item: result.rows[0],
     });
+
   } catch (error) {
-    console.error("Update Error:", error);
-    return res.status(500).json({ success: false, message: "Server Error" });
+    console.error(
+      "Update Grocery Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
   }
 });
 // ===============================
