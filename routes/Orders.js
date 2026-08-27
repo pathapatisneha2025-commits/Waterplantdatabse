@@ -1462,5 +1462,172 @@ router.post(
     }
   }
 );
+router.post("/process", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { order_id, action } = req.body;
+
+    // =====================================================
+    // VALIDATION
+    // =====================================================
+
+    if (!order_id) {
+      return res.status(400).json({
+        success: false,
+        message: "order_id is required.",
+      });
+    }
+
+    if (!action) {
+      return res.status(400).json({
+        success: false,
+        message: "action is required.",
+      });
+    }
+
+    const normalizedAction =
+      String(action).trim().toLowerCase();
+
+    if (
+      normalizedAction !== "approve" &&
+      normalizedAction !== "reject"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Action must be either approve or reject.",
+      });
+    }
+
+    await client.query("BEGIN");
+
+    // =====================================================
+    // GET ORDER
+    // =====================================================
+
+    const orderResult = await client.query(
+      `
+      SELECT
+        id,
+        user_id,
+        status,
+        return_status,
+        return_reason,
+        return_images
+      FROM groceriesorders
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [order_id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        success: false,
+        message: "Order not found.",
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    // =====================================================
+    // RETURN REQUEST MUST EXIST
+    // =====================================================
+
+    if (
+      String(order.return_status || "").toLowerCase() !==
+      "pending"
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "There is no pending return request for this order.",
+        return_status:
+          order.return_status || null,
+      });
+    }
+
+    // =====================================================
+    // NEW STATUS
+    // =====================================================
+
+    const newReturnStatus =
+      normalizedAction === "approve"
+        ? "approved"
+        : "rejected";
+
+    // =====================================================
+    // UPDATE RETURN
+    // =====================================================
+
+    const updateResult = await client.query(
+      `
+      UPDATE groceriesorders
+      SET
+        return_status = $1,
+        return_processed_at = NOW()
+      WHERE id = $2
+      RETURNING
+        id,
+        return_status,
+        return_reason,
+        return_images,
+        return_requested_at,
+        return_processed_at
+      `,
+      [
+        newReturnStatus,
+        order_id,
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    // =====================================================
+    // RESPONSE
+    // =====================================================
+
+    return res.status(200).json({
+      success: true,
+      message:
+        normalizedAction === "approve"
+          ? "Return request approved successfully."
+          : "Return request rejected successfully.",
+
+      return: updateResult.rows[0],
+    });
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error(
+        "Rollback error:",
+        rollbackError
+      );
+    }
+
+    console.error(
+      "RETURN PROCESS ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to process return request.",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : undefined,
+    });
+  } finally {
+    client.release();
+  }
+});
 
 module.exports = router;
