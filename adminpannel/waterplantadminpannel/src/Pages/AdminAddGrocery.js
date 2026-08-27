@@ -24,6 +24,10 @@ const AddGrocery = () => {
     mrp: "",
     price: "",
     premiumPrice: "",
+
+    // RETURN SETTINGS
+    return_allowed: false,
+    return_days: 7,
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -33,6 +37,7 @@ const AddGrocery = () => {
   // =========================
   // FETCH CATEGORIES
   // =========================
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -66,6 +71,7 @@ const AddGrocery = () => {
   // =========================
   // PREFILL ON EDIT
   // =========================
+
   useEffect(() => {
     if (editItem) {
       setForm({
@@ -75,22 +81,63 @@ const AddGrocery = () => {
         subcategory: editItem.subcategory || "",
         description: editItem.description || "",
 
-        discount: editItem.discount || "",
+        discount:
+          editItem.discount !== undefined &&
+          editItem.discount !== null
+            ? editItem.discount
+            : "",
+
         premiumDiscount:
-          editItem.premiumDiscount ||
-          editItem.premiumdiscount ||
-          "",
+          editItem.premiumDiscount !== undefined &&
+          editItem.premiumDiscount !== null
+            ? editItem.premiumDiscount
+            : editItem.premiumdiscount !== undefined &&
+              editItem.premiumdiscount !== null
+            ? editItem.premiumdiscount
+            : "",
 
         quantity: editItem.quantity || 1,
         unit: editItem.unit || "",
-        stock: editItem.stock || "",
+        stock:
+          editItem.stock !== undefined &&
+          editItem.stock !== null
+            ? editItem.stock
+            : "",
 
-        mrp: editItem.mrp || "",
-        price: editItem.price || "",
+        mrp:
+          editItem.mrp !== undefined &&
+          editItem.mrp !== null
+            ? editItem.mrp
+            : "",
+
+        price:
+          editItem.price !== undefined &&
+          editItem.price !== null
+            ? editItem.price
+            : "",
+
         premiumPrice:
-          editItem.premiumPrice ||
-          editItem.premiumprice ||
-          "",
+          editItem.premiumPrice !== undefined &&
+          editItem.premiumPrice !== null
+            ? editItem.premiumPrice
+            : editItem.premiumprice !== undefined &&
+              editItem.premiumprice !== null
+            ? editItem.premiumprice
+            : "",
+
+        // =========================
+        // RETURN SETTINGS
+        // =========================
+
+        return_allowed:
+          editItem.return_allowed === true ||
+          editItem.return_allowed === "true",
+
+        return_days:
+          editItem.return_days !== undefined &&
+          editItem.return_days !== null
+            ? editItem.return_days
+            : 7,
       });
 
       setPreview(editItem.img || "");
@@ -100,11 +147,43 @@ const AddGrocery = () => {
   // =========================
   // HANDLE CHANGE
   // =========================
-  const handleChange = (e) => {
-    const { name, value } = e.target;
 
-    // MRP / NORMAL PRICE / PREMIUM PRICE
-    // automatically calculate discounts
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    // =========================
+    // RETURN TOGGLE
+    // =========================
+
+    if (name === "return_allowed") {
+      setForm((prev) => ({
+        ...prev,
+        return_allowed: checked,
+        return_days: checked
+          ? prev.return_days || 7
+          : 0,
+      }));
+
+      return;
+    }
+
+    // =========================
+    // RETURN DAYS
+    // =========================
+
+    if (name === "return_days") {
+      setForm((prev) => ({
+        ...prev,
+        return_days: value,
+      }));
+
+      return;
+    }
+
+    // =========================
+    // PRICE CHANGES
+    // =========================
+
     if (
       name === "mrp" ||
       name === "price" ||
@@ -125,6 +204,7 @@ const AddGrocery = () => {
         // =========================
         // NORMAL DISCOUNT
         // =========================
+
         if (
           !isNaN(mrp) &&
           mrp > 0 &&
@@ -145,6 +225,7 @@ const AddGrocery = () => {
         // =========================
         // PREMIUM DISCOUNT
         // =========================
+
         if (
           !isNaN(mrp) &&
           mrp > 0 &&
@@ -168,15 +249,23 @@ const AddGrocery = () => {
       return;
     }
 
+    // =========================
+    // NORMAL INPUT
+    // =========================
+
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value,
     }));
   };
 
   // =========================
   // IMAGE CHANGE
   // =========================
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
 
@@ -189,14 +278,26 @@ const AddGrocery = () => {
   // =========================
   // SUBMIT
   // =========================
+
   const handleSubmit = async () => {
     const mrp = parseFloat(form.mrp);
     const normalPrice = parseFloat(form.price);
-    const premiumPrice = parseFloat(form.premiumPrice);
+    const premiumPrice = parseFloat(
+      form.premiumPrice
+    );
+
+    // =========================
+    // RETURN DAYS
+    // =========================
+
+    const returnDays = form.return_allowed
+      ? parseInt(form.return_days, 10)
+      : 0;
 
     // =========================
     // VALIDATION
     // =========================
+
     if (!form.name.trim()) {
       alert("Please enter grocery name");
       return;
@@ -236,24 +337,147 @@ const AddGrocery = () => {
       return;
     }
 
+    // =========================
+    // RETURN VALIDATION
+    // =========================
+
+    if (form.return_allowed) {
+      if (
+        isNaN(returnDays) ||
+        returnDays < 1
+      ) {
+        alert(
+          "Please enter a valid return period"
+        );
+        return;
+      }
+
+      if (returnDays > 365) {
+        alert(
+          "Return period cannot be more than 365 days"
+        );
+        return;
+      }
+    }
+
+    // =========================
+    // FORM DATA
+    // =========================
+
     const formData = new FormData();
 
-    Object.entries(form).forEach(
-      ([key, value]) => {
-        formData.append(key, value);
-      }
+    // Basic fields
+
+    formData.append(
+      "name",
+      form.name
     );
 
+    formData.append(
+      "brand",
+      form.brand
+    );
+
+    formData.append(
+      "category",
+      form.category
+    );
+
+    formData.append(
+      "subcategory",
+      form.subcategory
+    );
+
+    formData.append(
+      "description",
+      form.description
+    );
+
+    // Discounts
+
+    formData.append(
+      "discount",
+      form.discount
+    );
+
+    formData.append(
+      "premiumDiscount",
+      form.premiumDiscount
+    );
+
+    // Stock
+
+    formData.append(
+      "quantity",
+      form.quantity
+    );
+
+    formData.append(
+      "unit",
+      form.unit
+    );
+
+    formData.append(
+      "stock",
+      form.stock
+    );
+
+    // Prices
+
+    formData.append(
+      "mrp",
+      form.mrp
+    );
+
+    formData.append(
+      "price",
+      form.price
+    );
+
+    formData.append(
+      "premiumPrice",
+      form.premiumPrice
+    );
+
+    // =========================
+    // RETURN SETTINGS
+    // =========================
+
+    formData.append(
+      "return_allowed",
+      form.return_allowed
+        ? "true"
+        : "false"
+    );
+
+    formData.append(
+      "return_days",
+      String(returnDays)
+    );
+
+    // =========================
+    // IMAGE
+    // =========================
+
     if (imageFile) {
-      formData.append("image", imageFile);
+      formData.append(
+        "image",
+        imageFile
+      );
     }
+
+    // =========================
+    // API
+    // =========================
 
     try {
       const url = isEdit
         ? `https://waterplantdatabse-v763.onrender.com/groceries/update/${editItem.id}`
         : `https://waterplantdatabse-v763.onrender.com/groceries/add`;
 
-      const method = isEdit ? "PUT" : "POST";
+      const method = isEdit
+        ? "PUT"
+        : "POST";
 
       const res = await fetch(url, {
         method,
@@ -263,7 +487,11 @@ const AddGrocery = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Failed");
+        alert(
+          data.message ||
+            "Failed to save grocery item"
+        );
+
         return;
       }
 
@@ -273,9 +501,15 @@ const AddGrocery = () => {
           : "Added Successfully!"
       );
 
-      navigate("/admingrocerylisting");
+      navigate(
+        "/admingrocerylisting"
+      );
     } catch (error) {
-      console.error("Submit error:", error);
+      console.error(
+        "Submit error:",
+        error
+      );
+
       alert("Server Error");
     }
   };
@@ -287,6 +521,7 @@ const AddGrocery = () => {
         {/* =========================
             HEADER
         ========================= */}
+
         <div style={styles.header}>
 
           <button
@@ -310,6 +545,7 @@ const AddGrocery = () => {
         {/* =========================
             BASIC DETAILS
         ========================= */}
+
         <div style={styles.grid}>
 
           <input
@@ -338,14 +574,16 @@ const AddGrocery = () => {
               Select Category
             </option>
 
-            {categories.map((category) => (
-              <option
-                key={category.id}
-                value={category.name}
-              >
-                {category.name}
-              </option>
-            ))}
+            {categories.map(
+              (category) => (
+                <option
+                  key={category.id}
+                  value={category.name}
+                >
+                  {category.name}
+                </option>
+              )
+            )}
           </select>
 
           <input
@@ -361,6 +599,7 @@ const AddGrocery = () => {
         {/* =========================
             DESCRIPTION
         ========================= */}
+
         <textarea
           name="description"
           placeholder="Description"
@@ -372,86 +611,92 @@ const AddGrocery = () => {
         {/* =========================
             PRICE DETAILS
         ========================= */}
-     <h3 style={styles.sectionTitle}>
-  Price Details
-</h3>
 
-<div style={styles.grid}>
+        <h3 style={styles.sectionTitle}>
+          Price Details
+        </h3>
 
-  {/* MRP */}
-  <input
-    name="mrp"
-    type="number"
-    min="0"
-    step="0.01"
-    placeholder="MRP Price ₹"
-    value={form.mrp}
-    onChange={handleChange}
-    style={styles.input}
-  />
+        <div style={styles.grid}>
 
-  {/* Empty space so MRP stays full row */}
-  <div></div>
+          {/* MRP */}
 
-  {/* NORMAL PRICE */}
-  <input
-    name="price"
-    type="number"
-    min="0"
-    step="0.01"
-    placeholder="Normal Price ₹"
-    value={form.price}
-    onChange={handleChange}
-    style={styles.input}
-  />
+          <input
+            name="mrp"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="MRP Price ₹"
+            value={form.mrp}
+            onChange={handleChange}
+            style={styles.input}
+          />
 
-  {/* NORMAL DISCOUNT */}
-  <input
-    name="discount"
-    type="number"
-    placeholder="Normal Discount %"
-    value={form.discount}
-    readOnly
-    style={{
-      ...styles.input,
-      background: "#f5f5f5",
-      color: "#555",
-      cursor: "not-allowed",
-    }}
-  />
+          <div></div>
 
-  {/* PREMIUM PRICE */}
-  <input
-    name="premiumPrice"
-    type="number"
-    min="0"
-    step="0.01"
-    placeholder="Premium Price ₹"
-    value={form.premiumPrice}
-    onChange={handleChange}
-    style={styles.input}
-  />
+          {/* NORMAL PRICE */}
 
-  {/* PREMIUM DISCOUNT */}
-  <input
-    name="premiumDiscount"
-    type="number"
-    placeholder="Premium Discount %"
-    value={form.premiumDiscount}
-    readOnly
-    style={{
-      ...styles.input,
-      background: "#f5f5f5",
-      color: "#555",
-      cursor: "not-allowed",
-    }}
-  />
+          <input
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Normal Price ₹"
+            value={form.price}
+            onChange={handleChange}
+            style={styles.input}
+          />
 
-</div>
+          {/* NORMAL DISCOUNT */}
+
+          <input
+            name="discount"
+            type="number"
+            placeholder="Normal Discount %"
+            value={form.discount}
+            readOnly
+            style={{
+              ...styles.input,
+              background: "#f5f5f5",
+              color: "#555",
+              cursor: "not-allowed",
+            }}
+          />
+
+          {/* PREMIUM PRICE */}
+
+          <input
+            name="premiumPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Premium Price ₹"
+            value={form.premiumPrice}
+            onChange={handleChange}
+            style={styles.input}
+          />
+
+          {/* PREMIUM DISCOUNT */}
+
+          <input
+            name="premiumDiscount"
+            type="number"
+            placeholder="Premium Discount %"
+            value={form.premiumDiscount}
+            readOnly
+            style={{
+              ...styles.input,
+              background: "#f5f5f5",
+              color: "#555",
+              cursor: "not-allowed",
+            }}
+          />
+
+        </div>
 
         {/* =========================
             STOCK DETAILS
         ========================= */}
+
         <h3 style={styles.sectionTitle}>
           Stock Details
         </h3>
@@ -489,8 +734,160 @@ const AddGrocery = () => {
         </div>
 
         {/* =========================
+            RETURN SETTINGS
+        ========================= */}
+
+        <h3 style={styles.sectionTitle}>
+          Return Policy
+        </h3>
+
+        <div style={styles.returnCard}>
+
+          {/* RETURN TOGGLE */}
+
+          <div style={styles.returnRow}>
+
+            <div>
+              <div style={styles.returnTitle}>
+                Allow Returns
+              </div>
+
+              <div style={styles.returnDescription}>
+                Allow customers to return this
+                product after delivery.
+              </div>
+            </div>
+
+            <label style={styles.switch}>
+
+              <input
+                type="checkbox"
+                name="return_allowed"
+                checked={
+                  form.return_allowed
+                }
+                onChange={handleChange}
+                style={
+                  styles.switchInput
+                }
+              />
+
+              <span
+                style={{
+                  ...styles.slider,
+                  background:
+                    form.return_allowed
+                      ? "#ff6600"
+                      : "#ccc",
+                }}
+              >
+                <span
+                  style={{
+                    ...styles.sliderCircle,
+                    transform:
+                      form.return_allowed
+                        ? "translateX(22px)"
+                        : "translateX(2px)",
+                  }}
+                />
+              </span>
+
+            </label>
+
+          </div>
+
+          {/* RETURN DAYS */}
+
+          {form.return_allowed && (
+            <div style={styles.returnDaysContainer}>
+
+              <label
+                style={
+                  styles.returnLabel
+                }
+              >
+                Return Period
+              </label>
+
+              <div
+                style={
+                  styles.returnDaysRow
+                }
+              >
+
+                <input
+                  name="return_days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={
+                    form.return_days
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  style={{
+                    ...styles.input,
+                    maxWidth: "180px",
+                  }}
+                />
+
+                <span
+                  style={
+                    styles.daysText
+                  }
+                >
+                  Days
+                </span>
+
+              </div>
+
+              <div
+                style={
+                  styles.returnHint
+                }
+              >
+                Customers can request a return
+                within {form.return_days || 0}{" "}
+                days after delivery.
+              </div>
+
+            </div>
+          )}
+
+          {/* NON RETURNABLE MESSAGE */}
+
+          {!form.return_allowed && (
+            <div
+              style={
+                styles.nonReturnableMessage
+              }
+            >
+              <span
+                style={
+                  styles.nonReturnableIcon
+                }
+              >
+                ⚠
+              </span>
+
+              <span>
+                This product will be marked as
+                <strong>
+                  {" "}
+                  Non-returnable
+                </strong>
+                .
+              </span>
+            </div>
+          )}
+
+        </div>
+
+        {/* =========================
             PRODUCT IMAGE
         ========================= */}
+
         <h3 style={styles.sectionTitle}>
           Product Image
         </h3>
@@ -512,6 +909,7 @@ const AddGrocery = () => {
         {/* =========================
             SAVE
         ========================= */}
+
         <button
           type="button"
           style={styles.button}
@@ -526,6 +924,10 @@ const AddGrocery = () => {
     </div>
   );
 };
+
+// =========================================================
+// STYLES
+// =========================================================
 
 const styles = {
   page: {
@@ -552,6 +954,7 @@ const styles = {
   // =========================
   // HEADER
   // =========================
+
   header: {
     display: "flex",
     alignItems: "center",
@@ -589,6 +992,7 @@ const styles = {
   // =========================
   // GRID
   // =========================
+
   grid: {
     display: "grid",
     gridTemplateColumns:
@@ -621,6 +1025,7 @@ const styles = {
   // =========================
   // SECTION
   // =========================
+
   sectionTitle: {
     color: "#333",
     fontSize: "18px",
@@ -629,8 +1034,139 @@ const styles = {
   },
 
   // =========================
+  // RETURN CARD
+  // =========================
+
+  returnCard: {
+    border: "1px solid #e3e3e3",
+    borderRadius: "15px",
+    padding: "18px",
+    background: "#fafafa",
+  },
+
+  returnRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+  },
+
+  returnTitle: {
+    fontSize: "17px",
+    fontWeight: "700",
+    color: "#333",
+  },
+
+  returnDescription: {
+    marginTop: "5px",
+    fontSize: "13px",
+    color: "#777",
+    lineHeight: "19px",
+  },
+
+  // =========================
+  // SWITCH
+  // =========================
+
+  switch: {
+    position: "relative",
+    width: "48px",
+    height: "26px",
+    display: "inline-block",
+    flexShrink: 0,
+  },
+
+  switchInput: {
+    opacity: 0,
+    width: 0,
+    height: 0,
+    position: "absolute",
+  },
+
+  slider: {
+    position: "absolute",
+    cursor: "pointer",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: "30px",
+    transition: "0.3s",
+  },
+
+  sliderCircle: {
+    position: "absolute",
+    width: "22px",
+    height: "22px",
+    left: 0,
+    top: "2px",
+    background: "#fff",
+    borderRadius: "50%",
+    transition: "0.3s",
+    boxShadow:
+      "0 1px 4px rgba(0,0,0,0.25)",
+  },
+
+  // =========================
+  // RETURN DAYS
+  // =========================
+
+  returnDaysContainer: {
+    marginTop: "18px",
+    paddingTop: "18px",
+    borderTop: "1px solid #e5e5e5",
+  },
+
+  returnLabel: {
+    display: "block",
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: "8px",
+  },
+
+  returnDaysRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+
+  daysText: {
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "#555",
+  },
+
+  returnHint: {
+    marginTop: "8px",
+    fontSize: "13px",
+    color: "#777",
+  },
+
+  // =========================
+  // NON RETURNABLE
+  // =========================
+
+  nonReturnableMessage: {
+    marginTop: "15px",
+    padding: "12px",
+    borderRadius: "10px",
+    background: "#fff4e5",
+    color: "#8a5200",
+    fontSize: "13px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+
+  nonReturnableIcon: {
+    fontSize: "16px",
+  },
+
+  // =========================
   // IMAGE
   // =========================
+
   preview: {
     width: "100%",
     height: "220px",
@@ -643,6 +1179,7 @@ const styles = {
   // =========================
   // BUTTON
   // =========================
+
   button: {
     width: "100%",
     padding: "16px",
@@ -653,7 +1190,7 @@ const styles = {
     fontSize: "18px",
     fontWeight: "700",
     cursor: "pointer",
-    marginTop: "10px",
+    marginTop: "20px",
   },
 };
 

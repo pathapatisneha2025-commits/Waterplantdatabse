@@ -26,124 +26,210 @@ const upload = multer({ storage });
 // ===============================
 // ADD Grocery Item
 // ===============================
-router.post("/add", upload.single("image"), async (req, res) => {
-  try {
-    const {
-      name,
-      brand,
-      category,
-      subcategory,
-      description,
-      discount,
-      premiumDiscount, // ✅ ADDED
-      quantity,
-      unit,
-      stock,
-      mrp,
-      price,
-      premiumPrice,
-    } = req.body;
-
-    const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({
-        success: false,
-        message: "Image is required",
-      });
-    }
-
-    const imgUrl = file.path;
-
-    // ==========================================
-    // INSERT GROCERY ITEM
-    // ==========================================
-    const insertQuery = `
-      INSERT INTO grocery_items (
+router.post(
+  "/add",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const {
         name,
         brand,
         category,
         subcategory,
         description,
         discount,
-        premiumdiscount,
+        premiumDiscount,
         quantity,
         unit,
         stock,
         mrp,
         price,
-        premiumprice,
-        img
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12,
-        $13,
-        $14
-      )
-      RETURNING *
-    `;
+        premiumPrice,
 
-    const values = [
-      name,
-      brand,
-      category,
-      subcategory,
-      description,
+        // ==========================================
+        // RETURN SETTINGS
+        // ==========================================
+        return_allowed,
+        return_days,
+      } = req.body;
 
-      // Normal discount
-      discount,
+      const file = req.file;
 
-      // Premium discount
-      premiumDiscount,
+      // ==========================================
+      // IMAGE VALIDATION
+      // ==========================================
 
-      quantity,
-      unit,
-      stock,
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: "Image is required",
+        });
+      }
 
-      // Prices
-      mrp,
-      price,
-      premiumPrice,
+      const imgUrl = file.path;
 
-      // Cloudinary image URL
-      imgUrl,
-    ];
+      // ==========================================
+      // CONVERT RETURN ALLOWED
+      // FormData sends boolean as string
+      // ==========================================
 
-    const result = await pool.query(
-      insertQuery,
-      values
-    );
+      const returnAllowed =
+        return_allowed === true ||
+        return_allowed === "true";
 
-    return res.status(201).json({
-      success: true,
-      message: "Grocery Item Added",
-      item: result.rows[0],
-    });
+      // ==========================================
+      // RETURN DAYS
+      // ==========================================
 
-  } catch (error) {
-    console.error(
-      "Add Grocery Error:",
-      error
-    );
+      let returnDays = 0;
 
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+      if (returnAllowed) {
+        returnDays = parseInt(
+          return_days,
+          10
+        );
+
+        if (
+          isNaN(returnDays) ||
+          returnDays < 1
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Return days must be at least 1 when returns are enabled",
+          });
+        }
+
+        if (returnDays > 365) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Return days cannot be more than 365",
+          });
+        }
+      }
+
+      // ==========================================
+      // INSERT GROCERY ITEM
+      // ==========================================
+
+      const insertQuery = `
+        INSERT INTO grocery_items (
+          name,
+          brand,
+          category,
+          subcategory,
+          description,
+          discount,
+          premiumdiscount,
+          quantity,
+          unit,
+          stock,
+          mrp,
+          price,
+          premiumprice,
+          img,
+
+          -- RETURN SETTINGS
+          return_allowed,
+          return_days
+
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
+          $14,
+          $15,
+          $16
+        )
+        RETURNING *
+      `;
+
+      // ==========================================
+      // VALUES
+      // ==========================================
+
+      const values = [
+        name,
+        brand,
+        category,
+        subcategory,
+        description,
+
+        // Normal discount
+        discount,
+
+        // Premium discount
+        premiumDiscount,
+
+        // Stock
+        quantity,
+        unit,
+        stock,
+
+        // Prices
+        mrp,
+        price,
+        premiumPrice,
+
+        // Cloudinary image URL
+        imgUrl,
+
+        // ========================================
+        // RETURN SETTINGS
+        // ========================================
+
+        returnAllowed,
+        returnDays,
+      ];
+
+      // ==========================================
+      // EXECUTE INSERT
+      // ==========================================
+
+      const result = await pool.query(
+        insertQuery,
+        values
+      );
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Grocery Item Added",
+
+        item: result.rows[0],
+      });
+
+    } catch (error) {
+      console.error(
+        "Add Grocery Error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Server Error",
+        error: error.message,
+      });
+    }
   }
-});// ===============================
+);
+// ===============================
 // FETCH All Grocery Items
 // ===============================
 router.get("/all", async (req, res) => {
@@ -191,135 +277,250 @@ router.get("/:id", async (req, res) => {
 // ===============================
 // UPDATE Grocery Item
 // ===============================
-router.put("/update/:id", upload.single("image"), async (req, res) => {
-  const { id } = req.params;
+router.put(
+  "/update/:id",
+  upload.single("image"),
+  async (req, res) => {
+    const { id } = req.params;
 
-  const {
-    name,
-    brand,
-    category,
-    subcategory,
-    description,
-    discount,
-    premiumDiscount, // ✅ ADDED
-    quantity,
-    unit,
-    stock,
-    mrp,
-    price,
-    premiumPrice,
-  } = req.body;
+    const {
+      name,
+      brand,
+      category,
+      subcategory,
+      description,
+      discount,
+      premiumDiscount,
+      quantity,
+      unit,
+      stock,
+      mrp,
+      price,
+      premiumPrice,
 
-  const file = req.file;
+      // ==========================================
+      // RETURN SETTINGS
+      // ==========================================
+      return_allowed,
+      return_days,
+    } = req.body;
 
-  try {
-    // ==========================================
-    // GET EXISTING ITEM
-    // ==========================================
-    const existing = await pool.query(
-      "SELECT * FROM grocery_items WHERE id = $1",
-      [id]
-    );
+    const file = req.file;
 
-    if (existing.rows.length === 0) {
-      return res.status(404).json({
+    try {
+      // ==========================================
+      // GET EXISTING ITEM
+      // ==========================================
+
+      const existing = await pool.query(
+        "SELECT * FROM grocery_items WHERE id = $1",
+        [id]
+      );
+
+      if (existing.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Item not found",
+        });
+      }
+
+      const existingItem = existing.rows[0];
+
+      // ==========================================
+      // IMAGE
+      // Keep old image if new image is not uploaded
+      // ==========================================
+
+      const imgUrl = file
+        ? file.path
+        : existingItem.img;
+
+      // ==========================================
+      // RETURN ALLOWED
+      // FormData sends "true" / "false" as strings
+      // ==========================================
+
+      let returnAllowed;
+
+      if (
+        return_allowed === true ||
+        return_allowed === "true"
+      ) {
+        returnAllowed = true;
+      } else if (
+        return_allowed === false ||
+        return_allowed === "false"
+      ) {
+        returnAllowed = false;
+      } else {
+        returnAllowed =
+          existingItem.return_allowed ?? false;
+      }
+
+      // ==========================================
+      // RETURN DAYS
+      // If returns are disabled, force 0
+      // ==========================================
+
+      let returnDays;
+
+      if (returnAllowed) {
+        const parsedReturnDays = parseInt(
+          return_days,
+          10
+        );
+
+        if (
+          isNaN(parsedReturnDays) ||
+          parsedReturnDays < 1
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Return days must be at least 1 when returns are enabled",
+          });
+        }
+
+        if (parsedReturnDays > 365) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Return days cannot be more than 365",
+          });
+        }
+
+        returnDays = parsedReturnDays;
+      } else {
+        returnDays = 0;
+      }
+
+      // ==========================================
+      // UPDATE QUERY
+      // ==========================================
+
+      const updateQuery = `
+        UPDATE grocery_items SET
+          name = $1,
+          brand = $2,
+          category = $3,
+          subcategory = $4,
+          description = $5,
+          discount = $6,
+          premiumdiscount = $7,
+          quantity = $8,
+          unit = $9,
+          stock = $10,
+          mrp = $11,
+          price = $12,
+          premiumprice = $13,
+          img = $14,
+
+          -- RETURN SETTINGS
+          return_allowed = $15,
+          return_days = $16,
+
+          updated_at = CURRENT_TIMESTAMP
+
+        WHERE id = $17
+
+        RETURNING *
+      `;
+
+      // ==========================================
+      // VALUES
+      // ==========================================
+
+      const values = [
+        name ?? existingItem.name,
+
+        brand ?? existingItem.brand,
+
+        category ?? existingItem.category,
+
+        subcategory ??
+          existingItem.subcategory,
+
+        description ??
+          existingItem.description,
+
+        // Normal discount
+        discount ??
+          existingItem.discount,
+
+        // Premium discount
+        premiumDiscount ??
+          existingItem.premiumdiscount,
+
+        // Stock
+        quantity ??
+          existingItem.quantity,
+
+        unit ??
+          existingItem.unit,
+
+        stock ??
+          existingItem.stock,
+
+        // Prices
+        mrp ??
+          existingItem.mrp,
+
+        price ??
+          existingItem.price,
+
+        premiumPrice ??
+          existingItem.premiumprice,
+
+        // Image
+        imgUrl,
+
+        // ========================================
+        // RETURN SETTINGS
+        // ========================================
+
+        returnAllowed,
+
+        returnDays,
+
+        // ID
+        id,
+      ];
+
+      // ==========================================
+      // EXECUTE UPDATE
+      // ==========================================
+
+      const result = await pool.query(
+        updateQuery,
+        values
+      );
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.json({
+        success: true,
+        message:
+          "Item Updated Successfully",
+
+        item: result.rows[0],
+      });
+
+    } catch (error) {
+      console.error(
+        "Update Grocery Error:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Item not found",
+        message: "Server Error",
+        error: error.message,
       });
     }
-
-    const existingItem = existing.rows[0];
-
-    // ==========================================
-    // IMAGE
-    // Keep old image if new image is not uploaded
-    // ==========================================
-    const imgUrl = file
-      ? file.path
-      : existingItem.img;
-
-    // ==========================================
-    // UPDATE QUERY
-    // ==========================================
-    const updateQuery = `
-      UPDATE grocery_items SET
-        name = $1,
-        brand = $2,
-        category = $3,
-        subcategory = $4,
-        description = $5,
-        discount = $6,
-        premiumdiscount = $7,
-        quantity = $8,
-        unit = $9,
-        stock = $10,
-        mrp = $11,
-        price = $12,
-        premiumprice = $13,
-        img = $14,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $15
-      RETURNING *
-    `;
-
-    // ==========================================
-    // VALUES
-    // ==========================================
-    const values = [
-      name ?? existingItem.name,
-      brand ?? existingItem.brand,
-      category ?? existingItem.category,
-      subcategory ?? existingItem.subcategory,
-      description ?? existingItem.description,
-
-      // Normal discount
-      discount ?? existingItem.discount,
-
-      // Premium discount
-      premiumDiscount ??
-        existingItem.premiumdiscount,
-
-      quantity ?? existingItem.quantity,
-      unit ?? existingItem.unit,
-      stock ?? existingItem.stock,
-
-      // Prices
-      mrp ?? existingItem.mrp,
-      price ?? existingItem.price,
-      premiumPrice ??
-        existingItem.premiumprice,
-
-      // Image
-      imgUrl,
-
-      // ID
-      id,
-    ];
-
-    const result = await pool.query(
-      updateQuery,
-      values
-    );
-
-    return res.json({
-      success: true,
-      message: "Item Updated Successfully",
-      item: result.rows[0],
-    });
-
-  } catch (error) {
-    console.error(
-      "Update Grocery Error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
   }
-});
+);
 // ===============================
 // DELETE Grocery Item
 // ===============================
