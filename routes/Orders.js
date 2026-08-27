@@ -1054,7 +1054,7 @@ router.post(
             name,
             return_allowed,
             return_days
-          FROM grocery_item
+          FROM grocery_items
           WHERE id = $1
           `,
           [product_id]
