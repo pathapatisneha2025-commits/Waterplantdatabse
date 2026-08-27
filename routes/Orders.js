@@ -911,12 +911,11 @@ router.post(
         product_name,
         quantity,
         reason,
-        return_days,
       } = req.body;
 
-      // =================================================
+      // =====================================================
       // VALIDATION
-      // =================================================
+      // =====================================================
 
       if (!user_id) {
         return res.status(400).json({
@@ -961,15 +960,19 @@ router.post(
         });
       }
 
-      // =================================================
+      // =====================================================
       // START TRANSACTION
-      // =================================================
+      // =====================================================
 
       await client.query("BEGIN");
 
-      // =================================================
+      // =====================================================
       // CHECK ORDER
-      // =================================================
+      //
+      // IMPORTANT:
+      // groceriesorders DOES NOT HAVE delivered_at.
+      // We use updated_at as the delivery date.
+      // =====================================================
 
       const orderResult = await client.query(
         `
@@ -977,7 +980,7 @@ router.post(
           id,
           user_id,
           status,
-          delivered_at
+          updated_at
         FROM groceriesorders
         WHERE id = $1
         FOR UPDATE
@@ -996,9 +999,14 @@ router.post(
 
       const order = orderResult.rows[0];
 
-      // =================================================
+      console.log(
+        "RETURN ORDER:",
+        order
+      );
+
+      // =====================================================
       // VERIFY USER OWNS ORDER
-      // =================================================
+      // =====================================================
 
       if (
         Number(order.user_id) !==
@@ -1013,41 +1021,48 @@ router.post(
         });
       }
 
-      // =================================================
+      // =====================================================
       // ORDER MUST BE DELIVERED
-      // =================================================
+      // =====================================================
 
-      if (
-        String(order.status).toLowerCase() !==
-        "delivered"
-      ) {
+      const orderStatus = String(
+        order.status || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (orderStatus !== "delivered") {
         await client.query("ROLLBACK");
 
         return res.status(400).json({
           success: false,
           message:
             "Return can only be requested for delivered orders.",
+          current_status: order.status,
         });
       }
 
-      // =================================================
+      // =====================================================
       // CHECK PRODUCT
-      // =================================================
+      // =====================================================
 
-      const productResult = await client.query(
-        `
-        SELECT
-          id,
-          name,
-          return_allowed,
-          return_days
-        FROM grocery_item
-        WHERE id = $1
-        `,
-        [product_id]
-      );
+      const productResult =
+        await client.query(
+          `
+          SELECT
+            id,
+            name,
+            return_allowed,
+            return_days
+          FROM grocery_item
+          WHERE id = $1
+          `,
+          [product_id]
+        );
 
-      if (productResult.rows.length === 0) {
+      if (
+        productResult.rows.length === 0
+      ) {
         await client.query("ROLLBACK");
 
         return res.status(404).json({
@@ -1059,9 +1074,9 @@ router.post(
       const product =
         productResult.rows[0];
 
-      // =================================================
+      // =====================================================
       // CHECK RETURN ALLOWED
-      // =================================================
+      // =====================================================
 
       const returnAllowed =
         product.return_allowed === true ||
@@ -1079,9 +1094,9 @@ router.post(
         });
       }
 
-      // =================================================
-      // RETURN DAYS
-      // =================================================
+      // =====================================================
+      // GET RETURN DAYS
+      // =====================================================
 
       let allowedDays = Number(
         product.return_days
@@ -1100,38 +1115,21 @@ router.post(
         });
       }
 
-      // Maximum 7 days
+      // Maximum return period = 7 days
       allowedDays = Math.min(
         allowedDays,
         7
       );
 
-      // =================================================
+      // =====================================================
       // DELIVERY DATE
-      // =================================================
+      //
+      // Since there is NO delivered_at column,
+      // use updated_at.
+      // =====================================================
 
-      let deliveryDate =
-        order.delivered_at;
-
-      if (!deliveryDate) {
-        // If your orders table does not have delivered_at
-        // and you use updated_at instead, this fallback
-        // can be used.
-
-        const fallbackResult =
-          await client.query(
-            `
-            SELECT updated_at
-            FROM groceriesorders
-            WHERE id = $1
-            `,
-            [order_id]
-          );
-
-        deliveryDate =
-          fallbackResult.rows[0]
-            ?.updated_at;
-      }
+      const deliveryDate =
+        order.updated_at;
 
       if (!deliveryDate) {
         await client.query("ROLLBACK");
@@ -1143,9 +1141,14 @@ router.post(
         });
       }
 
-      // =================================================
-      // CHECK RETURN PERIOD
-      // =================================================
+      console.log(
+        "RETURN DELIVERY DATE:",
+        deliveryDate
+      );
+
+      // =====================================================
+      // VALIDATE DELIVERY DATE
+      // =====================================================
 
       const delivery =
         new Date(deliveryDate);
@@ -1163,6 +1166,21 @@ router.post(
             "Invalid delivery date.",
         });
       }
+
+      // =====================================================
+      // CALCULATE RETURN DEADLINE
+      //
+      // Example:
+      // delivered = Aug 20
+      // return_days = 3
+      //
+      // Valid:
+      // Aug 20
+      // Aug 21
+      // Aug 22
+      //
+      // Deadline = Aug 22 23:59:59
+      // =====================================================
 
       const today = new Date();
 
@@ -1191,6 +1209,20 @@ router.post(
         999
       );
 
+      console.log(
+        "RETURN PERIOD:",
+        {
+          deliveryDate: deliveryDay,
+          allowedDays,
+          deadline,
+          today,
+        }
+      );
+
+      // =====================================================
+      // CHECK RETURN PERIOD
+      // =====================================================
+
       if (
         today.getTime() >
         deadline.getTime()
@@ -1201,17 +1233,25 @@ router.post(
           success: false,
           message:
             "The return period for this product has expired.",
+          delivery_date:
+            deliveryDate,
+          return_days:
+            allowedDays,
+          return_deadline:
+            deadline,
         });
       }
 
-      // =================================================
-      // CHECK DUPLICATE REQUEST
-      // =================================================
+      // =====================================================
+      // CHECK DUPLICATE RETURN REQUEST
+      // =====================================================
 
       const duplicateResult =
         await client.query(
           `
-          SELECT id, return_status
+          SELECT
+            id,
+            return_status
           FROM groceriesorders
           WHERE id = $1
             AND return_status IS NOT NULL
@@ -1234,9 +1274,9 @@ router.post(
         });
       }
 
-      // =================================================
-      // IMAGE URLS
-      // =================================================
+      // =====================================================
+      // IMAGE URLS FROM CLOUDINARY
+      // =====================================================
 
       const imageUrls =
         Array.isArray(req.files)
@@ -1244,7 +1284,8 @@ router.post(
               .map(
                 (file) =>
                   file.path ||
-                  file.secure_url
+                  file.secure_url ||
+                  file.url
               )
               .filter(Boolean)
           : [];
@@ -1254,9 +1295,9 @@ router.post(
         imageUrls
       );
 
-      // =================================================
+      // =====================================================
       // UPDATE ORDER
-      // =================================================
+      // =====================================================
 
       const updateResult =
         await client.query(
@@ -1283,15 +1324,15 @@ router.post(
           ]
         );
 
-      // =================================================
+      // =====================================================
       // COMMIT
-      // =================================================
+      // =====================================================
 
       await client.query("COMMIT");
 
-      // =================================================
+      // =====================================================
       // RESPONSE
-      // =================================================
+      // =====================================================
 
       return res.status(201).json({
         success: true,
@@ -1331,12 +1372,21 @@ router.post(
           return_requested_at:
             updateResult.rows[0]
               .return_requested_at,
+
+          delivery_date:
+            deliveryDate,
+
+          return_days:
+            allowedDays,
+
+          return_deadline:
+            deadline,
         },
       });
     } catch (error) {
-      // =================================================
+      // =====================================================
       // ROLLBACK
-      // =================================================
+      // =====================================================
 
       try {
         await client.query(
@@ -1354,7 +1404,10 @@ router.post(
         error
       );
 
-      // Multer / image errors
+      // =====================================================
+      // MULTER ERRORS
+      // =====================================================
+
       if (
         error.code ===
         "LIMIT_FILE_SIZE"
@@ -1390,6 +1443,10 @@ router.post(
         });
       }
 
+      // =====================================================
+      // DATABASE ERROR
+      // =====================================================
+
       return res.status(500).json({
         success: false,
         message:
@@ -1405,6 +1462,5 @@ router.post(
     }
   }
 );
-
 
 module.exports = router;
