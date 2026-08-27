@@ -978,7 +978,7 @@ router.post(
           user_id,
           status,
           delivered_at
-        FROM orders
+        FROM groceriesorders
         WHERE id = $1
         FOR UPDATE
         `,
@@ -1041,7 +1041,7 @@ router.post(
           name,
           return_allowed,
           return_days
-        FROM groceries
+        FROM grocery_item
         WHERE id = $1
         `,
         [product_id]
@@ -1122,7 +1122,7 @@ router.post(
           await client.query(
             `
             SELECT updated_at
-            FROM orders
+            FROM groceriesorders
             WHERE id = $1
             `,
             [order_id]
@@ -1212,7 +1212,7 @@ router.post(
         await client.query(
           `
           SELECT id, return_status
-          FROM orders
+          FROM groceriesorders
           WHERE id = $1
             AND return_status IS NOT NULL
           `,
@@ -1261,7 +1261,7 @@ router.post(
       const updateResult =
         await client.query(
           `
-          UPDATE orders
+          UPDATE groceriesorders
           SET
             return_status = 'pending',
             return_reason = $1,
