@@ -866,5 +866,525 @@ router.put("/received/:id", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+router.post(
+  "/request",
+  upload.array("images", 10),
+  async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+      console.log(
+        "RETURN REQUEST BODY:",
+        req.body
+      );
+
+      console.log(
+        "RETURN IMAGES:",
+        req.files?.length || 0
+      );
+
+      const {
+        user_id,
+        order_id,
+        item_id,
+        product_id,
+        product_name,
+        quantity,
+        reason,
+        return_days,
+      } = req.body;
+
+      // =================================================
+      // VALIDATION
+      // =================================================
+
+      if (!user_id) {
+        return res.status(400).json({
+          success: false,
+          message: "user_id is required.",
+        });
+      }
+
+      if (!order_id) {
+        return res.status(400).json({
+          success: false,
+          message: "order_id is required.",
+        });
+      }
+
+      if (!item_id) {
+        return res.status(400).json({
+          success: false,
+          message: "item_id is required.",
+        });
+      }
+
+      if (!product_id) {
+        return res.status(400).json({
+          success: false,
+          message: "product_id is required.",
+        });
+      }
+
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Return reason is required.",
+        });
+      }
+
+      if (reason.trim().length < 5) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Return reason must contain at least 5 characters.",
+        });
+      }
+
+      // =================================================
+      // START TRANSACTION
+      // =================================================
+
+      await client.query("BEGIN");
+
+      // =================================================
+      // CHECK ORDER
+      // =================================================
+
+      const orderResult = await client.query(
+        `
+        SELECT
+          id,
+          user_id,
+          status,
+          delivered_at
+        FROM orders
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [order_id]
+      );
+
+      if (orderResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "Order not found.",
+        });
+      }
+
+      const order = orderResult.rows[0];
+
+      // =================================================
+      // VERIFY USER OWNS ORDER
+      // =================================================
+
+      if (
+        Number(order.user_id) !==
+        Number(user_id)
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "You are not authorized to request a return for this order.",
+        });
+      }
+
+      // =================================================
+      // ORDER MUST BE DELIVERED
+      // =================================================
+
+      if (
+        String(order.status).toLowerCase() !==
+        "delivered"
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Return can only be requested for delivered orders.",
+        });
+      }
+
+      // =================================================
+      // CHECK PRODUCT
+      // =================================================
+
+      const productResult = await client.query(
+        `
+        SELECT
+          id,
+          name,
+          return_allowed,
+          return_days
+        FROM groceries
+        WHERE id = $1
+        `,
+        [product_id]
+      );
+
+      if (productResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "Product not found.",
+        });
+      }
+
+      const product =
+        productResult.rows[0];
+
+      // =================================================
+      // CHECK RETURN ALLOWED
+      // =================================================
+
+      const returnAllowed =
+        product.return_allowed === true ||
+        product.return_allowed === "true" ||
+        product.return_allowed === 1 ||
+        product.return_allowed === "1";
+
+      if (!returnAllowed) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "This product is not eligible for return.",
+        });
+      }
+
+      // =================================================
+      // RETURN DAYS
+      // =================================================
+
+      let allowedDays = Number(
+        product.return_days
+      );
+
+      if (
+        Number.isNaN(allowedDays) ||
+        allowedDays <= 0
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Return period is not configured for this product.",
+        });
+      }
+
+      // Maximum 7 days
+      allowedDays = Math.min(
+        allowedDays,
+        7
+      );
+
+      // =================================================
+      // DELIVERY DATE
+      // =================================================
+
+      let deliveryDate =
+        order.delivered_at;
+
+      if (!deliveryDate) {
+        // If your orders table does not have delivered_at
+        // and you use updated_at instead, this fallback
+        // can be used.
+
+        const fallbackResult =
+          await client.query(
+            `
+            SELECT updated_at
+            FROM orders
+            WHERE id = $1
+            `,
+            [order_id]
+          );
+
+        deliveryDate =
+          fallbackResult.rows[0]
+            ?.updated_at;
+      }
+
+      if (!deliveryDate) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Delivery date is not available for this order.",
+        });
+      }
+
+      // =================================================
+      // CHECK RETURN PERIOD
+      // =================================================
+
+      const delivery =
+        new Date(deliveryDate);
+
+      if (
+        Number.isNaN(
+          delivery.getTime()
+        )
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid delivery date.",
+        });
+      }
+
+      const today = new Date();
+
+      const deliveryDay =
+        new Date(delivery);
+
+      deliveryDay.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const deadline =
+        new Date(deliveryDay);
+
+      deadline.setDate(
+        deadline.getDate() +
+          (allowedDays - 1)
+      );
+
+      deadline.setHours(
+        23,
+        59,
+        59,
+        999
+      );
+
+      if (
+        today.getTime() >
+        deadline.getTime()
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "The return period for this product has expired.",
+        });
+      }
+
+      // =================================================
+      // CHECK DUPLICATE REQUEST
+      // =================================================
+
+      const duplicateResult =
+        await client.query(
+          `
+          SELECT id, return_status
+          FROM orders
+          WHERE id = $1
+            AND return_status IS NOT NULL
+          `,
+          [order_id]
+        );
+
+      if (
+        duplicateResult.rows.length > 0
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "A return request has already been submitted for this order.",
+          return_status:
+            duplicateResult.rows[0]
+              .return_status,
+        });
+      }
+
+      // =================================================
+      // IMAGE URLS
+      // =================================================
+
+      const imageUrls =
+        Array.isArray(req.files)
+          ? req.files
+              .map(
+                (file) =>
+                  file.path ||
+                  file.secure_url
+              )
+              .filter(Boolean)
+          : [];
+
+      console.log(
+        "RETURN IMAGE URLS:",
+        imageUrls
+      );
+
+      // =================================================
+      // UPDATE ORDER
+      // =================================================
+
+      const updateResult =
+        await client.query(
+          `
+          UPDATE orders
+          SET
+            return_status = 'pending',
+            return_reason = $1,
+            return_images = $2::text[],
+            return_requested_at = NOW(),
+            return_processed_at = NULL
+          WHERE id = $3
+          RETURNING
+            id,
+            return_status,
+            return_reason,
+            return_images,
+            return_requested_at
+          `,
+          [
+            reason.trim(),
+            imageUrls,
+            order_id,
+          ]
+        );
+
+      // =================================================
+      // COMMIT
+      // =================================================
+
+      await client.query("COMMIT");
+
+      // =================================================
+      // RESPONSE
+      // =================================================
+
+      return res.status(201).json({
+        success: true,
+
+        message:
+          "Return request submitted successfully.",
+
+        return: {
+          order_id:
+            updateResult.rows[0].id,
+
+          product_id:
+            Number(product_id),
+
+          product_name:
+            product_name ||
+            product.name,
+
+          item_id:
+            Number(item_id),
+
+          quantity:
+            Number(quantity || 1),
+
+          reason:
+            updateResult.rows[0]
+              .return_reason,
+
+          return_status:
+            updateResult.rows[0]
+              .return_status,
+
+          return_images:
+            updateResult.rows[0]
+              .return_images || [],
+
+          return_requested_at:
+            updateResult.rows[0]
+              .return_requested_at,
+        },
+      });
+    } catch (error) {
+      // =================================================
+      // ROLLBACK
+      // =================================================
+
+      try {
+        await client.query(
+          "ROLLBACK"
+        );
+      } catch (rollbackError) {
+        console.error(
+          "Rollback error:",
+          rollbackError
+        );
+      }
+
+      console.error(
+        "RETURN REQUEST ERROR:",
+        error
+      );
+
+      // Multer / image errors
+      if (
+        error.code ===
+        "LIMIT_FILE_SIZE"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Each return image must be 5 MB or smaller.",
+        });
+      }
+
+      if (
+        error.code ===
+        "LIMIT_FILE_COUNT"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Maximum 10 images are allowed.",
+        });
+      }
+
+      if (
+        error.message &&
+        error.message.includes(
+          "Only image files"
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Only image files are allowed.",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to submit return request.",
+        error:
+          process.env.NODE_ENV ===
+          "development"
+            ? error.message
+            : undefined,
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
 
 module.exports = router;
