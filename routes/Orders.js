@@ -1,6 +1,26 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const multer = require("multer");
+const path = require("path");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../cloudinary");
+// ===============================
+// CLOUDINARY STORAGE (same style)
+// ===============================
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "orders",
+    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+    public_id: (req, file) => {
+      const nameWithoutExt = path.parse(file.originalname).name;
+      return Date.now() + "-" + nameWithoutExt;
+    },
+  },
+});
+
+const upload = multer({ storage });
 
 /* ------------------ PLACE ORDER ------------------ */
 router.post("/place", async (req, res) => {
