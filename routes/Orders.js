@@ -1681,7 +1681,7 @@ router.post("/cancel/:id", async (req, res) => {
     // Update status only
     const updateResult = await pool.query(
       `
-      UPDATE sales_orders
+      UPDATE groceriesorders
       SET status = 'cancelled'
       WHERE id = $1
       RETURNING *
