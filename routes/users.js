@@ -547,4 +547,39 @@ router.put("/update-addresses/:id", async (req, res) => {
     res.status(500).json({ success: false, error: "Failed to update address" });
   }
 });
+router.post("/disable-premium", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE users
+      SET 
+        is_premium = false,
+        premium_requested = false
+      WHERE id = $1
+      `,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: "Premium disabled successfully",
+    });
+  } catch (error) {
+    console.error("Disable premium error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to disable premium",
+    });
+  }
+});
 module.exports = router;
