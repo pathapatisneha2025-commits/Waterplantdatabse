@@ -1637,7 +1637,7 @@ router.post("/cancel/:id", async (req, res) => {
     const orderResult = await pool.query(
       `
       SELECT id, status
-      FROM sales_orders
+      FROM groceriesorders
       WHERE id = $1
       `,
       [orderId]

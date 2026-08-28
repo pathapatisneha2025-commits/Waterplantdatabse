@@ -1477,22 +1477,27 @@ export default function AdminOrdersScreen() {
 // =========================================================
 
 const handleCancelOrder = async (order) => {
-  if (!order) {
-    return;
-  }
+  if (!order) return;
 
   const orderId = order.id;
 
-  const status = String(order.status || "").toLowerCase();
+  const status = String(
+    order.status || ""
+  ).toLowerCase();
 
-  // Do not allow cancellation of already completed/cancelled orders
+  if (
+    status === "cancelled" ||
+    status === "canceled"
+  ) {
+    alert("Order is already cancelled.");
+    return;
+  }
+
   if (
     status === "completed" ||
-    status === "cancelled" ||
-    status === "canceled" ||
     status === "delivered"
   ) {
-    alert(`Order #${orderId} cannot be cancelled because it is already ${order.status}.`);
+    alert("Completed orders cannot be cancelled.");
     return;
   }
 
@@ -1500,9 +1505,7 @@ const handleCancelOrder = async (order) => {
     `Are you sure you want to cancel Order #${orderId}?`
   );
 
-  if (!confirmed) {
-    return;
-  }
+  if (!confirmed) return;
 
   try {
     setAssigning((prev) => ({
@@ -1511,16 +1514,12 @@ const handleCancelOrder = async (order) => {
     }));
 
     const res = await fetch(
-      `${API_URL}/orders/process`,
+      `${API_URL}/orders/cancel/${orderId}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          order_id: orderId,
-          action: "cancel",
-        }),
       }
     );
 
@@ -1528,7 +1527,8 @@ const handleCancelOrder = async (order) => {
 
     if (!res.ok || !data.success) {
       throw new Error(
-        data.message || "Failed to cancel order"
+        data.message ||
+          "Failed to cancel order"
       );
     }
 
