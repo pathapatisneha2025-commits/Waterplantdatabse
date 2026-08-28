@@ -1629,5 +1629,83 @@ router.post("/process", async (req, res) => {
     client.release();
   }
 });
+router.post("/cancel/:id", async (req, res) => {
+  const orderId = req.params.id;
 
+  try {
+    // Check order exists
+    const orderResult = await pool.query(
+      `
+      SELECT id, status
+      FROM sales_orders
+      WHERE id = $1
+      `,
+      [orderId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    const currentStatus = String(
+      order.status || ""
+    ).toLowerCase();
+
+    // Already cancelled
+    if (
+      currentStatus === "cancelled" ||
+      currentStatus === "canceled"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Order is already cancelled",
+      });
+    }
+
+    // Don't allow completed/delivered orders
+    if (
+      currentStatus === "completed" ||
+      currentStatus === "delivered"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Completed orders cannot be cancelled",
+      });
+    }
+
+    // Update status only
+    const updateResult = await pool.query(
+      `
+      UPDATE sales_orders
+      SET status = 'cancelled'
+      WHERE id = $1
+      RETURNING *
+      `,
+      [orderId]
+    );
+
+    return res.json({
+      success: true,
+      message: "Order cancelled successfully",
+      order: updateResult.rows[0],
+    });
+
+  } catch (error) {
+    console.error(
+      "Cancel order error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to cancel order",
+      error: error.message,
+    });
+  }
+});
 module.exports = router;

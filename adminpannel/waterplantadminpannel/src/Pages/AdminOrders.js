@@ -414,7 +414,7 @@ export default function AdminOrdersScreen() {
 
         const res =
           await fetch(
-            `${API_URL}/returns/process`,
+            `${API_URL}/orders/process`,
             {
               method: "POST",
 
@@ -1472,6 +1472,90 @@ export default function AdminOrdersScreen() {
       }
     }, 300);
   };
+  // =========================================================
+// CANCEL ORDER
+// =========================================================
+
+const handleCancelOrder = async (order) => {
+  if (!order) {
+    return;
+  }
+
+  const orderId = order.id;
+
+  const status = String(order.status || "").toLowerCase();
+
+  // Do not allow cancellation of already completed/cancelled orders
+  if (
+    status === "completed" ||
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "delivered"
+  ) {
+    alert(`Order #${orderId} cannot be cancelled because it is already ${order.status}.`);
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Are you sure you want to cancel Order #${orderId}?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setAssigning((prev) => ({
+      ...prev,
+      [`cancel_${orderId}`]: true,
+    }));
+
+    const res = await fetch(
+      `${API_URL}/orders/process`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          action: "cancel",
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(
+        data.message || "Failed to cancel order"
+      );
+    }
+
+    alert(
+      `Order #${orderId} cancelled successfully.`
+    );
+
+    await fetchOrders();
+
+  } catch (error) {
+    console.error(
+      "Cancel order error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Failed to cancel order."
+    );
+
+  } finally {
+    setAssigning((prev) => ({
+      ...prev,
+      [`cancel_${orderId}`]: false,
+    }));
+  }
+};
 
   // =========================================================
   // STYLES
@@ -1770,6 +1854,41 @@ export default function AdminOrdersScreen() {
       fontWeight: "700",
       fontSize: "12px",
     },
+    cancelBtn: {
+  padding: "7px 12px",
+  backgroundColor: "#C62828",
+  border: "none",
+  color: "#fff",
+  borderRadius: "5px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  fontWeight: "600",
+  fontSize: "13px",
+},
+
+cancelDisabledBtn: {
+  padding: "7px 12px",
+  backgroundColor: "#aaa",
+  border: "none",
+  color: "#fff",
+  borderRadius: "5px",
+  cursor: "not-allowed",
+  whiteSpace: "nowrap",
+  fontWeight: "600",
+  fontSize: "13px",
+},
+
+cancelledBtn: {
+  padding: "7px 12px",
+  backgroundColor: "#757575",
+  border: "none",
+  color: "#fff",
+  borderRadius: "5px",
+  cursor: "not-allowed",
+  whiteSpace: "nowrap",
+  fontWeight: "600",
+  fontSize: "13px",
+},
   };
 
   // =========================================================
@@ -2543,37 +2662,82 @@ export default function AdminOrdersScreen() {
 
                     </td>
 
-                    {/* PRINT BILL */}
+                  {/* ACTIONS */}
 
-                    <td
-                      style={
-                        styles.td
-                      }
-                    >
+<td style={styles.td}>
+  <div style={styles.actionBox}>
 
-                      <div
-                        style={
-                          styles.actionBox
-                        }
-                      >
+    {/* PRINT BILL */}
+    <button
+      style={styles.printBtn}
+      onClick={() =>
+        handlePrintBill(order)
+      }
+      title="Open A4 Bill"
+    >
+      🖨️ Print Bill
+    </button>
 
-                        <button
-                          style={
-                            styles.printBtn
-                          }
-                          onClick={() =>
-                            handlePrintBill(
-                              order
-                            )
-                          }
-                          title="Open A4 Bill"
-                        >
-                          🖨️ Print Bill
-                        </button>
+    {/* CANCEL ORDER */}
+    {(() => {
+      const orderStatus = String(
+        order.status || ""
+      ).toLowerCase();
 
-                      </div>
+      const isCancelled =
+        orderStatus === "cancelled" ||
+        orderStatus === "canceled";
 
-                    </td>
+      const isCompleted =
+        orderStatus === "completed" ||
+        orderStatus === "delivered";
+
+      const isCancelling =
+        assigning[`cancel_${order.id}`];
+
+      if (isCancelled) {
+        return (
+          <button
+            style={styles.cancelledBtn}
+            disabled
+          >
+            ✓ Cancelled
+          </button>
+        );
+      }
+
+      if (isCompleted) {
+        return (
+          <button
+            style={styles.cancelDisabledBtn}
+            disabled
+          >
+            Cannot Cancel
+          </button>
+        );
+      }
+
+      return (
+        <button
+          style={
+            isCancelling
+              ? styles.cancelDisabledBtn
+              : styles.cancelBtn
+          }
+          disabled={isCancelling}
+          onClick={() =>
+            handleCancelOrder(order)
+          }
+        >
+          {isCancelling
+            ? "Cancelling..."
+            : "✕ Cancel Order"}
+        </button>
+      );
+    })()}
+
+  </div>
+</td>
 
                   </tr>
                 );
