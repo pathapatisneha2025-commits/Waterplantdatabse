@@ -274,138 +274,125 @@ export default function GlobalOrderNotification() {
   // Uses Web Audio API oscillator.
   // ==========================================================
 
-  const playNotificationSound =
-    async () => {
-      try {
-        const audioContext =
-          getAudioContext();
 
-        if (!audioContext) {
-          return;
-        }
+const playNotificationSound = async () => {
+  try {
+    const audioContext = getAudioContext();
 
-        if (
-          audioContext.state ===
-          "suspended"
-        ) {
-          await audioContext.resume();
-        }
+    if (!audioContext) {
+      return;
+    }
 
-        const now =
-          audioContext.currentTime;
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
 
-        // ====================================================
-        // BEEP 1
-        // ====================================================
+    const now = audioContext.currentTime;
 
-        const oscillator1 =
-          audioContext.createOscillator();
+    // ====================================================
+    // 🔊 BEEP 1 - LOUDER
+    // ====================================================
 
-        const gain1 =
-          audioContext.createGain();
+    const oscillator1 =
+      audioContext.createOscillator();
 
-        oscillator1.type =
-          "sine";
+    const gain1 =
+      audioContext.createGain();
 
-        oscillator1.frequency.setValueAtTime(
-          880,
-          now
-        );
+    oscillator1.type = "sine";
 
-        oscillator1.frequency.setValueAtTime(
-          1175,
-          now + 0.12
-        );
+    oscillator1.frequency.setValueAtTime(
+      880,
+      now
+    );
 
-        oscillator1.connect(
-          gain1
-        );
+    oscillator1.frequency.setValueAtTime(
+      1175,
+      now + 0.15
+    );
 
-        gain1.connect(
-          audioContext.destination
-        );
+    oscillator1.connect(gain1);
+    gain1.connect(audioContext.destination);
 
-        gain1.gain.setValueAtTime(
-          0.0001,
-          now
-        );
+    gain1.gain.setValueAtTime(
+      0.0001,
+      now
+    );
 
-        gain1.gain.exponentialRampToValueAtTime(
-          0.25,
-          now + 0.03
-        );
+    // 🔊 Increased volume
+    gain1.gain.exponentialRampToValueAtTime(
+      0.75,
+      now + 0.04
+    );
 
-        gain1.gain.exponentialRampToValueAtTime(
-          0.0001,
-          now + 0.25
-        );
+    gain1.gain.exponentialRampToValueAtTime(
+      0.0001,
+      now + 0.35
+    );
 
-        oscillator1.start(now);
+    oscillator1.start(now);
 
-        oscillator1.stop(
-          now + 0.28
-        );
+    oscillator1.stop(
+      now + 0.38
+    );
 
-        // ====================================================
-        // BEEP 2
-        // ====================================================
+    // ====================================================
+    // 🔊 BEEP 2 - LOUDER
+    // ====================================================
 
-        const oscillator2 =
-          audioContext.createOscillator();
+    const oscillator2 =
+      audioContext.createOscillator();
 
-        const gain2 =
-          audioContext.createGain();
+    const gain2 =
+      audioContext.createGain();
 
-        oscillator2.type =
-          "sine";
+    oscillator2.type = "sine";
 
-        oscillator2.frequency.setValueAtTime(
-          1175,
-          now + 0.16
-        );
+    oscillator2.frequency.setValueAtTime(
+      1175,
+      now + 0.20
+    );
 
-        oscillator2.frequency.setValueAtTime(
-          1480,
-          now + 0.28
-        );
+    oscillator2.frequency.setValueAtTime(
+      1480,
+      now + 0.35
+    );
 
-        oscillator2.connect(
-          gain2
-        );
+    oscillator2.connect(gain2);
+    gain2.connect(audioContext.destination);
 
-        gain2.connect(
-          audioContext.destination
-        );
+    gain2.gain.setValueAtTime(
+      0.0001,
+      now + 0.20
+    );
 
-        gain2.gain.setValueAtTime(
-          0.0001,
-          now + 0.16
-        );
+    // 🔊 Increased volume
+    gain2.gain.exponentialRampToValueAtTime(
+      0.70,
+      now + 0.24
+    );
 
-        gain2.gain.exponentialRampToValueAtTime(
-          0.22,
-          now + 0.19
-        );
+    gain2.gain.exponentialRampToValueAtTime(
+      0.0001,
+      now + 0.65
+    );
 
-        gain2.gain.exponentialRampToValueAtTime(
-          0.0001,
-          now + 0.5
-        );
+    oscillator2.start(
+      now + 0.20
+    );
 
-        oscillator2.start(
-          now + 0.16
-        );
+    oscillator2.stop(
+      now + 0.68
+    );
 
-        oscillator2.stop(
-          now + 0.52
-        );
-      } catch (error) {
-        console.log(
-          "Notification sound error:",
-          error
-        );
-      }
-    };
+  } catch (error) {
+    console.log(
+      "Notification sound error:",
+      error
+    );
+  }
+};
+
 
   // ==========================================================
   // REQUEST BROWSER NOTIFICATION
