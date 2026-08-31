@@ -100,36 +100,98 @@ export default function CustomerManagement() {
       alert("Network error while updating address");
     }
   };
-
-  const handleToggle = async (isChecked, c) => {
-    // Admin turns ON toggle
+const handleToggle = async (isChecked, c) => {
+  try {
+    // ==========================================
+    // TURN PREMIUM ON
+    // ==========================================
     if (isChecked) {
-      // If pending request → approve via API
+      // Pending request -> approve
       if (c.premiumRequested) {
         await approvePremium(c.id);
         return;
       }
 
-      // If regular user → manually make premium
+      // Regular customer -> make premium
+      const res = await fetch(
+        "https://waterplantdatabse-v763.onrender.com/users/approve-premium",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: c.id,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.message || "Failed to enable premium.");
+        return;
+      }
+
       setCustomers((prev) =>
         prev.map((cust) =>
           cust.id === c.id
-            ? { ...cust, premium: true }
+            ? {
+                ...cust,
+                premium: true,
+                premiumRequested: false,
+              }
             : cust
         )
       );
+
+      alert("Premium enabled successfully!");
     }
-    // Admin turns OFF toggle → remove premium
+
+    // ==========================================
+    // TURN PREMIUM OFF
+    // ==========================================
     else {
+      const res = await fetch(
+        "https://waterplantdatabse-v763.onrender.com/users/disable-premium",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: c.id,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.message || "Failed to disable premium.");
+        return;
+      }
+
+      // Update UI only after database update succeeds
       setCustomers((prev) =>
         prev.map((cust) =>
           cust.id === c.id
-            ? { ...cust, premium: false, premiumRequested: false }
+            ? {
+                ...cust,
+                premium: false,
+                premiumRequested: false,
+              }
             : cust
         )
       );
+
+      alert("Premium disabled successfully!");
     }
-  };
+  } catch (error) {
+    console.error("Premium toggle error:", error);
+    alert("Network error while updating premium status.");
+  }
+};
 
   // Styles preserving exact colors, incorporating back button, header row, and mobile responsive horizontal scrolling
   const styles = {
