@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -13,6 +12,7 @@ const Categories = require("./routes/categories");
 const Banners = require("./routes/banner");
 const todaysdeals = require("./routes/todaysdeals");
 const wishlists = require("./routes/wishlists");
+const Admin = require("./routes/admin");
 
 const app = express();
 
@@ -29,6 +29,7 @@ app.use("/categories", Categories);
 app.use("/banner", Banners);
 app.use("/todaydeals", todaysdeals);
 app.use("/wishlists", wishlists);
+app.use("/admin", Admin);
 
 // Server
 const PORT = process.env.PORT || 5002;

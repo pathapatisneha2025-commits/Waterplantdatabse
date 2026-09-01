@@ -12,9 +12,9 @@ const OrdersAssignDriver = () => {
     const fetchData = async () => {
       try {
         const [ordersRes, driversRes, usersRes] = await Promise.all([
-          fetch("https://waterplantdatabse-v763.onrender.com/waterorder/all"),
-          fetch("https://waterplantdatabse-v763.onrender.com/users/list/drivers"),
-          fetch("https://waterplantdatabse-v763.onrender.com/users/list/customers"),
+          fetch("https://api2.ajpartyhouse.in/waterorder/all"),
+          fetch("https://api2.ajpartyhouse.in/users/list/drivers"),
+          fetch("https://api2.ajpartyhouse.in/users/list/customers"),
         ]);
 
         const ordersData = await ordersRes.json();
@@ -48,7 +48,7 @@ const OrdersAssignDriver = () => {
       return;
     }
 
-    fetch(`https://waterplantdatabse-v763.onrender.com/waterorder/assign-driver`, {
+    fetch(`https://api2.ajpartyhouse.in/waterorder/assign-driver`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId, driverId }),

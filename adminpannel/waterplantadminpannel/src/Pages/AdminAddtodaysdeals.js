@@ -5,7 +5,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 const API_BASE =
-  "https://waterplantdatabse-v763.onrender.com";
+  "https://api2.ajpartyhouse.in";
 
 const EMPTY_FORM = {
   title: "",

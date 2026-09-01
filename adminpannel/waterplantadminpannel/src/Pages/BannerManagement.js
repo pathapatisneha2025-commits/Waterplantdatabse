@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const API_URL =
-  "https://waterplantdatabse-v763.onrender.com";
+  "https://api2.ajpartyhouse.in";
 
 const BannerManagement = ({ onBack }) => {
   const [banners, setBanners] = useState([]);

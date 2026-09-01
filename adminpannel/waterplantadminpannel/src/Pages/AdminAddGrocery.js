@@ -42,7 +42,7 @@ const AddGrocery = () => {
     const fetchCategories = async () => {
       try {
         const url =
-          "https://waterplantdatabse-v763.onrender.com/categories/all";
+          "https://api2.ajpartyhouse.in/categories/all";
 
         const res = await fetch(url);
 
@@ -472,8 +472,8 @@ const AddGrocery = () => {
 
     try {
       const url = isEdit
-        ? `https://waterplantdatabse-v763.onrender.com/groceries/update/${editItem.id}`
-        : `https://waterplantdatabse-v763.onrender.com/groceries/add`;
+        ? `https://api2.ajpartyhouse.in/groceries/update/${editItem.id}`
+        : `https://api2.ajpartyhouse.in/groceries/add`;
 
       const method = isEdit
         ? "PUT"

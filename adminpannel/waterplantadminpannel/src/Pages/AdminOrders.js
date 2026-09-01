@@ -7,7 +7,7 @@ import React, {
 import { useNavigate } from "react-router-dom";
 
 const API_URL =
-  "https://waterplantdatabse-v763.onrender.com";
+  "https://api2.ajpartyhouse.in";
 
 export default function AdminOrdersScreen() {
   const navigate = useNavigate();

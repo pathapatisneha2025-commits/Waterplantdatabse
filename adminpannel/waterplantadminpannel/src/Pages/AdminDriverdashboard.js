@@ -14,7 +14,7 @@ export default function AdminDriverDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resOrders = await fetch("https://waterplantdatabse-v763.onrender.com/orders/all");
+        const resOrders = await fetch("https://api2.ajpartyhouse.in/orders/all");
         const dataOrders = await resOrders.json();
         const transformedOrders = dataOrders.map((o) => ({
           id: o.id,
@@ -27,7 +27,7 @@ export default function AdminDriverDashboard() {
         }));
         setOrders(transformedOrders);
 
-        const resUsers = await fetch("https://waterplantdatabse-v763.onrender.com/users/all");
+        const resUsers = await fetch("https://api2.ajpartyhouse.in/users/all");
         const dataUsers = await resUsers.json();
         const driverMap = dataUsers.users
           .filter((u) => u.role === "driver")

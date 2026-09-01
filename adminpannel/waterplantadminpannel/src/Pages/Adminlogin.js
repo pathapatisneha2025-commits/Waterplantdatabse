@@ -19,7 +19,7 @@ const handleLogin = async (e) => {
     try{
 
         const response = await fetch(
-            "https://partyhousedatabase-rpft.onrender.com/admin/login",
+            "https://api2.ajpartyhouse.in/admin/login",
             {
                 method:"POST",
                 headers:{

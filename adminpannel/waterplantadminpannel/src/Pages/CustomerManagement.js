@@ -8,7 +8,7 @@ export default function CustomerManagement() {
 
   // Fetch customers from API
   useEffect(() => {
-    fetch("https://waterplantdatabse-v763.onrender.com/users/all")
+    fetch("https://api2.ajpartyhouse.in/users/all")
       .then((res) => res.json())
       .then((data) => {
         console.log("FULL API RESPONSE:", data);
@@ -49,7 +49,7 @@ export default function CustomerManagement() {
   const approvePremium = async (id) => {
     try {
       const res = await fetch(
-        "https://waterplantdatabse-v763.onrender.com/users/approve-premium",
+        "https://api2.ajpartyhouse.in/users/approve-premium",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -79,7 +79,7 @@ export default function CustomerManagement() {
     if (!newAddress) return;
 
     try {
-      const res = await fetch(`https://waterplantdatabse-v763.onrender.com/users/update-addresses/${id}`, {
+      const res = await fetch(`https://api2.ajpartyhouse.in/users/update-addresses/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: newAddress }), // only send address
@@ -114,7 +114,7 @@ const handleToggle = async (isChecked, c) => {
 
       // Regular customer -> make premium
       const res = await fetch(
-        "https://waterplantdatabse-v763.onrender.com/users/approve-premium",
+        "https://api2.ajpartyhouse.in/users/approve-premium",
         {
           method: "POST",
           headers: {
@@ -153,7 +153,7 @@ const handleToggle = async (isChecked, c) => {
     // ==========================================
     else {
       const res = await fetch(
-        "https://waterplantdatabse-v763.onrender.com/users/disable-premium",
+        "https://api2.ajpartyhouse.in/users/disable-premium",
         {
           method: "POST",
           headers: {

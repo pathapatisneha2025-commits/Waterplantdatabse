@@ -13,7 +13,7 @@ const GroceryDashboard = () => {
   const fetchItems = async () => {
     try {
       const res = await fetch(
-        "https://waterplantdatabse-v763.onrender.com/groceries/all"
+        "https://api2.ajpartyhouse.in/groceries/all"
       );
 
       const data = await res.json();

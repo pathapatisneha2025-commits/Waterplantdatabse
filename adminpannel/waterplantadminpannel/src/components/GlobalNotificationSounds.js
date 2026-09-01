@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 // ============================================================
 
 const BASE_URL =
-  "https://waterplantdatabse-v763.onrender.com";
+  "https://api2.ajpartyhouse.in";
 
 // ============================================================
 // STORAGE

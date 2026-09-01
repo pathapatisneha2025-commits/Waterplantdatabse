@@ -9,7 +9,7 @@ export default function DriverManagement() {
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState(null);
 
-  const API = "https://waterplantdatabse-v763.onrender.com";
+  const API = "https://api2.ajpartyhouse.in";
 
   useEffect(() => {
     fetch(`${API}/users/all`)

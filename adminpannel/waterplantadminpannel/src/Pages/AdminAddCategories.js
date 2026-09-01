@@ -12,7 +12,7 @@ export default function AdminWaterPlantCategory() {
   const [saving, setSaving] = useState(false);
 
   const BASE_URL =
-    "https://waterplantdatabse-v763.onrender.com";
+    "https://api2.ajpartyhouse.in";
 
   // =====================================================
   // FETCH CATEGORIES
