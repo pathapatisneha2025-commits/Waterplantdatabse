@@ -61,10 +61,12 @@ router.post("/place", async (req, res) => {
     console.log("LONGITUDE:", longitude);
     console.log("LOCATION ADDRESS:", location_address);
     console.log("ORDER SOURCE:", order_source);
+
     console.log(
       "FRONTEND ITEMS:",
       JSON.stringify(items, null, 2)
     );
+
     console.log("=================================");
 
     // ==========================================
@@ -136,16 +138,17 @@ router.post("/place", async (req, res) => {
     //
     // CART:
     //     Read from user_cart
+    //     + GET PRICE FROM grocery_items
     // ==========================================
 
     let orderItems = [];
 
-    if (
-      order_source === "buy_now"
-    ) {
-      console.log(
-        "PROCESSING BUY NOW ORDER"
-      );
+    // ==========================================
+    // BUY NOW ORDER
+    // ==========================================
+
+    if (order_source === "buy_now") {
+      console.log("PROCESSING BUY NOW ORDER");
 
       // ==========================================
       // BUY NOW VALIDATION
@@ -164,49 +167,56 @@ router.post("/place", async (req, res) => {
       // NORMALIZE BUY NOW ITEMS
       // ==========================================
 
-      orderItems = items.map((item) => ({
-        item_id:
-          item.item_id ??
-          item.id ??
-          null,
-
-        qty: Number(
+      orderItems = items.map((item) => {
+        const qty = Number(
           item.qty ??
           item.quantity ??
           1
-        ),
+        );
 
-        name:
-          item.name ||
-          item.item_name ||
-          "Product",
+        const price = Number(
+          item.price ?? 0
+        );
 
-        item_type:
-          item.item_type ||
-          "grocery",
-
-        slot:
-          item.slot ||
-          null,
-
-        price: Number(
-          item.price || 0
-        ),
-
-        total: Number(
+        const total = Number(
           item.total ??
-          (
-            Number(
-              item.qty ??
-              item.quantity ??
-              1
-            ) *
-            Number(
-              item.price || 0
-            )
-          )
-        ),
-      }));
+          qty * price
+        );
+
+        return {
+          item_id:
+            item.item_id ??
+            item.id ??
+            null,
+
+          qty,
+
+          name:
+            item.name ||
+            item.item_name ||
+            "Product",
+
+          item_type:
+            item.item_type ||
+            "grocery",
+
+          slot:
+            item.slot ||
+            null,
+
+          // ======================================
+          // PRICE
+          // ======================================
+
+          price,
+
+          // ======================================
+          // ITEM TOTAL
+          // ======================================
+
+          total,
+        };
+      });
 
       console.log(
         "BUY NOW ITEMS:",
@@ -216,27 +226,45 @@ router.post("/place", async (req, res) => {
           2
         )
       );
-    } else {
-      // ==========================================
-      // NORMAL CART ORDER
-      // ==========================================
+    }
 
-      console.log(
-        "PROCESSING CART ORDER"
-      );
+    // ==========================================
+    // NORMAL CART ORDER
+    // ==========================================
+
+    else {
+      console.log("PROCESSING CART ORDER");
+
+      // ==========================================
+      // GET CART ITEMS + PRODUCT PRICE
+      // ==========================================
 
       const cartResult =
         await client.query(
-          `SELECT
-             item_id,
-             qty,
-             name,
-             item_type,
-             slot
-           FROM user_cart
-           WHERE user_id = $1`,
+          `
+          SELECT
+            uc.item_id,
+            uc.qty,
+            uc.name,
+            uc.item_type,
+            uc.slot,
+
+            -- PRODUCT PRICE
+            gi.price AS product_price
+
+          FROM user_cart uc
+
+          LEFT JOIN grocery_items gi
+            ON gi.id = uc.item_id
+
+          WHERE uc.user_id = $1
+          `,
           [user_id]
         );
+
+      // ==========================================
+      // CHECK CART
+      // ==========================================
 
       if (
         cartResult.rows.length === 0
@@ -246,11 +274,61 @@ router.post("/place", async (req, res) => {
         );
       }
 
+      // ==========================================
+      // NORMALIZE CART ITEMS
+      // ==========================================
+
       orderItems =
-        cartResult.rows;
+        cartResult.rows.map(
+          (item) => {
+            const qty =
+              Number(
+                item.qty || 1
+              );
+
+            const price =
+              Number(
+                item.product_price || 0
+              );
+
+            const total =
+              qty * price;
+
+            return {
+              item_id:
+                item.item_id,
+
+              qty,
+
+              name:
+                item.name ||
+                "Product",
+
+              item_type:
+                item.item_type ||
+                "grocery",
+
+              slot:
+                item.slot ||
+                null,
+
+              // ==================================
+              // SAVE PRICE
+              // ==================================
+
+              price,
+
+              // ==================================
+              // SAVE TOTAL
+              // ==================================
+
+              total,
+            };
+          }
+        );
 
       console.log(
-        "CART ITEMS:",
+        "CART ITEMS WITH PRICE:",
         JSON.stringify(
           orderItems,
           null,
@@ -273,11 +351,41 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
+    // VALIDATE ITEM PRICES
+    // ==========================================
+
+    for (const item of orderItems) {
+      console.log(
+        "ITEM PRICE CHECK:",
+        {
+          item_id: item.item_id,
+          name: item.name,
+          qty: item.qty,
+          price: item.price,
+          total: item.total,
+        }
+      );
+
+      // Grocery items must have price
+      if (
+        item.item_type !== "water" &&
+        Number(item.price || 0) <= 0
+      ) {
+        throw new Error(
+          `Price not found for ${item.name} (ID: ${item.item_id})`
+        );
+      }
+    }
+
+    // ==========================================
     // 2. CHECK STOCK & REDUCE GROCERY STOCK
     // ==========================================
 
     for (const item of orderItems) {
-      // Water doesn't use grocery stock
+      // ==========================================
+      // WATER DOES NOT USE GROCERY STOCK
+      // ==========================================
+
       if (
         item.item_type === "water"
       ) {
@@ -287,15 +395,24 @@ router.post("/place", async (req, res) => {
       const itemId =
         item.item_id;
 
+      // ==========================================
+      // VALIDATE ITEM ID
+      // ==========================================
+
       if (!itemId) {
         throw new Error(
           `Invalid grocery item ID for ${item.name}`
         );
       }
 
-      const qty = Number(
-        item.qty || 1
-      );
+      const qty =
+        Number(
+          item.qty || 1
+        );
+
+      // ==========================================
+      // VALIDATE QUANTITY
+      // ==========================================
 
       if (qty <= 0) {
         throw new Error(
@@ -309,14 +426,20 @@ router.post("/place", async (req, res) => {
 
       const stockResult =
         await client.query(
-          `SELECT
-             stock,
-             name
-           FROM grocery_items
-           WHERE id = $1
-           FOR UPDATE`,
+          `
+          SELECT
+            stock,
+            name
+          FROM grocery_items
+          WHERE id = $1
+          FOR UPDATE
+          `,
           [itemId]
         );
+
+      // ==========================================
+      // ITEM NOT FOUND
+      // ==========================================
 
       if (
         !stockResult.rows.length
@@ -356,10 +479,13 @@ router.post("/place", async (req, res) => {
       // ==========================================
 
       await client.query(
-        `UPDATE grocery_items
-         SET stock = stock - $1,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
+        `
+        UPDATE grocery_items
+        SET
+          stock = stock - $1,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+        `,
         [
           qty,
           itemId,
@@ -377,56 +503,71 @@ router.post("/place", async (req, res) => {
 
     const insertOrder =
       await client.query(
-        `INSERT INTO groceriesorders
-          (
-            user_id,
-            customer_name,
-            mobile,
-            address,
-            landmark,
-            pincode,
-            payment_mode,
-            total_amount,
-            is_premium,
-            items,
-
-            latitude,
-            longitude,
-            location_address
-          )
-        VALUES
-          (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5,
-            $6,
-            $7,
-            $8,
-            $9,
-            $10,
-
-            $11,
-            $12,
-            $13
-          )
-        RETURNING *`,
-        [
+        `
+        INSERT INTO groceriesorders
+        (
           user_id,
           customer_name,
           mobile,
           address,
-          landmark || null,
+          landmark,
           pincode,
-          payment_mode || "COD",
+          payment_mode,
+          total_amount,
+          is_premium,
+          items,
+
+          latitude,
+          longitude,
+          location_address
+        )
+
+        VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+
+          $11,
+          $12,
+          $13
+        )
+
+        RETURNING *
+        `,
+        [
+          user_id,
+
+          customer_name,
+
+          mobile,
+
+          address,
+
+          landmark ||
+            null,
+
+          pincode,
+
+          payment_mode ||
+            "COD",
+
           Number(
             total_amount || 0
           ),
-          is_premium || false,
+
+          is_premium ||
+            false,
 
           // ======================================
-          // SAVE ORDER ITEMS
+          // SAVE ITEMS INCLUDING PRICE + TOTAL
           // ======================================
 
           JSON.stringify(
@@ -438,13 +579,20 @@ router.post("/place", async (req, res) => {
           // ======================================
 
           latitudeNumber,
+
           longitudeNumber,
-          location_address || null,
+
+          location_address ||
+            null,
         ]
       );
 
     const createdOrder =
       insertOrder.rows[0];
+
+    // ==========================================
+    // LOG CREATED ORDER
+    // ==========================================
 
     console.log(
       "================================="
@@ -494,14 +642,18 @@ router.post("/place", async (req, res) => {
           "water"
       );
 
-    if (hasWaterOrder) {
+    if (
+      hasWaterOrder
+    ) {
       await client.query(
-        `UPDATE users
-         SET
-           has_booked_water_cans = TRUE,
-           updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-           AND has_booked_water_cans = FALSE`,
+        `
+        UPDATE users
+        SET
+          has_booked_water_cans = TRUE,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+          AND has_booked_water_cans = FALSE
+        `,
         [user_id]
       );
     }
@@ -509,20 +661,20 @@ router.post("/place", async (req, res) => {
     // ==========================================
     // 5. CLEAR CART
     //
-    // IMPORTANT:
+    // ONLY NORMAL CART CHECKOUT
     //
-    // Only clear cart for normal cart checkout.
-    //
-    // BUY NOW should NOT delete the customer's
-    // existing cart.
+    // BUY NOW DOES NOT CLEAR CART
     // ==========================================
 
     if (
-      order_source !== "buy_now"
+      order_source !==
+      "buy_now"
     ) {
       await client.query(
-        `DELETE FROM user_cart
-         WHERE user_id = $1`,
+        `
+        DELETE FROM user_cart
+        WHERE user_id = $1
+        `,
         [user_id]
       );
 
@@ -551,7 +703,8 @@ router.post("/place", async (req, res) => {
       message:
         "Order placed successfully",
 
-      order: createdOrder,
+      order:
+        createdOrder,
 
       order_source:
         order_source ||
@@ -569,6 +722,7 @@ router.post("/place", async (req, res) => {
           null,
       },
     });
+
   } catch (error) {
     // ==========================================
     // ROLLBACK
@@ -588,6 +742,7 @@ router.post("/place", async (req, res) => {
         error.message ||
         "Failed to place order",
     });
+
   } finally {
     client.release();
   }
