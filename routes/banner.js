@@ -420,30 +420,88 @@ router.put(
 
       if (Array.isArray(existing.image_url)) {
         imageUrls = existing.image_url;
-      } else if (existing.image_url) {
-        // Support old single-image data
-        imageUrls = [existing.image_url];
+      } else if (typeof existing.image_url === "string") {
+        try {
+          const parsed = JSON.parse(existing.image_url);
+
+          if (Array.isArray(parsed)) {
+            imageUrls = parsed;
+          } else if (parsed) {
+            imageUrls = [parsed];
+          }
+        } catch (error) {
+          // Old single URL stored as plain text
+          if (existing.image_url.trim() !== "") {
+            imageUrls = [existing.image_url];
+          }
+        }
       }
 
       // ==================================================
-      // NEW IMAGES UPLOADED
+      // NEW IMAGES
       // ==================================================
 
-      if (req.files && req.files.length > 0) {
+      if (
+        req.files &&
+        Array.isArray(req.files) &&
+        req.files.length > 0
+      ) {
         imageUrls = req.files.map(
           (file) => file.path
         );
       }
 
       // ==================================================
-      // CHANGED IMAGE → TEXT
+      // FINAL BANNER TYPE
       // ==================================================
 
       const finalBannerType =
         banner_type || existing.banner_type;
 
+      // ==================================================
+      // TEXT BANNER
+      // ==================================================
+
       if (finalBannerType === "text") {
         imageUrls = [];
+      }
+
+      // ==================================================
+      // VALIDATION FOR IMAGE BANNER
+      // ==================================================
+
+      if (
+        finalBannerType === "image" &&
+        imageUrls.length === 0
+      ) {
+        return res.status(400).json({
+          message:
+            "At least one image is required for image banner",
+        });
+      }
+
+      // ==================================================
+      // ENABLED VALUE
+      // ==================================================
+
+      let finalEnabled = existing.enabled;
+
+      if (enabled !== undefined) {
+        finalEnabled =
+          enabled === true ||
+          enabled === "true";
+      }
+
+      // ==================================================
+      // DISPLAY ORDER
+      // ==================================================
+
+      let finalDisplayOrder =
+        existing.display_order || 0;
+
+      if (display_order !== undefined) {
+        finalDisplayOrder =
+          Number(display_order) || 0;
       }
 
       // ==================================================
@@ -456,45 +514,43 @@ router.put(
 
         SET
           title = $1,
-
           subtitle = $2,
-
           banner_type = $3,
-
           image_url = $4,
-
           button_text = $5,
-
           button_screen = $6,
-
           display_order = $7,
-
           enabled = $8,
-
           updated_at = CURRENT_TIMESTAMP
 
         WHERE id = $9
 
         RETURNING *
         `,
-
         [
-          title || null,
+          title !== undefined
+            ? title || null
+            : existing.title,
 
-          subtitle || null,
+          subtitle !== undefined
+            ? subtitle || null
+            : existing.subtitle,
 
           finalBannerType,
 
           JSON.stringify(imageUrls),
 
-          button_text || null,
+          button_text !== undefined
+            ? button_text || null
+            : existing.button_text,
 
-          button_screen || null,
+          button_screen !== undefined
+            ? button_screen || null
+            : existing.button_screen,
 
-          Number(display_order) || 0,
+          finalDisplayOrder,
 
-          enabled === true ||
-            enabled === "true",
+          finalEnabled,
 
           id,
         ]
@@ -518,7 +574,6 @@ router.put(
 
       res.status(500).json({
         message: "Failed to update banner",
-
         error: error.message,
       });
     }
