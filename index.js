@@ -26,7 +26,7 @@ app.use("/orders", Orders);
 app.use("/waterorder", WaterOrders);
 app.use("/groceries", Groceries);
 app.use("/categories", Categories);
-app.use("/banner", Banners);
+app.use("/banners", Banners);
 app.use("/todaydeals", todaysdeals);
 app.use("/wishlists", wishlists);
 app.use("/admin", Admin);

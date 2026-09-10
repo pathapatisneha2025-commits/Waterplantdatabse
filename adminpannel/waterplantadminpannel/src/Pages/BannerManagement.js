@@ -402,8 +402,8 @@ const BannerManagement = ({ onBack }) => {
       }
 
       const url = editingBanner
-        ? `${API_URL}/banner/${editingBanner.id}`
-        : `${API_URL}/banner/add`;
+        ? `${API_URL}/banners/${editingBanner.id}`
+        : `${API_URL}/banners/add`;
 
       const response = await fetch(url, {
         method: editingBanner ? "PUT" : "POST",
