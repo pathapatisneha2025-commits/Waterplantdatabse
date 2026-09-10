@@ -35,7 +35,7 @@ const BannerManagement = ({ onBack }) => {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/banners/admin`);
+      const response = await fetch(`${API_URL}/banner/admin`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -402,8 +402,8 @@ const BannerManagement = ({ onBack }) => {
       }
 
       const url = editingBanner
-        ? `${API_URL}/banners/${editingBanner.id}`
-        : `${API_URL}/banners/add`;
+        ? `${API_URL}/banner/${editingBanner.id}`
+        : `${API_URL}/banner/add`;
 
       const response = await fetch(url, {
         method: editingBanner ? "PUT" : "POST",
@@ -455,7 +455,7 @@ const BannerManagement = ({ onBack }) => {
   const toggleStatus = async (banner) => {
     try {
       const response = await fetch(
-        `${API_URL}/banners/${banner.id}/status`,
+        `${API_URL}/banner/${banner.id}/status`,
         {
           method: "PATCH",
           headers: {
@@ -507,7 +507,7 @@ const BannerManagement = ({ onBack }) => {
 
     try {
       const response = await fetch(
-        `${API_URL}/banners/${banner.id}`,
+        `${API_URL}/banner/${banner.id}`,
         {
           method: "DELETE",
         }
