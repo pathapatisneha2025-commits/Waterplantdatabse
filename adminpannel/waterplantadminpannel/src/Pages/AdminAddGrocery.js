@@ -930,8 +930,13 @@ const AddGrocery = () => {
 // =========================================================
 
 const styles = {
+  // =========================================================
+  // PAGE
+  // =========================================================
+
   page: {
     minHeight: "100vh",
+    width: "100%",
     background: "#f5f7fb",
     padding: "20px",
     display: "flex",
@@ -940,44 +945,51 @@ const styles = {
     boxSizing: "border-box",
   },
 
+  // =========================================================
+  // MAIN CARD
+  // =========================================================
+
   card: {
     width: "100%",
     maxWidth: "750px",
     background: "#fff",
     padding: "30px",
     borderRadius: "20px",
-    boxShadow:
-      "0 5px 20px rgba(0,0,0,0.08)",
+    boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
     boxSizing: "border-box",
   },
 
-  // =========================
+  // =========================================================
   // HEADER
-  // =========================
+  // =========================================================
 
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "25px",
+    marginBottom: "28px",
+    gap: "15px",
   },
 
   backButton: {
     width: "45px",
     height: "45px",
+    minWidth: "45px",
     borderRadius: "12px",
-    border: "1px solid #ddd",
+    border: "1px solid #e2e2e2",
     background: "#fff",
-    fontSize: "28px",
+    fontSize: "27px",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#333",
+    transition: "all 0.2s ease",
   },
 
   headerSpace: {
     width: "45px",
+    minWidth: "45px",
   },
 
   heading: {
@@ -987,61 +999,83 @@ const styles = {
     fontWeight: "700",
     color: "#ff6600",
     margin: 0,
+    lineHeight: "1.3",
   },
 
-  // =========================
+  // =========================================================
   // GRID
-  // =========================
+  // =========================================================
 
   grid: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "15px",
+    width: "100%",
   },
+
+  // =========================================================
+  // INPUT
+  // =========================================================
 
   input: {
     width: "100%",
-    padding: "14px",
+    minHeight: "50px",
+    padding: "14px 15px",
     borderRadius: "12px",
     border: "1px solid #ddd",
-    fontSize: "16px",
+    background: "#fff",
+    fontSize: "15px",
+    color: "#222",
     boxSizing: "border-box",
     outline: "none",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
   },
+
+  // =========================================================
+  // TEXTAREA
+  // =========================================================
 
   textarea: {
     width: "100%",
-    height: "100px",
-    padding: "14px",
+    minHeight: "110px",
+    padding: "14px 15px",
     borderRadius: "12px",
     border: "1px solid #ddd",
-    fontSize: "16px",
+    background: "#fff",
+    fontSize: "15px",
+    color: "#222",
     marginTop: "15px",
     boxSizing: "border-box",
     resize: "vertical",
+    outline: "none",
+    fontFamily: "inherit",
+    lineHeight: "1.5",
   },
 
-  // =========================
-  // SECTION
-  // =========================
+  // =========================================================
+  // SECTION TITLE
+  // =========================================================
 
   sectionTitle: {
-    color: "#333",
+    color: "#222",
     fontSize: "18px",
-    marginTop: "25px",
-    marginBottom: "12px",
+    fontWeight: "700",
+    marginTop: "28px",
+    marginBottom: "13px",
+    lineHeight: "1.3",
   },
 
-  // =========================
-  // RETURN CARD
-  // =========================
+  // =========================================================
+  // RETURN POLICY
+  // =========================================================
 
   returnCard: {
-    border: "1px solid #e3e3e3",
+    border: "1px solid #e5e5e5",
     borderRadius: "15px",
     padding: "18px",
     background: "#fafafa",
+    boxSizing: "border-box",
+    width: "100%",
   },
 
   returnRow: {
@@ -1055,6 +1089,7 @@ const styles = {
     fontSize: "17px",
     fontWeight: "700",
     color: "#333",
+    lineHeight: "1.3",
   },
 
   returnDescription: {
@@ -1062,11 +1097,12 @@ const styles = {
     fontSize: "13px",
     color: "#777",
     lineHeight: "19px",
+    maxWidth: "500px",
   },
 
-  // =========================
+  // =========================================================
   // SWITCH
-  // =========================
+  // =========================================================
 
   switch: {
     position: "relative",
@@ -1091,7 +1127,7 @@ const styles = {
     right: 0,
     bottom: 0,
     borderRadius: "30px",
-    transition: "0.3s",
+    transition: "0.3s ease",
   },
 
   sliderCircle: {
@@ -1102,14 +1138,13 @@ const styles = {
     top: "2px",
     background: "#fff",
     borderRadius: "50%",
-    transition: "0.3s",
-    boxShadow:
-      "0 1px 4px rgba(0,0,0,0.25)",
+    transition: "0.3s ease",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
   },
 
-  // =========================
+  // =========================================================
   // RETURN DAYS
-  // =========================
+  // =========================================================
 
   returnDaysContainer: {
     marginTop: "18px",
@@ -1129,6 +1164,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "10px",
+    flexWrap: "wrap",
   },
 
   daysText: {
@@ -1141,15 +1177,16 @@ const styles = {
     marginTop: "8px",
     fontSize: "13px",
     color: "#777",
+    lineHeight: "18px",
   },
 
-  // =========================
+  // =========================================================
   // NON RETURNABLE
-  // =========================
+  // =========================================================
 
   nonReturnableMessage: {
     marginTop: "15px",
-    padding: "12px",
+    padding: "12px 14px",
     borderRadius: "10px",
     background: "#fff4e5",
     color: "#8a5200",
@@ -1157,40 +1194,55 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    lineHeight: "18px",
   },
 
   nonReturnableIcon: {
     fontSize: "16px",
+    flexShrink: 0,
   },
 
-  // =========================
-  // IMAGE
-  // =========================
+  // =========================================================
+  // PRODUCT IMAGE
+  // NO CONTAINER
+  // NO BORDER
+  // NO BACKGROUND
+  // =========================================================
 
   preview: {
+    display: "block",
     width: "100%",
-    height: "220px",
-    objectFit: "cover",
-    borderRadius: "15px",
-    marginTop: "15px",
+    maxWidth: "100%",
+    height: "auto",
+    maxHeight: "360px",
+    objectFit: "contain",
+    objectPosition: "center",
+    marginTop: "16px",
     marginBottom: "20px",
+    border: "none",
+    borderRadius: "0",
+    background: "transparent",
+    boxShadow: "none",
   },
 
-  // =========================
-  // BUTTON
-  // =========================
+  // =========================================================
+  // SAVE / UPDATE BUTTON
+  // =========================================================
 
   button: {
     width: "100%",
-    padding: "16px",
+    minHeight: "54px",
+    padding: "15px 18px",
     background: "#ff6600",
     color: "#fff",
     border: "none",
     borderRadius: "14px",
-    fontSize: "18px",
+    fontSize: "17px",
     fontWeight: "700",
     cursor: "pointer",
     marginTop: "20px",
+    transition: "all 0.2s ease",
+    boxSizing: "border-box",
   },
 };
 

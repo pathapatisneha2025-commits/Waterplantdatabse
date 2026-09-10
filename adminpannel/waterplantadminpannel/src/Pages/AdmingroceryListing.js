@@ -490,13 +490,16 @@ const GroceryList = () => {
 };
 
 const styles = {
+  // =========================
+  // MAIN WRAPPER
+  // =========================
 
   wrapper: {
-    padding: "15px",
+    width: "100%",
     minHeight: "100vh",
+    padding: "15px",
     background: "#f9fafb",
-    fontFamily: "Arial",
-    maxWidth: "100%",
+    fontFamily: "Arial, sans-serif",
     boxSizing: "border-box",
   },
 
@@ -505,6 +508,7 @@ const styles = {
   // =========================
 
   headerContainer: {
+    width: "100%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -520,25 +524,26 @@ const styles = {
   },
 
   backBtn: {
-    background: "#fff",
-    border: "1px solid #ccc",
-    borderRadius: "5px",
     width: "36px",
     height: "36px",
+    padding: 0,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    background: "#fff",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+    color: "#333",
     fontSize: "18px",
     cursor: "pointer",
-    color: "#333",
     flexShrink: 0,
   },
 
   title: {
+    margin: 0,
     color: "#ff6600",
     fontSize: "28px",
     fontWeight: "bold",
-    margin: 0,
   },
 
   addBtn: {
@@ -549,60 +554,95 @@ const styles = {
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
+    transition: "0.2s ease",
   },
 
   // =========================
-  // TABLE
+  // TABLE CONTAINER
   // =========================
 
   tableCard: {
+    width: "100%",
     background: "#fff",
     padding: "10px",
     borderRadius: "12px",
     overflowX: "auto",
     WebkitOverflowScrolling: "touch",
+    boxSizing: "border-box",
   },
 
   table: {
     width: "100%",
-    borderCollapse: "collapse",
     minWidth: "1500px",
+    borderCollapse: "collapse",
+    tableLayout: "auto",
   },
 
   th: {
-    borderBottom: "1px solid #eee",
-    padding: "10px",
+    padding: "12px 10px",
     textAlign: "left",
     whiteSpace: "nowrap",
     background: "#fff",
+    color: "#333",
     fontWeight: "700",
+    fontSize: "14px",
+    borderBottom: "1px solid #eee",
   },
 
   td: {
-    borderBottom: "1px solid #eee",
-    padding: "10px",
+    padding: "12px 10px",
     textAlign: "left",
     whiteSpace: "nowrap",
+    verticalAlign: "middle",
+    color: "#333",
+    fontSize: "14px",
+    borderBottom: "1px solid #eee",
   },
 
   row: {
     borderBottom: "1px solid #eee",
+    transition: "background 0.2s ease",
   },
 
   // =========================
   // IMAGE
+  // NO IMAGE CONTAINER
+  // NO BORDER
+  // NO RADIUS
+  // NO CROP
   // =========================
 
   image: {
-    width: "55px",
-    height: "55px",
-    borderRadius: "8px",
-    objectFit: "cover",
+    display: "block",
+
+    /* Natural image sizing */
+    width: "auto",
+    height: "auto",
+
+    /* Prevent image from breaking the table */
+    maxWidth: "100px",
+    maxHeight: "100px",
+
+    /* Keep original aspect ratio */
+    objectFit: "contain",
+
+    /* Completely remove visual container styling */
+    border: "none",
+    borderRadius: 0,
+    background: "transparent",
+    boxShadow: "none",
+
+    padding: 0,
+    margin: 0,
+
+    verticalAlign: "middle",
   },
 
   noImage: {
+    display: "inline-block",
     color: "#999",
     fontSize: "12px",
+    whiteSpace: "nowrap",
   },
 
   // =========================
@@ -636,6 +676,7 @@ const styles = {
     color: "#16833b",
     fontSize: "12px",
     fontWeight: "700",
+    whiteSpace: "nowrap",
   },
 
   premiumDiscountBadge: {
@@ -646,6 +687,7 @@ const styles = {
     color: "#ff6600",
     fontSize: "12px",
     fontWeight: "700",
+    whiteSpace: "nowrap",
   },
 
   // =========================
@@ -654,43 +696,53 @@ const styles = {
 
   actionCol: {
     display: "flex",
-    gap: "8px",
     alignItems: "center",
+    gap: "8px",
+    whiteSpace: "nowrap",
   },
 
   editBtn: {
+    padding: "6px 10px",
     background: "#ffaa33",
     border: "none",
-    padding: "6px 10px",
     borderRadius: "6px",
     color: "#fff",
     fontWeight: "bold",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   deleteBtn: {
+    padding: "6px 10px",
     background: "#ff3300",
     border: "none",
-    padding: "6px 10px",
     borderRadius: "6px",
     color: "#fff",
     fontWeight: "bold",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   // =========================
-  // OTHER
+  // LOADING
   // =========================
 
   loadingText: {
     textAlign: "center",
     marginTop: "50px",
+    color: "#666",
+    fontSize: "15px",
   },
+
+  // =========================
+  // EMPTY
+  // =========================
 
   emptyText: {
     textAlign: "center",
-    padding: "20px",
+    padding: "30px 20px",
     color: "#999",
+    fontSize: "14px",
   },
 };
 

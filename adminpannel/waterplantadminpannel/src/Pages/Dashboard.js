@@ -364,14 +364,15 @@ const GroceryDashboard = () => {
   );
 };
 
-// ======================================================
-// STYLES
-// ======================================================
-
 const styles = {
+  // ======================================================
+  // MAIN WRAPPER
+  // ======================================================
+
   wrapper: {
-    padding: "16px",
+    width: "100%",
     minHeight: "100vh",
+    padding: "20px",
     boxSizing: "border-box",
     background: "#f4f6f9",
     fontFamily: "'Inter', sans-serif",
@@ -379,19 +380,26 @@ const styles = {
     flexDirection: "column",
   },
 
+  // ======================================================
+  // HEADER
+  // ======================================================
+
   headerContainer: {
+    width: "100%",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "20px",
+    marginBottom: "22px",
     flexWrap: "wrap",
-    gap: "12px",
+    gap: "14px",
+    boxSizing: "border-box",
   },
 
   headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    minWidth: 0,
   },
 
   headerRight: {
@@ -403,54 +411,72 @@ const styles = {
   backBtn: {
     background: "#fff",
     border: "1px solid #d1d5db",
-    borderRadius: "8px",
-    width: "40px",
-    height: "40px",
+    borderRadius: "9px",
+    width: "42px",
+    height: "42px",
+    minWidth: "42px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "18px",
+    fontSize: "20px",
     cursor: "pointer",
     color: "#374151",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
     flexShrink: 0,
   },
 
   title: {
     color: "#111827",
-    fontSize: "22px",
+    fontSize: "24px",
     fontWeight: "700",
     margin: 0,
+    lineHeight: "1.3",
   },
 
   subtitle: {
     color: "#6b7280",
-    fontSize: "12px",
-    marginTop: "2px",
+    fontSize: "13px",
+    marginTop: "4px",
     marginBottom: 0,
+    lineHeight: "1.4",
   },
 
+  // ======================================================
+  // PRIMARY BUTTON
+  // ======================================================
+
   primaryBtn: {
-    padding: "10px 16px",
+    padding: "11px 17px",
     background:
       "linear-gradient(135deg, #ff6600 0%, #e65c00 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "9px",
     fontWeight: "600",
     fontSize: "13px",
     cursor: "pointer",
     boxShadow:
-      "0 4px 12px rgba(255, 102, 0, 0.2)",
+      "0 4px 12px rgba(255, 102, 0, 0.20)",
+    whiteSpace: "nowrap",
   },
 
+  // ======================================================
+  // DASHBOARD CONTENT
+  // ======================================================
+
   dashboardContent: {
+    width: "100%",
     display: "flex",
     flexDirection: "column",
     gap: "20px",
   },
 
+  // ======================================================
+  // STATS
+  // ======================================================
+
   statsGrid: {
+    width: "100%",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(200px, 1fr))",
@@ -459,55 +485,70 @@ const styles = {
 
   statCard: {
     background: "#fff",
-    padding: "16px",
+    padding: "17px",
     borderRadius: "12px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.04)",
     border: "1px solid #e5e7eb",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
 
   statLabel: {
     color: "#6b7280",
     fontSize: "12px",
     fontWeight: "500",
-    margin: "0 0 4px 0",
+    margin: "0 0 5px 0",
   },
 
   statValue: {
     color: "#111827",
-    fontSize: "22px",
+    fontSize: "23px",
     fontWeight: "700",
     margin: 0,
+    lineHeight: "1.2",
   },
 
   statIcon: {
-    width: "40px",
-    height: "40px",
+    width: "42px",
+    height: "42px",
+    minWidth: "42px",
     borderRadius: "10px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "18px",
+    fontSize: "19px",
+    flexShrink: 0,
   },
 
+  // ======================================================
+  // QUICK MANAGEMENT PANEL
+  // ======================================================
+
   actionPanel: {
+    width: "100%",
     background: "#fff",
-    padding: "16px",
+    padding: "18px",
     borderRadius: "12px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.04)",
     border: "1px solid #e5e7eb",
+    boxSizing: "border-box",
   },
 
   sectionTitle: {
     color: "#111827",
-    fontSize: "15px",
+    fontSize: "16px",
     fontWeight: "700",
-    margin: "0 0 12px 0",
+    margin: "0 0 13px 0",
+    lineHeight: "1.3",
   },
 
   actionButtonsGrid: {
+    width: "100%",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(220px, 1fr))",
@@ -515,20 +556,22 @@ const styles = {
   },
 
   actionCardBtn: {
+    width: "100%",
     background: "#f9fafb",
     border: "1px solid #e5e7eb",
     borderRadius: "10px",
-    padding: "14px",
+    padding: "15px",
     textAlign: "left",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: "5px",
     transition: "all 0.2s ease",
+    boxSizing: "border-box",
   },
 
   actionCardIcon: {
-    fontSize: "20px",
+    fontSize: "21px",
     marginBottom: "4px",
   },
 
@@ -536,26 +579,36 @@ const styles = {
     color: "#1f2937",
     fontSize: "14px",
     fontWeight: "600",
+    lineHeight: "1.3",
   },
 
   actionCardDesc: {
     color: "#6b7280",
     fontSize: "11px",
+    lineHeight: "1.4",
   },
 
+  // ======================================================
+  // RECENT ITEMS SECTION
+  // ======================================================
+
   recentSection: {
+    width: "100%",
     background: "#fff",
-    padding: "16px",
+    padding: "18px",
     borderRadius: "12px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.04)",
     border: "1px solid #e5e7eb",
+    boxSizing: "border-box",
   },
 
   recentHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "12px",
+    gap: "10px",
+    marginBottom: "13px",
   },
 
   seeAllLink: {
@@ -563,47 +616,77 @@ const styles = {
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
+    whiteSpace: "nowrap",
   },
 
   recentGrid: {
+    width: "100%",
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(240px, 1fr))",
     gap: "10px",
   },
 
+  // ======================================================
+  // RECENT ITEM
+  // ======================================================
+
   recentItemCard: {
+    width: "100%",
     display: "flex",
     alignItems: "center",
-    gap: "10px",
+    gap: "12px",
     background: "#f9fafb",
     padding: "10px",
     borderRadius: "8px",
     border: "1px solid #f3f4f6",
+    boxSizing: "border-box",
+    minWidth: 0,
   },
 
+  // ======================================================
+  // PRODUCT IMAGE
+  // NO IMAGE CONTAINER
+  // NO BORDER
+  // NO BACKGROUND
+  // NO SHADOW
+  // ======================================================
+
   recentImage: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "6px",
-    objectFit: "cover",
-    border: "1px solid #e5e7eb",
+    display: "block",
+    width: "50px",
+    height: "50px",
+    minWidth: "50px",
+    objectFit: "contain",
+    objectPosition: "center",
+    border: "none",
+    borderRadius: "0",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "0",
+    margin: "0",
     flexShrink: 0,
   },
+
+  // ======================================================
+  // PRODUCT INFORMATION
+  // ======================================================
 
   recentInfo: {
     flex: 1,
     minWidth: 0,
+    overflow: "hidden",
   },
 
   recentName: {
     color: "#1f2937",
     fontSize: "13px",
     fontWeight: "600",
-    margin: "0 0 2px 0",
+    margin: "0 0 4px 0",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    lineHeight: "1.3",
   },
 
   recentPrice: {
@@ -611,6 +694,7 @@ const styles = {
     fontSize: "12px",
     fontWeight: "600",
     margin: 0,
+    lineHeight: "1.3",
   },
 
   recentMrp: {
@@ -618,31 +702,47 @@ const styles = {
     fontSize: "11px",
     textDecoration: "line-through",
     fontWeight: "normal",
-    marginLeft: "4px",
+    marginLeft: "5px",
   },
 
+  // ======================================================
+  // STOCK BADGE
+  // ======================================================
+
   miniBadge: {
-    padding: "2px 6px",
-    borderRadius: "4px",
+    padding: "3px 7px",
+    borderRadius: "5px",
     fontSize: "10px",
     fontWeight: "600",
     whiteSpace: "nowrap",
+    flexShrink: 0,
   },
+
+  // ======================================================
+  // EMPTY STATE
+  // ======================================================
 
   noItems: {
     width: "100%",
     textAlign: "center",
-    padding: "30px",
+    padding: "35px 20px",
     color: "#6b7280",
     fontSize: "13px",
+    boxSizing: "border-box",
   },
 
+  // ======================================================
+  // LOADING
+  // ======================================================
+
   loadingContainer: {
+    width: "100%",
+    minHeight: "320px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "300px",
+    boxSizing: "border-box",
   },
 
   spinner: {
@@ -655,11 +755,10 @@ const styles = {
   },
 
   loadingText: {
-    marginTop: "10px",
+    marginTop: "12px",
     color: "#6b7280",
     fontSize: "13px",
     fontWeight: "500",
   },
 };
-
 export default GroceryDashboard;

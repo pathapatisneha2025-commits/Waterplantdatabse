@@ -246,7 +246,7 @@ router.get(
 
 router.post(
   "/add",
-  upload.single("image"),
+  upload.array("images", 10),
 
   async (req, res) => {
     try {
@@ -276,22 +276,21 @@ router.post(
 
       if (
         banner_type === "image" &&
-        !req.file
+        (!req.files || req.files.length === 0)
       ) {
         return res.status(400).json({
-          message:
-            "Image is required for image banner",
+          message: "At least one image is required for image banner",
         });
       }
 
       // ==================================================
-      // IMAGE URL
+      // IMAGE URLS
       // ==================================================
 
-      let imageUrl = null;
+      let imageUrls = [];
 
-      if (req.file) {
-        imageUrl = req.file.path;
+      if (req.files && req.files.length > 0) {
+        imageUrls = req.files.map((file) => file.path);
       }
 
       // ==================================================
@@ -335,7 +334,7 @@ router.post(
 
           banner_type,
 
-          imageUrl,
+          JSON.stringify(imageUrls),
 
           button_text || null,
 
@@ -343,8 +342,7 @@ router.post(
 
           Number(display_order) || 0,
 
-          enabled === true ||
-            enabled === "true",
+          enabled === true || enabled === "true",
         ]
       );
 
@@ -354,9 +352,9 @@ router.post(
 
       res.status(201).json({
         message: "Banner added successfully",
+
         banner: result.rows[0],
       });
-
     } catch (error) {
       console.error(
         "ADD BANNER ERROR:",
@@ -365,19 +363,19 @@ router.post(
 
       res.status(500).json({
         message: "Failed to add banner",
+
         error: error.message,
       });
     }
   }
 );
-
 // ======================================================
 // UPDATE BANNER
 // ======================================================
 
 router.put(
   "/:id",
-  upload.single("image"),
+  upload.array("images", 10),
 
   async (req, res) => {
     try {
@@ -397,15 +395,14 @@ router.put(
       // GET EXISTING BANNER
       // ==================================================
 
-      const existingResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM banners
-          WHERE id = $1
-          `,
-          [id]
-        );
+      const existingResult = await pool.query(
+        `
+        SELECT *
+        FROM banners
+        WHERE id = $1
+        `,
+        [id]
+      );
 
       if (existingResult.rows.length === 0) {
         return res.status(404).json({
@@ -413,100 +410,104 @@ router.put(
         });
       }
 
-      const existing =
-        existingResult.rows[0];
+      const existing = existingResult.rows[0];
 
       // ==================================================
-      // DEFAULT OLD IMAGE
+      // EXISTING IMAGES
       // ==================================================
 
-      let imageUrl =
-        existing.image_url || null;
+      let imageUrls = [];
+
+      if (Array.isArray(existing.image_url)) {
+        imageUrls = existing.image_url;
+      } else if (existing.image_url) {
+        // Support old single-image data
+        imageUrls = [existing.image_url];
+      }
 
       // ==================================================
-      // NEW IMAGE UPLOADED
+      // NEW IMAGES UPLOADED
       // ==================================================
 
-      if (req.file) {
-        imageUrl = req.file.path;
+      if (req.files && req.files.length > 0) {
+        imageUrls = req.files.map(
+          (file) => file.path
+        );
       }
 
       // ==================================================
       // CHANGED IMAGE → TEXT
       // ==================================================
 
-      if (banner_type === "text") {
-        imageUrl = null;
+      const finalBannerType =
+        banner_type || existing.banner_type;
+
+      if (finalBannerType === "text") {
+        imageUrls = [];
       }
 
       // ==================================================
       // UPDATE DATABASE
       // ==================================================
 
-      const result =
-        await pool.query(
-          `
-          UPDATE banners
+      const result = await pool.query(
+        `
+        UPDATE banners
 
-          SET
+        SET
+          title = $1,
 
-            title = $1,
+          subtitle = $2,
 
-            subtitle = $2,
+          banner_type = $3,
 
-            banner_type = $3,
+          image_url = $4,
 
-            image_url = $4,
+          button_text = $5,
 
-            button_text = $5,
+          button_screen = $6,
 
-            button_screen = $6,
+          display_order = $7,
 
-            display_order = $7,
+          enabled = $8,
 
-            enabled = $8,
+          updated_at = CURRENT_TIMESTAMP
 
-            updated_at =
-              CURRENT_TIMESTAMP
+        WHERE id = $9
 
-          WHERE id = $9
+        RETURNING *
+        `,
 
-          RETURNING *
-          `,
+        [
+          title || null,
 
-          [
-            title || null,
+          subtitle || null,
 
-            subtitle || null,
+          finalBannerType,
 
-            banner_type ||
-              existing.banner_type,
+          JSON.stringify(imageUrls),
 
-            imageUrl,
+          button_text || null,
 
-            button_text || null,
+          button_screen || null,
 
-            button_screen || null,
+          Number(display_order) || 0,
 
-            Number(display_order) || 0,
+          enabled === true ||
+            enabled === "true",
 
-            enabled === true ||
-              enabled === "true",
-
-            id,
-          ]
-        );
+          id,
+        ]
+      );
 
       // ==================================================
       // RESPONSE
       // ==================================================
 
       res.json({
-        message:
-          "Banner updated successfully",
+        message: "Banner updated successfully",
 
-        banner:
-          result.rows[0],
+        banner: result.rows[0],
       });
 
     } catch (error) {
@@ -516,11 +517,9 @@ router.put(
       );
 
       res.status(500).json({
-        message:
-          "Failed to update banner",
+        message: "Failed to update banner",
 
-        error:
-          error.message,
+        error: error.message,
       });
     }
   }

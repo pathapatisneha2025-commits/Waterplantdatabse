@@ -1,7 +1,10 @@
+
 import React, { useEffect, useState } from "react";
 
-const API_URL =
-  "https://api2.ajpartyhouse.in";
+const API_URL = "https://api2.ajpartyhouse.in";
+
+const MAX_IMAGES = 10;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const BannerManagement = ({ onBack }) => {
   const [banners, setBanners] = useState([]);
@@ -11,11 +14,17 @@ const BannerManagement = ({ onBack }) => {
 
   const [showModal, setShowModal] = useState(false);
 
-  const [editingBanner, setEditingBanner] =
-    useState(null);
+  const [editingBanner, setEditingBanner] = useState(null);
 
-  const [imagePreview, setImagePreview] =
-    useState(null);
+  // New files selected from computer
+  const [selectedImages, setSelectedImages] = useState([]);
+
+  // Existing images while editing
+  const [existingImages, setExistingImages] = useState([]);
+
+  // =====================================================
+  // FORM
+  // =====================================================
 
   const [form, setForm] = useState({
     title: "",
@@ -25,7 +34,6 @@ const BannerManagement = ({ onBack }) => {
     button_screen: "",
     display_order: 0,
     enabled: true,
-    image: null,
   });
 
   // =====================================================
@@ -36,9 +44,7 @@ const BannerManagement = ({ onBack }) => {
     try {
       setLoading(true);
 
-      const response = await fetch(
-        `${API_URL}/banner/admin`
-      );
+      const response = await fetch(`${API_URL}/banner/admin`);
 
       const data = await response.json();
 
@@ -48,14 +54,9 @@ const BannerManagement = ({ onBack }) => {
         );
       }
 
-      setBanners(
-        Array.isArray(data) ? data : []
-      );
+      setBanners(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error(
-        "FETCH BANNERS ERROR:",
-        error
-      );
+      console.error("FETCH BANNERS ERROR:", error);
 
       alert(error.message);
     } finally {
@@ -72,16 +73,52 @@ const BannerManagement = ({ onBack }) => {
   // =====================================================
 
   const handleChange = (e) => {
-    const { name, value, type, checked } =
-      e.target;
+    const { name, value, type, checked } = e.target;
 
     setForm((prev) => ({
       ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  // =====================================================
+  // GET EXISTING IMAGES
+  // Supports:
+  // image_urls: []
+  // images: []
+  // image_url: "single url"
+  // =====================================================
+
+  const getBannerImages = (banner) => {
+    if (Array.isArray(banner.image_urls)) {
+      return banner.image_urls.filter(Boolean);
+    }
+
+    if (Array.isArray(banner.images)) {
+      return banner.images
+        .map((item) => {
+          if (typeof item === "string") return item;
+
+          return (
+            item?.image_url ||
+            item?.url ||
+            item?.secure_url ||
+            item?.image ||
+            null
+          );
+        })
+        .filter(Boolean);
+    }
+
+    if (banner.image_url) {
+      return [banner.image_url];
+    }
+
+    if (banner.image) {
+      return [banner.image];
+    }
+
+    return [];
   };
 
   // =====================================================
@@ -89,27 +126,68 @@ const BannerManagement = ({ onBack }) => {
   // =====================================================
 
   const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
 
-    if (!file) return;
+    if (!files.length) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
+    const totalImages =
+      existingImages.length + selectedImages.length;
+
+    if (totalImages + files.length > MAX_IMAGES) {
+      alert(
+        `You can upload maximum ${MAX_IMAGES} images per banner.`
+      );
+
+      e.target.value = "";
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be less than 5MB");
-      return;
+    const validFiles = [];
+
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        alert(`${file.name} is not a valid image file.`);
+        continue;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        alert(
+          `${file.name} is larger than 5MB. Please select a smaller image.`
+        );
+        continue;
+      }
+
+      validFiles.push(file);
     }
 
-    setForm((prev) => ({
-      ...prev,
-      image: file,
-    }));
+    if (validFiles.length) {
+      setSelectedImages((prev) => [
+        ...prev,
+        ...validFiles,
+      ]);
+    }
 
-    setImagePreview(
-      URL.createObjectURL(file)
+    // Allow selecting same file again
+    e.target.value = "";
+  };
+
+  // =====================================================
+  // REMOVE NEW IMAGE
+  // =====================================================
+
+  const removeSelectedImage = (index) => {
+    setSelectedImages((prev) =>
+      prev.filter((_, i) => i !== index)
+    );
+  };
+
+  // =====================================================
+  // REMOVE EXISTING IMAGE
+  // =====================================================
+
+  const removeExistingImage = (index) => {
+    setExistingImages((prev) =>
+      prev.filter((_, i) => i !== index)
     );
   };
 
@@ -126,10 +204,10 @@ const BannerManagement = ({ onBack }) => {
       button_screen: "",
       display_order: 0,
       enabled: true,
-      image: null,
     });
 
-    setImagePreview(null);
+    setSelectedImages([]);
+    setExistingImages([]);
     setEditingBanner(null);
   };
 
@@ -152,22 +230,17 @@ const BannerManagement = ({ onBack }) => {
     setForm({
       title: banner.title || "",
       subtitle: banner.subtitle || "",
-      banner_type:
-        banner.banner_type || "text",
-      button_text:
-        banner.button_text || "",
-      button_screen:
-        banner.button_screen || "",
-      display_order:
-        banner.display_order ?? 0,
-      enabled:
-        banner.enabled ?? true,
-      image: null,
+      banner_type: banner.banner_type || "text",
+      button_text: banner.button_text || "",
+      button_screen: banner.button_screen || "",
+      display_order: banner.display_order ?? 0,
+      enabled: banner.enabled ?? true,
     });
 
-    setImagePreview(
-      banner.image_url || null
-    );
+    const images = getBannerImages(banner);
+
+    setExistingImages(images);
+    setSelectedImages([]);
 
     setShowModal(true);
   };
@@ -190,8 +263,14 @@ const BannerManagement = ({ onBack }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (saving) return;
+
     try {
       setSaving(true);
+
+      // -------------------------------------------------
+      // VALIDATION
+      // -------------------------------------------------
 
       if (
         !form.title.trim() &&
@@ -200,17 +279,37 @@ const BannerManagement = ({ onBack }) => {
         alert(
           "Please enter a title or subtitle"
         );
+
+        setSaving(false);
         return;
       }
 
+      const totalImages =
+        existingImages.length +
+        selectedImages.length;
+
       if (
         form.banner_type === "image" &&
-        !editingBanner &&
-        !form.image
+        totalImages === 0
       ) {
-        alert("Please select an image");
+        alert("Please select at least one banner image.");
+
+        setSaving(false);
         return;
       }
+
+      if (totalImages > MAX_IMAGES) {
+        alert(
+          `Maximum ${MAX_IMAGES} images are allowed per banner.`
+        );
+
+        setSaving(false);
+        return;
+      }
+
+      // -------------------------------------------------
+      // FORM DATA
+      // -------------------------------------------------
 
       const formData = new FormData();
 
@@ -249,16 +348,47 @@ const BannerManagement = ({ onBack }) => {
         form.enabled
       );
 
-      if (form.image) {
+      // -------------------------------------------------
+      // NEW IMAGES
+      // IMPORTANT:
+      // Backend should use upload.array("images", 10)
+      // -------------------------------------------------
+
+      selectedImages.forEach((image) => {
         formData.append(
-          "image",
-          form.image
+          "images",
+          image
+        );
+      });
+
+      // -------------------------------------------------
+      // EXISTING IMAGES
+      //
+      // This allows backend to know which old images
+      // should remain after editing.
+      //
+      // Backend can read:
+      // req.body.existing_images
+      // -------------------------------------------------
+
+      if (editingBanner) {
+        formData.append(
+          "existing_images",
+          JSON.stringify(existingImages)
         );
       }
+
+      // -------------------------------------------------
+      // URL
+      // -------------------------------------------------
 
       const url = editingBanner
         ? `${API_URL}/banner/${editingBanner.id}`
         : `${API_URL}/banner/add`;
+
+      // -------------------------------------------------
+      // REQUEST
+      // -------------------------------------------------
 
       const response = await fetch(
         url,
@@ -394,15 +524,53 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
+  // RENDER BANNER PREVIEWS
+  // =====================================================
+
+  const renderBannerImages = (banner) => {
+    const images = getBannerImages(banner);
+
+    if (
+      banner.banner_type !== "image" ||
+      images.length === 0
+    ) {
+      return (
+        <div className="text-banner-thumbnail">
+          <span>T</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="banner-preview-list">
+        {images.slice(0, 4).map((image, index) => (
+          <img
+            key={`${image}-${index}`}
+            src={image}
+            alt={
+              banner.title
+                ? `${banner.title} ${index + 1}`
+                : `Banner ${index + 1}`
+            }
+            className="banner-thumbnail"
+          />
+        ))}
+
+        {images.length > 4 && (
+          <div className="more-images-badge">
+            +{images.length - 4}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // =====================================================
   // RENDER
   // =====================================================
 
   return (
     <>
-      {/* =================================================
-          SAME-FILE CSS
-      ================================================= */}
-
       <style>{`
 
         * {
@@ -418,7 +586,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            HEADER
+           HEADER
         ================================= */
 
         .banner-page-header {
@@ -447,7 +615,7 @@ const BannerManagement = ({ onBack }) => {
           justify-content: center;
           font-size: 20px;
           color: #374151;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
           transition: all 0.2s ease;
           flex-shrink: 0;
         }
@@ -500,7 +668,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            STATS
+           STATS
         ================================= */
 
         .banner-stats {
@@ -518,7 +686,7 @@ const BannerManagement = ({ onBack }) => {
           display: flex;
           align-items: center;
           gap: 15px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
         }
 
         .stat-icon {
@@ -557,7 +725,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            CARD
+           CARD
         ================================= */
 
         .banner-card {
@@ -565,7 +733,7 @@ const BannerManagement = ({ onBack }) => {
           border: 1px solid #e5e7eb;
           border-radius: 15px;
           overflow: hidden;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
         }
 
         .banner-card-header {
@@ -586,7 +754,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            LOADING
+           LOADING
         ================================= */
 
         .banner-loading {
@@ -615,7 +783,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            EMPTY
+           EMPTY
         ================================= */
 
         .banner-empty {
@@ -667,7 +835,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            TABLE
+           TABLE
         ================================= */
 
         .banner-table-wrapper {
@@ -678,7 +846,7 @@ const BannerManagement = ({ onBack }) => {
         .banner-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 850px;
+          min-width: 950px;
         }
 
         .banner-table th {
@@ -713,27 +881,58 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            THUMBNAIL
+           MULTIPLE BANNER PREVIEW
+           NO IMAGE CONTAINER
+           NO BORDER
+           NO CROP
         ================================= */
 
-        .banner-thumbnail {
-          width: 100px;
-          height: 58px;
-          object-fit: cover;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          display: block;
+        .banner-preview-list {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          max-width: 330px;
+          overflow-x: auto;
+          padding: 2px 0;
         }
+
+        .banner-thumbnail {
+          width: 110px;
+          max-width: 110px;
+          height: 65px;
+          display: block;
+          object-fit: contain;
+          border: none;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+          flex-shrink: 0;
+        }
+
+        .more-images-badge {
+          min-width: 38px;
+          height: 38px;
+          padding: 0 8px;
+          border-radius: 20px;
+          background: #f97316;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 800;
+          flex-shrink: 0;
+        }
+
+        /* ================================
+           TEXT BANNER
+        ================================= */
 
         .text-banner-thumbnail {
           width: 100px;
           height: 58px;
           border-radius: 8px;
-          background: linear-gradient(
-            135deg,
-            #fff7ed,
-            #ffedd5
-          );
+          background: #fff7ed;
           border: 1px solid #fed7aa;
           display: flex;
           align-items: center;
@@ -753,7 +952,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            BANNER INFO
+           BANNER INFO
         ================================= */
 
         .banner-info {
@@ -775,7 +974,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            TYPE
+           TYPE
         ================================= */
 
         .type-badge {
@@ -798,7 +997,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            ORDER
+           ORDER
         ================================= */
 
         .order-number {
@@ -815,7 +1014,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            STATUS
+           STATUS
         ================================= */
 
         .status-toggle {
@@ -853,7 +1052,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            ACTIONS
+           ACTIONS
         ================================= */
 
         .banner-actions {
@@ -896,7 +1095,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            MODAL OVERLAY
+           MODAL OVERLAY
         ================================= */
 
         .banner-modal-overlay {
@@ -913,12 +1112,12 @@ const BannerManagement = ({ onBack }) => {
 
         .banner-modal {
           width: 100%;
-          max-width: 650px;
+          max-width: 700px;
           max-height: 92vh;
           overflow-y: auto;
           background: white;
           border-radius: 16px;
-          box-shadow: 0 25px 70px rgba(0,0,0,0.25);
+          box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
           animation: modalIn 0.2s ease;
         }
 
@@ -935,7 +1134,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            MODAL HEADER
+           MODAL HEADER
         ================================= */
 
         .banner-modal-header {
@@ -982,7 +1181,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            FORM
+           FORM
         ================================= */
 
         .banner-modal form {
@@ -1044,7 +1243,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            TYPE OPTIONS
+           TYPE OPTIONS
         ================================= */
 
         .banner-type-options {
@@ -1093,7 +1292,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            IMAGE UPLOAD
+           MULTIPLE IMAGE UPLOAD
         ================================= */
 
         .image-upload-box {
@@ -1147,39 +1346,107 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            IMAGE PREVIEW
+           SELECTED IMAGE PREVIEWS
+           NO IMAGE CONTAINER
         ================================= */
 
-        .image-preview-container {
-          position: relative;
-          margin-top: 12px;
-          border-radius: 10px;
-          overflow: hidden;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
+        .selected-images-section {
+          margin-top: 16px;
         }
 
-        .image-preview-container img {
+        .selected-images-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+
+        .selected-images-title strong {
+          font-size: 13px;
+          color: #374151;
+        }
+
+        .image-count {
+          color: #6b7280;
+          font-size: 11px;
+        }
+
+        .image-preview-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+
+        .image-preview-item {
+          position: relative;
+          min-width: 0;
+        }
+
+        .image-preview-item img {
           display: block;
           width: 100%;
-          max-height: 220px;
-          object-fit: cover;
+          height: auto;
+          max-width: 100%;
+          object-fit: contain;
+          border: none;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
         }
 
-        .preview-label {
+        .remove-image-btn {
           position: absolute;
-          left: 10px;
-          top: 10px;
-          background: rgba(0,0,0,0.65);
+          top: 6px;
+          right: 6px;
+          width: 28px;
+          height: 28px;
+          border: none;
+          border-radius: 50%;
+          background: rgba(220, 38, 38, 0.92);
           color: white;
-          padding: 5px 9px;
-          border-radius: 6px;
+          cursor: pointer;
+          font-size: 17px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+        }
+
+        .remove-image-btn:hover {
+          background: #b91c1c;
+          transform: scale(1.05);
+        }
+
+        .image-number {
+          position: absolute;
+          left: 6px;
+          top: 6px;
+          min-width: 24px;
+          height: 24px;
+          padding: 0 6px;
+          border-radius: 12px;
+          background: rgba(17, 24, 39, 0.75);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           font-size: 10px;
           font-weight: 700;
         }
 
+        .existing-label {
+          color: #059669;
+        }
+
+        .new-label {
+          color: #2563eb;
+        }
+
         /* ================================
-            ENABLE BOX
+           ENABLE BOX
         ================================= */
 
         .enable-box {
@@ -1208,7 +1475,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            SWITCH
+           SWITCH
         ================================= */
 
         .switch {
@@ -1243,7 +1510,7 @@ const BannerManagement = ({ onBack }) => {
           background: white;
           border-radius: 50%;
           transition: 0.2s;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         }
 
         .switch input:checked + .slider {
@@ -1255,7 +1522,7 @@ const BannerManagement = ({ onBack }) => {
         }
 
         /* ================================
-            MODAL FOOTER
+           MODAL FOOTER
         ================================= */
 
         .banner-modal-footer {
@@ -1312,14 +1579,14 @@ const BannerManagement = ({ onBack }) => {
         .button-spinner {
           width: 15px;
           height: 15px;
-          border: 2px solid rgba(255,255,255,0.4);
+          border: 2px solid rgba(255, 255, 255, 0.4);
           border-top-color: white;
           border-radius: 50%;
           animation: bannerSpin 0.7s linear infinite;
         }
 
         /* ================================
-            RESPONSIVE
+           RESPONSIVE
         ================================= */
 
         @media (max-width: 900px) {
@@ -1330,6 +1597,12 @@ const BannerManagement = ({ onBack }) => {
 
           .banner-stats {
             grid-template-columns: 1fr;
+          }
+
+          .banner-thumbnail {
+            width: 100px;
+            max-width: 100px;
+            height: 60px;
           }
 
         }
@@ -1363,6 +1636,16 @@ const BannerManagement = ({ onBack }) => {
             padding: 13px;
           }
 
+          .banner-preview-list {
+            max-width: 280px;
+          }
+
+          .banner-thumbnail {
+            width: 90px;
+            max-width: 90px;
+            height: 55px;
+          }
+
           .banner-modal-overlay {
             padding: 10px;
             align-items: flex-start;
@@ -1388,6 +1671,11 @@ const BannerManagement = ({ onBack }) => {
 
           .banner-type-options {
             grid-template-columns: 1fr;
+          }
+
+          .image-preview-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
           }
 
           .banner-modal-footer {
@@ -1416,6 +1704,16 @@ const BannerManagement = ({ onBack }) => {
             font-size: 18px;
           }
 
+          .banner-thumbnail {
+            width: 80px;
+            max-width: 80px;
+            height: 50px;
+          }
+
+          .image-preview-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+
         }
 
       `}</style>
@@ -1426,11 +1724,14 @@ const BannerManagement = ({ onBack }) => {
 
       <div className="banner-page">
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <div className="banner-page-header">
 
           <div className="header-title-container">
+
             <button
               className="back-arrow-btn"
               onClick={() => {
@@ -1445,7 +1746,9 @@ const BannerManagement = ({ onBack }) => {
             >
               ←
             </button>
+
             <div>
+
               <h1>
                 Banner Management
               </h1>
@@ -1454,7 +1757,9 @@ const BannerManagement = ({ onBack }) => {
                 Manage promotional banners
                 displayed in the customer app.
               </p>
+
             </div>
+
           </div>
 
           <button
@@ -1467,7 +1772,9 @@ const BannerManagement = ({ onBack }) => {
 
         </div>
 
-        {/* STATS */}
+        {/* =================================================
+            STATS
+        ================================================= */}
 
         <div className="banner-stats">
 
@@ -1478,6 +1785,7 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
+
               <span>
                 Total Banners
               </span>
@@ -1485,6 +1793,7 @@ const BannerManagement = ({ onBack }) => {
               <strong>
                 {banners.length}
               </strong>
+
             </div>
 
           </div>
@@ -1496,6 +1805,7 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
+
               <span>
                 Active
               </span>
@@ -1507,6 +1817,7 @@ const BannerManagement = ({ onBack }) => {
                   ).length
                 }
               </strong>
+
             </div>
 
           </div>
@@ -1518,6 +1829,7 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
+
               <span>
                 Disabled
               </span>
@@ -1529,39 +1841,77 @@ const BannerManagement = ({ onBack }) => {
                   ).length
                 }
               </strong>
+
             </div>
 
           </div>
 
         </div>
 
-        {/* CONTENT CARD / TABLE */}
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
         <div className="banner-card">
 
           <div className="banner-card-header">
-            <h2>All Banners</h2>
-            <p>View, edit or control banner visibility</p>
+
+            <h2>
+              All Banners
+            </h2>
+
+            <p>
+              View, edit or control banner visibility
+            </p>
+
           </div>
 
           {loading ? (
+
             <div className="banner-loading">
+
               <div className="spinner"></div>
-              <span>Loading banners...</span>
+
+              <span>
+                Loading banners...
+              </span>
+
             </div>
+
           ) : banners.length === 0 ? (
+
             <div className="banner-empty">
-              <div className="empty-icon">📢</div>
-              <h3>No Banners Found</h3>
-              <p>Get started by adding your first promotional banner.</p>
-              <button className="empty-add-btn" onClick={handleAdd}>
+
+              <div className="empty-icon">
+                📢
+              </div>
+
+              <h3>
+                No Banners Found
+              </h3>
+
+              <p>
+                Get started by adding your first
+                promotional banner.
+              </p>
+
+              <button
+                className="empty-add-btn"
+                onClick={handleAdd}
+              >
                 + Add Banner
               </button>
+
             </div>
+
           ) : (
+
             <div className="banner-table-wrapper">
+
               <table className="banner-table">
+
                 <thead>
+
                   <tr>
                     <th>Preview</th>
                     <th>Banner Details</th>
@@ -1570,30 +1920,43 @@ const BannerManagement = ({ onBack }) => {
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
+
                 </thead>
+
                 <tbody>
+
                   {banners.map((banner) => (
+
                     <tr key={banner.id}>
+
                       <td>
-                        {banner.banner_type === "image" && banner.image_url ? (
-                          <img
-                            src={banner.image_url}
-                            alt={banner.title || "Banner"}
-                            className="banner-thumbnail"
-                          />
-                        ) : (
-                          <div className="text-banner-thumbnail">
-                            <span>T</span>
-                          </div>
-                        )}
+                        {renderBannerImages(banner)}
                       </td>
+
                       <td>
+
                         <div className="banner-info">
-                          <strong>{banner.title || "Untitled Banner"}</strong>
-                          <span>{banner.subtitle || "No subtitle provided"}</span>
+
+                          <strong>
+                            {
+                              banner.title ||
+                              "Untitled Banner"
+                            }
+                          </strong>
+
+                          <span>
+                            {
+                              banner.subtitle ||
+                              "No subtitle provided"
+                            }
+                          </span>
+
                         </div>
+
                       </td>
+
                       <td>
+
                         <span
                           className={`type-badge ${
                             banner.banner_type === "image"
@@ -1601,48 +1964,84 @@ const BannerManagement = ({ onBack }) => {
                               : "text-type"
                           }`}
                         >
-                          {banner.banner_type === "image" ? "Image" : "Text"}
+                          {
+                            banner.banner_type === "image"
+                              ? "Image"
+                              : "Text"
+                          }
                         </span>
+
                       </td>
+
                       <td>
+
                         <span className="order-number">
                           {banner.display_order ?? 0}
                         </span>
+
                       </td>
+
                       <td>
+
                         <button
                           className={`status-toggle ${
                             banner.enabled
                               ? "status-enabled"
                               : "status-disabled"
                           }`}
-                          onClick={() => toggleStatus(banner)}
+                          onClick={() =>
+                            toggleStatus(banner)
+                          }
                         >
+
                           <span className="status-dot"></span>
-                          {banner.enabled ? "Active" : "Disabled"}
+
+                          {
+                            banner.enabled
+                              ? "Active"
+                              : "Disabled"
+                          }
+
                         </button>
+
                       </td>
+
                       <td>
+
                         <div className="banner-actions">
+
                           <button
                             className="action-edit"
-                            onClick={() => handleEdit(banner)}
+                            onClick={() =>
+                              handleEdit(banner)
+                            }
                           >
                             Edit
                           </button>
+
                           <button
                             className="action-delete"
-                            onClick={() => handleDelete(banner)}
+                            onClick={() =>
+                              handleDelete(banner)
+                            }
                           >
                             Delete
                           </button>
+
                         </div>
+
                       </td>
+
                     </tr>
+
                   ))}
+
                 </tbody>
+
               </table>
+
             </div>
+
           )}
 
         </div>
@@ -1654,14 +2053,34 @@ const BannerManagement = ({ onBack }) => {
       ================================================= */}
 
       {showModal && (
+
         <div className="banner-modal-overlay">
+
           <div className="banner-modal">
 
+            {/* =================================================
+                MODAL HEADER
+            ================================================= */}
+
             <div className="banner-modal-header">
+
               <div>
-                <h2>{editingBanner ? "Edit Banner" : "Add New Banner"}</h2>
-                <p>Configure banner appearance and action target</p>
+
+                <h2>
+                  {
+                    editingBanner
+                      ? "Edit Banner"
+                      : "Add New Banner"
+                  }
+                </h2>
+
+                <p>
+                  Configure banner appearance,
+                  images and action target
+                </p>
+
               </div>
+
               <button
                 className="modal-close"
                 onClick={closeModal}
@@ -1669,60 +2088,125 @@ const BannerManagement = ({ onBack }) => {
               >
                 &times;
               </button>
+
             </div>
+
+            {/* =================================================
+                FORM
+            ================================================= */}
 
             <form onSubmit={handleSubmit}>
 
+              {/* =================================================
+                  BANNER TYPE
+              ================================================= */}
+
               <div className="form-group">
-                <label>Banner Type</label>
+
+                <label>
+                  Banner Type
+                </label>
+
                 <div className="banner-type-options">
+
+                  {/* TEXT */}
+
                   <div
                     className={`type-option ${
-                      form.banner_type === "text" ? "selected" : ""
+                      form.banner_type === "text"
+                        ? "selected"
+                        : ""
                     }`}
                     onClick={() =>
-                      setForm((prev) => ({ ...prev, banner_type: "text" }))
+                      setForm((prev) => ({
+                        ...prev,
+                        banner_type: "text",
+                      }))
                     }
                   >
+
                     <input
                       type="radio"
                       name="banner_type"
                       value="text"
-                      checked={form.banner_type === "text"}
+                      checked={
+                        form.banner_type === "text"
+                      }
                       onChange={handleChange}
                     />
+
                     <div>
-                      <strong>Text / Clean Banner</strong>
-                      <small>Solid colored card with custom title & subtitle</small>
+
+                      <strong>
+                        Text / Clean Banner
+                      </strong>
+
+                      <small>
+                        Solid colored card with
+                        custom title & subtitle
+                      </small>
+
                     </div>
+
                   </div>
+
+                  {/* IMAGE */}
 
                   <div
                     className={`type-option ${
-                      form.banner_type === "image" ? "selected" : ""
+                      form.banner_type === "image"
+                        ? "selected"
+                        : ""
                     }`}
                     onClick={() =>
-                      setForm((prev) => ({ ...prev, banner_type: "image" }))
+                      setForm((prev) => ({
+                        ...prev,
+                        banner_type: "image",
+                      }))
                     }
                   >
+
                     <input
                       type="radio"
                       name="banner_type"
                       value="image"
-                      checked={form.banner_type === "image"}
+                      checked={
+                        form.banner_type === "image"
+                      }
                       onChange={handleChange}
                     />
+
                     <div>
-                      <strong>Image Banner</strong>
-                      <small>Promotional image banner upload</small>
+
+                      <strong>
+                        Multiple Image Banner
+                      </strong>
+
+                      <small>
+                        Upload multiple promotional
+                        banner images
+                      </small>
+
                     </div>
+
                   </div>
+
                 </div>
+
               </div>
 
+              {/* =================================================
+                  TITLE + SUBTITLE
+              ================================================= */}
+
               <div className="form-row">
+
                 <div className="form-group">
-                  <label htmlFor="title">Title</label>
+
+                  <label htmlFor="title">
+                    Title
+                  </label>
+
                   <input
                     type="text"
                     id="title"
@@ -1731,10 +2215,15 @@ const BannerManagement = ({ onBack }) => {
                     onChange={handleChange}
                     placeholder="e.g., Special Discount!"
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="subtitle">Subtitle</label>
+
+                  <label htmlFor="subtitle">
+                    Subtitle
+                  </label>
+
                   <input
                     type="text"
                     id="subtitle"
@@ -1743,41 +2232,237 @@ const BannerManagement = ({ onBack }) => {
                     onChange={handleChange}
                     placeholder="e.g., Get 20% off today"
                   />
+
                 </div>
+
               </div>
 
+              {/* =================================================
+                  MULTIPLE IMAGE UPLOAD
+              ================================================= */}
+
               {form.banner_type === "image" && (
+
                 <div className="form-group">
-                  <label>Banner Image</label>
+
+                  <label>
+                    Banner Images
+                  </label>
+
                   <div className="image-upload-box">
+
                     <input
                       type="file"
-                      id="banner-image-file"
+                      id="banner-image-files"
                       accept="image/*"
+                      multiple
                       onChange={handleImageChange}
                     />
+
                     <label
-                      htmlFor="banner-image-file"
+                      htmlFor="banner-image-files"
                       className="image-upload-label"
                     >
-                      <div className="upload-icon">📷</div>
-                      <strong>Click to upload banner image</strong>
-                      <span>PNG, JPG, WEBP up to 5MB</span>
+
+                      <div className="upload-icon">
+                        📷
+                      </div>
+
+                      <strong>
+                        Click to upload banner images
+                      </strong>
+
+                      <span>
+                        Select multiple PNG, JPG or
+                        WEBP images · Maximum 10 images
+                        · 5MB each
+                      </span>
+
                     </label>
+
                   </div>
 
-                  {imagePreview && (
-                    <div className="image-preview-container">
-                      <span className="preview-label">Preview</span>
-                      <img src={imagePreview} alt="Banner Preview" />
+                  {/* =================================================
+                      EXISTING IMAGES
+                  ================================================= */}
+
+                  {existingImages.length > 0 && (
+
+                    <div className="selected-images-section">
+
+                      <div className="selected-images-title">
+
+                        <strong className="existing-label">
+                          Existing Images
+                        </strong>
+
+                        <span className="image-count">
+                          {existingImages.length} image
+                          {existingImages.length !== 1
+                            ? "s"
+                            : ""}
+                        </span>
+
+                      </div>
+
+                      <div className="image-preview-grid">
+
+                        {existingImages.map(
+                          (image, index) => (
+
+                            <div
+                              className="image-preview-item"
+                              key={`${image}-${index}`}
+                            >
+
+                              <img
+                                src={image}
+                                alt={`Existing banner ${
+                                  index + 1
+                                }`}
+                              />
+
+                              <span className="image-number">
+                                {index + 1}
+                              </span>
+
+                              <button
+                                type="button"
+                                className="remove-image-btn"
+                                onClick={() =>
+                                  removeExistingImage(
+                                    index
+                                  )
+                                }
+                                disabled={saving}
+                                title="Remove image"
+                              >
+                                ×
+                              </button>
+
+                            </div>
+
+                          )
+                        )}
+
+                      </div>
+
                     </div>
+
                   )}
+
+                  {/* =================================================
+                      NEW SELECTED IMAGES
+                  ================================================= */}
+
+                  {selectedImages.length > 0 && (
+
+                    <div className="selected-images-section">
+
+                      <div className="selected-images-title">
+
+                        <strong className="new-label">
+                          New Images
+                        </strong>
+
+                        <span className="image-count">
+                          {selectedImages.length} image
+                          {selectedImages.length !== 1
+                            ? "s"
+                            : ""}
+                        </span>
+
+                      </div>
+
+                      <div className="image-preview-grid">
+
+                        {selectedImages.map(
+                          (file, index) => (
+
+                            <div
+                              className="image-preview-item"
+                              key={`${file.name}-${file.lastModified}-${index}`}
+                            >
+
+                              <img
+                                src={URL.createObjectURL(
+                                  file
+                                )}
+                                alt={`New banner ${
+                                  index + 1
+                                }`}
+                              />
+
+                              <span className="image-number">
+                                {existingImages.length +
+                                  index +
+                                  1}
+                              </span>
+
+                              <button
+                                type="button"
+                                className="remove-image-btn"
+                                onClick={() =>
+                                  removeSelectedImage(
+                                    index
+                                  )
+                                }
+                                disabled={saving}
+                                title="Remove image"
+                              >
+                                ×
+                              </button>
+
+                            </div>
+
+                          )
+                        )}
+
+                      </div>
+
+                    </div>
+
+                  )}
+
+                  {/* =================================================
+                      IMAGE COUNT
+                  ================================================= */}
+
+                  {(existingImages.length > 0 ||
+                    selectedImages.length > 0) && (
+
+                    <small className="field-help">
+
+                      Total images:{" "}
+                      <strong>
+                        {
+                          existingImages.length +
+                          selectedImages.length
+                        }
+                      </strong>
+                      {" / "}
+                      {MAX_IMAGES}
+
+                    </small>
+
+                  )}
+
                 </div>
+
               )}
 
+              {/* =================================================
+                  BUTTON
+              ================================================= */}
+
               <div className="form-row">
+
                 <div className="form-group">
-                  <label htmlFor="button_text">Button Text (Optional)</label>
+
+                  <label htmlFor="button_text">
+                    Button Text (Optional)
+                  </label>
+
                   <input
                     type="text"
                     id="button_text"
@@ -1786,10 +2471,15 @@ const BannerManagement = ({ onBack }) => {
                     onChange={handleChange}
                     placeholder="e.g., Book Now"
                   />
+
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="button_screen">Target Screen/Route</label>
+
+                  <label htmlFor="button_screen">
+                    Target Screen/Route
+                  </label>
+
                   <input
                     type="text"
                     id="button_screen"
@@ -1798,12 +2488,23 @@ const BannerManagement = ({ onBack }) => {
                     onChange={handleChange}
                     placeholder="e.g., CartScreen"
                   />
+
                 </div>
+
               </div>
 
+              {/* =================================================
+                  ORDER + ENABLE
+              ================================================= */}
+
               <div className="form-row">
+
                 <div className="form-group">
-                  <label htmlFor="display_order">Display Order</label>
+
+                  <label htmlFor="display_order">
+                    Display Order
+                  </label>
+
                   <input
                     type="number"
                     id="display_order"
@@ -1812,29 +2513,61 @@ const BannerManagement = ({ onBack }) => {
                     onChange={handleChange}
                     min="0"
                   />
-                  <small className="field-help">Lower numbers appear first</small>
+
+                  <small className="field-help">
+                    Lower numbers appear first
+                  </small>
+
                 </div>
 
-                <div className="form-group" style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                <div
+                  className="form-group"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                  }}
+                >
+
                   <div className="enable-box">
+
                     <div>
-                      <strong>Enable Banner</strong>
-                      <span>Show immediately in app</span>
+
+                      <strong>
+                        Enable Banner
+                      </strong>
+
+                      <span>
+                        Show immediately in app
+                      </span>
+
                     </div>
+
                     <label className="switch">
+
                       <input
                         type="checkbox"
                         name="enabled"
                         checked={form.enabled}
                         onChange={handleChange}
                       />
+
                       <span className="slider"></span>
+
                     </label>
+
                   </div>
+
                 </div>
+
               </div>
 
+              {/* =================================================
+                  FOOTER
+              ================================================= */}
+
               <div className="banner-modal-footer">
+
                 <button
                   type="button"
                   className="cancel-btn"
@@ -1843,21 +2576,37 @@ const BannerManagement = ({ onBack }) => {
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="save-banner-btn"
                   disabled={saving}
                 >
-                  {saving && <span className="button-spinner"></span>}
-                  {saving ? "Saving..." : editingBanner ? "Update Banner" : "Save Banner"}
+
+                  {saving && (
+                    <span className="button-spinner"></span>
+                  )}
+
+                  {
+                    saving
+                      ? "Saving..."
+                      : editingBanner
+                      ? "Update Banner"
+                      : "Save Banner"
+                  }
+
                 </button>
+
               </div>
 
             </form>
 
           </div>
+
         </div>
+
       )}
+
     </>
   );
 };

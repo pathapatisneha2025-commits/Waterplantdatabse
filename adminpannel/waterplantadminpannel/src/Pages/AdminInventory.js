@@ -36,54 +36,153 @@ export default function GroceryListStock() {
     fetchGroceries();
   }, []);
 
-  // Styles preserving the original color theme, plus header row, back button, and mobile scroll responsiveness
-  const styles = {
-    container: { 
-      marginTop: "0px", 
-      fontFamily: "Arial, sans-serif",
-      padding: "15px",
-      maxWidth: "100%",
-      boxSizing: "border-box"
-    },
-    headerRow: {
-      display: "flex",
-      alignItems: "center",
-      gap: "15px",
-      marginBottom: "15px",
-    },
-    backBtn: {
-      background: "#fff",
-      border: "1px solid #ccc",
-      borderRadius: "5px",
-      width: "36px",
-      height: "36px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "18px",
-      cursor: "pointer",
-      color: "#333",
-      flexShrink: 0,
-    },
-    header: { color: "#ff7f50", margin: 0 },
-    tableResponsiveWrapper: {
-      width: "100%",
-      overflowX: "auto",
-      WebkitOverflowScrolling: "touch",
-    },
-    table: { width: "100%", borderCollapse: "collapse", minWidth: "800px" },
-    th: {
-      border: "1px solid #ff7f50",
-      padding: "10px",
-      backgroundColor: "#ff7f50",
-      color: "white",
-      textAlign: "left",
-      whiteSpace: "nowrap",
-    },
-    td: { border: "1px solid #ff7f50", padding: "10px", textAlign: "left", whiteSpace: "nowrap" },
-    img: { width: "50px", height: "50px", borderRadius: "5px", objectFit: "cover" },
-    emptyText: { padding: "20px", textAlign: "center", color: "#999" },
-  };
+ const styles = {
+  // =========================================================
+  // MAIN CONTAINER
+  // =========================================================
+
+  container: {
+    width: "100%",
+    minHeight: "100vh",
+    marginTop: "0",
+    padding: "20px",
+    fontFamily: "Arial, sans-serif",
+    background: "#f7f8fa",
+    boxSizing: "border-box",
+  },
+
+  // =========================================================
+  // HEADER
+  // =========================================================
+
+  headerRow: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
+    marginBottom: "20px",
+    boxSizing: "border-box",
+  },
+
+  backBtn: {
+    background: "#fff",
+    border: "1px solid #ddd",
+    borderRadius: "10px",
+    width: "42px",
+    height: "42px",
+    minWidth: "42px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
+    cursor: "pointer",
+    color: "#333",
+    flexShrink: 0,
+    transition: "all 0.2s ease",
+  },
+
+  header: {
+    color: "#ff7f50",
+    margin: 0,
+    fontSize: "24px",
+    fontWeight: "700",
+    lineHeight: "1.3",
+  },
+
+  // =========================================================
+  // TABLE RESPONSIVE WRAPPER
+  // =========================================================
+
+  tableResponsiveWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    overflowY: "hidden",
+    WebkitOverflowScrolling: "touch",
+    background: "#fff",
+    borderRadius: "12px",
+    boxSizing: "border-box",
+  },
+
+  // =========================================================
+  // TABLE
+  // =========================================================
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: "800px",
+    background: "#fff",
+  },
+
+  // =========================================================
+  // TABLE HEADER
+  // =========================================================
+
+  th: {
+    border: "1px solid #ff7f50",
+    padding: "12px 14px",
+    backgroundColor: "#ff7f50",
+    color: "#fff",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+    fontSize: "14px",
+    fontWeight: "700",
+    lineHeight: "1.4",
+  },
+
+  // =========================================================
+  // TABLE DATA
+  // =========================================================
+
+  td: {
+    border: "1px solid #eee",
+    padding: "12px 14px",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+    fontSize: "14px",
+    color: "#333",
+    background: "#fff",
+    verticalAlign: "middle",
+    lineHeight: "1.4",
+  },
+
+  // =========================================================
+  // IMAGE
+  // NO CONTAINER
+  // NO BORDER
+  // NO BACKGROUND
+  // NO RADIUS
+  // =========================================================
+
+  img: {
+    display: "block",
+    width: "60px",
+    height: "60px",
+    objectFit: "contain",
+    objectPosition: "center",
+    border: "none",
+    borderRadius: "0",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "0",
+    margin: "0",
+  },
+
+  // =========================================================
+  // EMPTY STATE
+  // =========================================================
+
+  emptyText: {
+    width: "100%",
+    padding: "40px 20px",
+    textAlign: "center",
+    color: "#999",
+    background: "#fff",
+    borderRadius: "12px",
+    fontSize: "15px",
+    boxSizing: "border-box",
+  },
+};
 
   if (loading) return <div style={styles.container}>Loading groceries...</div>;
 

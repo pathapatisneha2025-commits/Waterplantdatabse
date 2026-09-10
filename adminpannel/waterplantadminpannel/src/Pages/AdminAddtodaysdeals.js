@@ -1644,17 +1644,21 @@ function formatDateForDisplay(
   );
 }
 
-// ======================================================
-// STYLES
-// ======================================================
-
 const styles = {
+  /* =========================================================
+     PAGE
+  ========================================================= */
+
   page: {
     minHeight: "100vh",
     backgroundColor: "#f5f7fa",
     padding: "28px",
     boxSizing: "border-box",
   },
+
+  /* =========================================================
+     HEADER
+  ========================================================= */
 
   header: {
     display: "flex",
@@ -1663,6 +1667,12 @@ const styles = {
     marginBottom: "25px",
     gap: "20px",
     flexWrap: "wrap",
+  },
+
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
   },
 
   heading: {
@@ -1678,6 +1688,22 @@ const styles = {
     fontSize: "14px",
   },
 
+  backButton: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "9px",
+    border: "1px solid #e5e7eb",
+    backgroundColor: "#ffffff",
+    color: "#374151",
+    fontSize: "24px",
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.2s ease",
+  },
+
   addButton: {
     border: "none",
     backgroundColor: "#f28c28",
@@ -1687,7 +1713,12 @@ const styles = {
     fontWeight: 700,
     fontSize: "14px",
     cursor: "pointer",
+    transition: "all 0.2s ease",
   },
+
+  /* =========================================================
+     ERROR
+  ========================================================= */
 
   errorBox: {
     backgroundColor: "#fee2e2",
@@ -1695,13 +1726,23 @@ const styles = {
     padding: "12px 15px",
     borderRadius: "8px",
     marginBottom: "20px",
+    fontSize: "13px",
   },
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
 
   loading: {
     textAlign: "center",
     padding: "80px",
     color: "#6b7280",
+    fontSize: "14px",
   },
+
+  /* =========================================================
+     SUMMARY
+  ========================================================= */
 
   summary: {
     display: "flex",
@@ -1716,8 +1757,7 @@ const styles = {
     borderRadius: "10px",
     padding: "16px 22px",
     minWidth: "150px",
-    boxShadow:
-      "0 1px 3px rgba(0,0,0,0.04)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   },
 
   summaryLabel: {
@@ -1730,65 +1770,152 @@ const styles = {
   summaryValue: {
     fontSize: "23px",
     color: "#111827",
+    fontWeight: 700,
   },
+
+  /* =========================================================
+     BANNER GRID
+  ========================================================= */
 
   grid: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fill, minmax(310px, 1fr))",
-    gap: "20px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))",
+    gap: "24px",
+    alignItems: "start",
   },
+
+  /* =========================================================
+     BANNER CARD
+     
+     The card is for banner information.
+     It does NOT create a separate image container.
+  ========================================================= */
 
   card: {
     backgroundColor: "#fff",
     borderRadius: "12px",
     overflow: "hidden",
     border: "1px solid #e5e7eb",
-    boxShadow:
-      "0 2px 8px rgba(0,0,0,0.05)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
   },
+
+  /* =========================================================
+     IMAGE AREA
+     
+     IMPORTANT:
+     This is intentionally NOT a visual container.
+     
+     No:
+     - background
+     - border
+     - radius
+     - shadow
+     - fixed gray box
+  ========================================================= */
 
   imageContainer: {
-    height: "190px",
-    backgroundColor: "#f3f4f6",
     position: "relative",
+
+    width: "100%",
+    height: "auto",
+
     display: "flex",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "transparent",
+
+    border: "none",
+    borderRadius: 0,
+    boxShadow: "none",
+
+    padding: "0",
+    margin: "0",
+
+    overflow: "visible",
   },
 
+  /* =========================================================
+     BANNER IMAGE
+     
+     IMAGE ITSELF ONLY
+  ========================================================= */
+
   image: {
+    display: "block",
+
     width: "100%",
-    height: "100%",
-    objectFit: "cover",
+    height: "auto",
+
+    maxWidth: "100%",
+    maxHeight: "240px",
+
+    objectFit: "contain",
+
+    border: "none",
+    borderRadius: 0,
+
+    backgroundColor: "transparent",
+
+    boxShadow: "none",
+
+    padding: 0,
+    margin: 0,
+
+    verticalAlign: "middle",
   },
+
+  /* =========================================================
+     NO IMAGE
+  ========================================================= */
 
   noImage: {
     color: "#9ca3af",
     fontSize: "13px",
+    padding: "35px 20px",
+    textAlign: "center",
   },
+
+  /* =========================================================
+     BADGES
+  ========================================================= */
 
   discountBadge: {
     position: "absolute",
     top: "12px",
     left: "12px",
+
     backgroundColor: "#166534",
     color: "#fff",
+
     padding: "5px 9px",
+
     borderRadius: "5px",
+
     fontSize: "11px",
     fontWeight: 700,
+
+    zIndex: 2,
   },
 
   statusBadge: {
     position: "absolute",
     top: "12px",
     right: "12px",
+
     padding: "5px 9px",
+
     borderRadius: "5px",
+
     fontSize: "10px",
     fontWeight: 700,
+
+    zIndex: 2,
   },
+
+  /* =========================================================
+     CARD CONTENT
+  ========================================================= */
 
   cardContent: {
     padding: "16px",
@@ -1798,13 +1925,20 @@ const styles = {
     margin: 0,
     fontSize: "17px",
     color: "#111827",
+    fontWeight: 700,
+    lineHeight: "1.4",
   },
 
   cardSubtitle: {
     color: "#6b7280",
     fontSize: "12px",
     margin: "5px 0",
+    lineHeight: "1.5",
   },
+
+  /* =========================================================
+     PRICE
+  ========================================================= */
 
   priceRow: {
     display: "flex",
@@ -1816,24 +1950,27 @@ const styles = {
   price: {
     color: "#f28c28",
     fontSize: "18px",
+    fontWeight: 700,
   },
 
   oldPrice: {
     color: "#9ca3af",
     fontSize: "13px",
-    textDecoration:
-      "line-through",
+    textDecoration: "line-through",
   },
+
+  /* =========================================================
+     DETAILS
+  ========================================================= */
 
   details: {
     display: "grid",
-    gridTemplateColumns:
-      "1fr 1fr",
+    gridTemplateColumns: "1fr 1fr",
     gap: "10px",
-    borderTop:
-      "1px solid #f0f0f0",
-    borderBottom:
-      "1px solid #f0f0f0",
+
+    borderTop: "1px solid #f0f0f0",
+    borderBottom: "1px solid #f0f0f0",
+
     padding: "12px 0",
   },
 
@@ -1851,6 +1988,10 @@ const styles = {
     fontWeight: 600,
   },
 
+  /* =========================================================
+     ACTIONS
+  ========================================================= */
+
   actions: {
     display: "flex",
     gap: "7px",
@@ -1860,59 +2001,62 @@ const styles = {
 
   editButton: {
     flex: 1,
-    border:
-      "1px solid #2563eb",
+    border: "1px solid #2563eb",
     backgroundColor: "#eff6ff",
     color: "#2563eb",
     padding: "8px 10px",
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: "12px",
   },
 
   disableButton: {
     flex: 1,
-    border:
-      "1px solid #d97706",
+    border: "1px solid #d97706",
     backgroundColor: "#fff7ed",
     color: "#c2410c",
     padding: "8px 10px",
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: "12px",
   },
 
   enableButton: {
     flex: 1,
-    border:
-      "1px solid #16a34a",
+    border: "1px solid #16a34a",
     backgroundColor: "#f0fdf4",
     color: "#15803d",
     padding: "8px 10px",
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: "12px",
   },
 
   deleteButton: {
     flex: 1,
-    border:
-      "1px solid #dc2626",
+    border: "1px solid #dc2626",
     backgroundColor: "#fef2f2",
     color: "#dc2626",
     padding: "8px 10px",
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: "12px",
   },
+
+  /* =========================================================
+     EMPTY
+  ========================================================= */
 
   empty: {
     backgroundColor: "#fff",
     borderRadius: "12px",
     padding: "60px 20px",
     textAlign: "center",
-    border:
-      "1px solid #e5e7eb",
+    border: "1px solid #e5e7eb",
   },
 
   emptyIcon: {
@@ -1920,48 +2064,68 @@ const styles = {
     marginBottom: "10px",
   },
 
-  // ====================================================
-  // MODAL
-  // ====================================================
+  /* =========================================================
+     MODAL OVERLAY
+  ========================================================= */
 
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    backgroundColor:
-      "rgba(0,0,0,0.55)",
+
+    backgroundColor: "rgba(0,0,0,0.55)",
+
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+
     zIndex: 9999,
+
     padding: "20px",
+
     boxSizing: "border-box",
+
+    overflowY: "auto",
   },
+
+  /* =========================================================
+     MODAL
+  ========================================================= */
 
   modal: {
     width: "100%",
     maxWidth: "720px",
+
     maxHeight: "92vh",
+
     backgroundColor: "#fff",
+
     borderRadius: "14px",
+
     overflow: "hidden",
+
     display: "flex",
     flexDirection: "column",
+
+    boxShadow: "0 20px 50px rgba(0,0,0,0.20)",
   },
 
   modalHeader: {
     padding: "20px 22px",
-    borderBottom:
-      "1px solid #e5e7eb",
+
+    borderBottom: "1px solid #e5e7eb",
+
     display: "flex",
-    justifyContent:
-      "space-between",
+    justifyContent: "space-between",
     alignItems: "flex-start",
+
+    gap: "15px",
   },
 
   modalTitle: {
     margin: 0,
     color: "#111827",
     fontSize: "21px",
+    fontWeight: 700,
   },
 
   modalSubtitle: {
@@ -1973,12 +2137,26 @@ const styles = {
   closeButton: {
     border: "none",
     backgroundColor: "#f3f4f6",
+
     width: "34px",
     height: "34px",
+
     borderRadius: "50%",
+
     cursor: "pointer",
+
     fontSize: "15px",
+
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+
+    flexShrink: 0,
   },
+
+  /* =========================================================
+     FORM
+  ========================================================= */
 
   form: {
     padding: "22px",
@@ -1998,27 +2176,38 @@ const styles = {
 
   label: {
     display: "block",
+
     fontSize: "12px",
     color: "#374151",
     fontWeight: 700,
+
     marginBottom: "6px",
   },
 
   input: {
     width: "100%",
     boxSizing: "border-box",
-    border:
-      "1px solid #d1d5db",
+
+    border: "1px solid #d1d5db",
+
     borderRadius: "7px",
+
     padding: "10px 11px",
+
     fontSize: "13px",
+
     outline: "none",
+
     backgroundColor: "#fff",
+
+    color: "#111827",
   },
 
-  // ====================================================
-  // IMAGE UPLOAD
-  // ====================================================
+  /* =========================================================
+     IMAGE UPLOAD
+     
+     NO CONTAINER AROUND IMAGE
+  ========================================================= */
 
   hiddenFileInput: {
     display: "none",
@@ -2026,26 +2215,63 @@ const styles = {
 
   imageUploadBox: {
     width: "100%",
-    height: "190px",
-    border:
-      "2px dashed #d1d5db",
-    borderRadius: "10px",
-    backgroundColor: "#f9fafb",
+    height: "auto",
+
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+
+    position: "relative",
+
+    backgroundColor: "transparent",
+
+    border: "none",
+    borderRadius: 0,
+
+    overflow: "visible",
+
+    padding: 0,
+    margin: 0,
   },
 
+  /* =========================================================
+     LARGE PREVIEW
+     
+     IMAGE ONLY
+  ========================================================= */
+
   largePreview: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
+    display: "block",
+
+    width: "auto",
+    height: "auto",
+
+    maxWidth: "100%",
+    maxHeight: "320px",
+
+    objectFit: "contain",
+
+    border: "none",
+    borderRadius: 0,
+
+    backgroundColor: "transparent",
+
+    boxShadow: "none",
+
+    padding: 0,
+    margin: 0,
+
+    verticalAlign: "middle",
   },
 
   uploadPlaceholder: {
+    width: "100%",
+
     textAlign: "center",
+
     color: "#9ca3af",
+
+    padding: "35px 20px",
   },
 
   uploadIcon: {
@@ -2066,25 +2292,33 @@ const styles = {
   },
 
   chooseImageButton: {
-    border:
-      "1px solid #2563eb",
+    border: "1px solid #2563eb",
+
     backgroundColor: "#eff6ff",
     color: "#2563eb",
+
     padding: "9px 14px",
+
     borderRadius: "7px",
+
     cursor: "pointer",
+
     fontWeight: 700,
     fontSize: "12px",
   },
 
   removeImageButton: {
-    border:
-      "1px solid #dc2626",
+    border: "1px solid #dc2626",
+
     backgroundColor: "#fef2f2",
     color: "#dc2626",
+
     padding: "9px 14px",
+
     borderRadius: "7px",
+
     cursor: "pointer",
+
     fontWeight: 700,
     fontSize: "12px",
   },
@@ -2105,60 +2339,55 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+
     fontSize: "13px",
     color: "#374151",
+
     marginTop: "5px",
   },
 
+  /* =========================================================
+     MODAL FOOTER
+  ========================================================= */
+
   modalFooter: {
     padding: "15px 22px",
-    borderTop:
-      "1px solid #e5e7eb",
+
+    borderTop: "1px solid #e5e7eb",
+
     display: "flex",
-    justifyContent:
-      "flex-end",
+    justifyContent: "flex-end",
+
     gap: "10px",
   },
 
   cancelButton: {
-    border:
-      "1px solid #d1d5db",
+    border: "1px solid #d1d5db",
+
     backgroundColor: "#fff",
     color: "#374151",
+
     padding: "10px 18px",
+
     borderRadius: "7px",
+
     cursor: "pointer",
+
     fontWeight: 600,
   },
 
   saveButton: {
     border: "none",
+
     backgroundColor: "#f28c28",
     color: "#fff",
+
     padding: "10px 20px",
+
     borderRadius: "7px",
+
     cursor: "pointer",
+
     fontWeight: 700,
   },
-  headerLeft: {
-  display: "flex",
-  alignItems: "center",
-  gap: "14px",
-},
-
-backButton: {
-  width: "42px",
-  height: "42px",
-  borderRadius: "9px",
-  border: "1px solid #e5e7eb",
-  backgroundColor: "#ffffff",
-  color: "#374151",
-  fontSize: "24px",
-  fontWeight: 700,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  transition: "all 0.2s ease",
-},
 };
