@@ -695,79 +695,169 @@ router.patch(
 // DELETE BANNER
 // ======================================================
 
+// ======================================================
+// DELETE BANNER
+// ======================================================
+
 router.delete(
   "/:id",
 
   async (req, res) => {
-
     try {
+      const { id } = req.params;
 
-      const {
-        id
-      } = req.params;
+      // ==================================================
+      // VALIDATE ID
+      // ==================================================
 
+      if (!id || !/^\d+$/.test(String(id))) {
+        return res.status(400).json({
+          message: "Valid banner ID is required",
+        });
+      }
 
       // ==================================================
       // GET BANNER
       // ==================================================
 
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM banners
-          WHERE id = $1
-          `,
-          [id]
-        );
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          title,
+          banner_type,
+          image_url
+        FROM banners
+        WHERE id = $1
+        `,
+        [Number(id)]
+      );
 
-
-      if (
-        result.rows.length === 0
-      ) {
-
+      if (result.rows.length === 0) {
         return res.status(404).json({
-
-          message:
-            "Banner not found",
-
+          message: "Banner not found",
         });
-
       }
 
-
-      const banner =
-        result.rows[0];
-
+      const banner = result.rows[0];
 
       // ==================================================
-      // DELETE CLOUDINARY IMAGE
+      // GET IMAGE URLS
       // ==================================================
 
-      if (
-        banner.cloudinary_public_id
+      let imageUrls = [];
+
+      if (Array.isArray(banner.image_url)) {
+        imageUrls = banner.image_url.filter(Boolean);
+      } else if (
+        typeof banner.image_url === "string" &&
+        banner.image_url.trim() !== ""
       ) {
+        const imageValue = banner.image_url.trim();
 
         try {
+          const parsed = JSON.parse(imageValue);
 
-          await cloudinary.uploader.destroy(
-            banner.cloudinary_public_id
-          );
-
+          if (Array.isArray(parsed)) {
+            imageUrls = parsed.filter(Boolean);
+          } else if (typeof parsed === "string") {
+            imageUrls = [parsed];
+          }
         } catch (error) {
-
-          console.log(
-            "CLOUDINARY DELETE ERROR:",
-            error.message
-          );
-
+          // Old records may contain a normal Cloudinary URL
+          imageUrls = [imageValue];
         }
-
       }
 
+      // ==================================================
+      // DELETE CLOUDINARY IMAGES
+      // ==================================================
+
+      if (imageUrls.length > 0) {
+        for (const imageUrl of imageUrls) {
+          try {
+            if (
+              typeof imageUrl !== "string" ||
+              !imageUrl.includes("cloudinary.com")
+            ) {
+              continue;
+            }
+
+            /*
+              Example Cloudinary URL:
+
+              https://res.cloudinary.com/demo/image/upload/v1234567890/banners/12345-banner.jpg
+
+              We need:
+
+              banners/12345-banner
+            */
+
+            const uploadIndex =
+              imageUrl.indexOf("/upload/");
+
+            if (uploadIndex === -1) {
+              continue;
+            }
+
+            let publicIdWithExtension =
+              imageUrl.substring(
+                uploadIndex + "/upload/".length
+              );
+
+            // Remove transformations/version folders
+            const parts =
+              publicIdWithExtension.split("/");
+
+            const versionIndex =
+              parts.findIndex((part) =>
+                /^v\d+$/.test(part)
+              );
+
+            if (versionIndex !== -1) {
+              publicIdWithExtension =
+                parts
+                  .slice(versionIndex + 1)
+                  .join("/");
+            }
+
+            // Remove file extension
+            const publicId =
+              publicIdWithExtension.replace(
+                /\.[^/.]+$/,
+                ""
+              );
+
+            if (!publicId) {
+              continue;
+            }
+
+            console.log(
+              "Deleting Cloudinary image:",
+              publicId
+            );
+
+            await cloudinary.uploader.destroy(
+              publicId,
+              {
+                resource_type: "image",
+              }
+            );
+
+          } catch (cloudinaryError) {
+
+            console.error(
+              "CLOUDINARY IMAGE DELETE ERROR:",
+              cloudinaryError.message
+            );
+
+            // Continue deleting other images
+          }
+        }
+      }
 
       // ==================================================
-      // DELETE DATABASE
+      // DELETE DATABASE RECORD
       // ==================================================
 
       await pool.query(
@@ -775,17 +865,18 @@ router.delete(
         DELETE FROM banners
         WHERE id = $1
         `,
-        [id]
+        [Number(id)]
       );
 
+      // ==================================================
+      // RESPONSE
+      // ==================================================
 
       res.json({
-
-        message:
-          "Banner deleted successfully",
-
+        message: "Banner deleted successfully",
+        deleted_banner_id: Number(id),
+        deleted_images: imageUrls.length,
       });
-
 
     } catch (error) {
 
@@ -794,19 +885,11 @@ router.delete(
         error
       );
 
-
       res.status(500).json({
-
-        message:
-          "Failed to delete banner",
-
-        error:
-          error.message,
-
+        message: "Failed to delete banner",
+        error: error.message,
       });
-
     }
-
   }
 );
 

@@ -8,23 +8,14 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const BannerManagement = ({ onBack }) => {
   const [banners, setBanners] = useState([]);
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
-
   const [editingBanner, setEditingBanner] = useState(null);
 
-  // New files selected from computer
   const [selectedImages, setSelectedImages] = useState([]);
-
-  // Existing images while editing
   const [existingImages, setExistingImages] = useState([]);
-
-  // =====================================================
-  // FORM
-  // =====================================================
 
   const [form, setForm] = useState({
     title: "",
@@ -45,20 +36,16 @@ const BannerManagement = ({ onBack }) => {
       setLoading(true);
 
       const response = await fetch(`${API_URL}/banner/admin`);
-
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to load banners"
-        );
+        throw new Error(data.message || "Failed to load banners");
       }
 
       setBanners(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("FETCH BANNERS ERROR:", error);
-
-      alert(error.message);
+      alert(error.message || "Failed to load banners");
     } finally {
       setLoading(false);
     }
@@ -82,22 +69,20 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
-  // GET EXISTING IMAGES
-  // Supports:
-  // image_urls: []
-  // images: []
-  // image_url: "single url"
+  // GET BANNER IMAGES
   // =====================================================
 
   const getBannerImages = (banner) => {
-    if (Array.isArray(banner.image_urls)) {
+    if (Array.isArray(banner?.image_urls)) {
       return banner.image_urls.filter(Boolean);
     }
 
-    if (Array.isArray(banner.images)) {
+    if (Array.isArray(banner?.images)) {
       return banner.images
         .map((item) => {
-          if (typeof item === "string") return item;
+          if (typeof item === "string") {
+            return item;
+          }
 
           return (
             item?.image_url ||
@@ -110,12 +95,56 @@ const BannerManagement = ({ onBack }) => {
         .filter(Boolean);
     }
 
-    if (banner.image_url) {
-      return [banner.image_url];
+    if (banner?.image_url) {
+      if (Array.isArray(banner.image_url)) {
+        return banner.image_url.filter(Boolean);
+      }
+
+      if (typeof banner.image_url === "string") {
+        const value = banner.image_url.trim();
+
+        if (value.startsWith("[") && value.endsWith("]")) {
+          try {
+            const parsed = JSON.parse(value);
+
+            if (Array.isArray(parsed)) {
+              return parsed.filter(Boolean);
+            }
+          } catch (error) {
+            console.warn("Unable to parse image_url JSON:", error);
+          }
+        }
+
+        if (value) {
+          return [value];
+        }
+      }
     }
 
-    if (banner.image) {
-      return [banner.image];
+    if (banner?.image) {
+      if (Array.isArray(banner.image)) {
+        return banner.image.filter(Boolean);
+      }
+
+      if (typeof banner.image === "string") {
+        const value = banner.image.trim();
+
+        if (value.startsWith("[") && value.endsWith("]")) {
+          try {
+            const parsed = JSON.parse(value);
+
+            if (Array.isArray(parsed)) {
+              return parsed.filter(Boolean);
+            }
+          } catch (error) {
+            console.warn("Unable to parse image JSON:", error);
+          }
+        }
+
+        if (value) {
+          return [value];
+        }
+      }
     }
 
     return [];
@@ -128,23 +157,34 @@ const BannerManagement = ({ onBack }) => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
 
-    if (!files.length) return;
+    if (!files.length) {
+      return;
+    }
 
-    const totalImages =
+    const currentTotal =
       existingImages.length + selectedImages.length;
 
-    if (totalImages + files.length > MAX_IMAGES) {
-      alert(
-        `You can upload maximum ${MAX_IMAGES} images per banner.`
-      );
+    const remainingSlots = MAX_IMAGES - currentTotal;
 
+    if (remainingSlots <= 0) {
+      alert(`You already have the maximum ${MAX_IMAGES} images.`);
       e.target.value = "";
       return;
     }
 
+    const filesToProcess = files.slice(0, remainingSlots);
+
+    if (files.length > remainingSlots) {
+      alert(
+        `Only ${remainingSlots} more image${
+          remainingSlots !== 1 ? "s are" : " is"
+        } allowed.`
+      );
+    }
+
     const validFiles = [];
 
-    for (const file of files) {
+    for (const file of filesToProcess) {
       if (!file.type.startsWith("image/")) {
         alert(`${file.name} is not a valid image file.`);
         continue;
@@ -157,17 +197,21 @@ const BannerManagement = ({ onBack }) => {
         continue;
       }
 
-      validFiles.push(file);
+      const preview = URL.createObjectURL(file);
+
+      validFiles.push({
+        file,
+        preview,
+      });
     }
 
-    if (validFiles.length) {
+    if (validFiles.length > 0) {
       setSelectedImages((prev) => [
         ...prev,
         ...validFiles,
       ]);
     }
 
-    // Allow selecting same file again
     e.target.value = "";
   };
 
@@ -176,9 +220,15 @@ const BannerManagement = ({ onBack }) => {
   // =====================================================
 
   const removeSelectedImage = (index) => {
-    setSelectedImages((prev) =>
-      prev.filter((_, i) => i !== index)
-    );
+    setSelectedImages((prev) => {
+      const imageToRemove = prev[index];
+
+      if (imageToRemove?.preview) {
+        URL.revokeObjectURL(imageToRemove.preview);
+      }
+
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   // =====================================================
@@ -192,10 +242,16 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
-  // RESET FORM
+  // RESET
   // =====================================================
 
   const resetForm = () => {
+    selectedImages.forEach((item) => {
+      if (item?.preview) {
+        URL.revokeObjectURL(item.preview);
+      }
+    });
+
     setForm({
       title: "",
       subtitle: "",
@@ -212,7 +268,7 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
-  // OPEN ADD
+  // ADD
   // =====================================================
 
   const handleAdd = () => {
@@ -221,7 +277,7 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
-  // OPEN EDIT
+  // EDIT
   // =====================================================
 
   const handleEdit = (banner) => {
@@ -237,16 +293,14 @@ const BannerManagement = ({ onBack }) => {
       enabled: banner.enabled ?? true,
     });
 
-    const images = getBannerImages(banner);
-
-    setExistingImages(images);
+    setExistingImages(getBannerImages(banner));
     setSelectedImages([]);
 
     setShowModal(true);
   };
 
   // =====================================================
-  // CLOSE MODAL
+  // CLOSE
   // =====================================================
 
   const closeModal = () => {
@@ -257,7 +311,29 @@ const BannerManagement = ({ onBack }) => {
   };
 
   // =====================================================
-  // SAVE BANNER
+  // CHANGE TYPE
+  // =====================================================
+
+  const changeBannerType = (type) => {
+    setForm((prev) => ({
+      ...prev,
+      banner_type: type,
+    }));
+
+    if (type === "text") {
+      selectedImages.forEach((item) => {
+        if (item?.preview) {
+          URL.revokeObjectURL(item.preview);
+        }
+      });
+
+      setSelectedImages([]);
+      setExistingImages([]);
+    }
+  };
+
+  // =====================================================
+  // SAVE
   // =====================================================
 
   const handleSubmit = async (e) => {
@@ -268,18 +344,8 @@ const BannerManagement = ({ onBack }) => {
     try {
       setSaving(true);
 
-      // -------------------------------------------------
-      // VALIDATION
-      // -------------------------------------------------
-
-      if (
-        !form.title.trim() &&
-        !form.subtitle.trim()
-      ) {
-        alert(
-          "Please enter a title or subtitle"
-        );
-
+      if (!form.title.trim() && !form.subtitle.trim()) {
+        alert("Please enter a title or subtitle.");
         setSaving(false);
         return;
       }
@@ -293,7 +359,6 @@ const BannerManagement = ({ onBack }) => {
         totalImages === 0
       ) {
         alert("Please select at least one banner image.");
-
         setSaving(false);
         return;
       }
@@ -302,74 +367,32 @@ const BannerManagement = ({ onBack }) => {
         alert(
           `Maximum ${MAX_IMAGES} images are allowed per banner.`
         );
-
         setSaving(false);
         return;
       }
 
-      // -------------------------------------------------
-      // FORM DATA
-      // -------------------------------------------------
-
       const formData = new FormData();
 
-      formData.append(
-        "title",
-        form.title
-      );
-
-      formData.append(
-        "subtitle",
-        form.subtitle
-      );
-
-      formData.append(
-        "banner_type",
-        form.banner_type
-      );
-
-      formData.append(
-        "button_text",
-        form.button_text
-      );
-
+      formData.append("title", form.title.trim());
+      formData.append("subtitle", form.subtitle.trim());
+      formData.append("banner_type", form.banner_type);
+      formData.append("button_text", form.button_text.trim());
       formData.append(
         "button_screen",
-        form.button_screen
+        form.button_screen.trim()
       );
-
       formData.append(
         "display_order",
-        form.display_order
+        String(form.display_order)
       );
-
       formData.append(
         "enabled",
-        form.enabled
+        String(form.enabled)
       );
 
-      // -------------------------------------------------
-      // NEW IMAGES
-      // IMPORTANT:
-      // Backend should use upload.array("images", 10)
-      // -------------------------------------------------
-
-      selectedImages.forEach((image) => {
-        formData.append(
-          "images",
-          image
-        );
+      selectedImages.forEach((item) => {
+        formData.append("images", item.file);
       });
-
-      // -------------------------------------------------
-      // EXISTING IMAGES
-      //
-      // This allows backend to know which old images
-      // should remain after editing.
-      //
-      // Backend can read:
-      // req.body.existing_images
-      // -------------------------------------------------
 
       if (editingBanner) {
         formData.append(
@@ -378,63 +401,55 @@ const BannerManagement = ({ onBack }) => {
         );
       }
 
-      // -------------------------------------------------
-      // URL
-      // -------------------------------------------------
-
       const url = editingBanner
         ? `${API_URL}/banner/${editingBanner.id}`
         : `${API_URL}/banner/add`;
 
-      // -------------------------------------------------
-      // REQUEST
-      // -------------------------------------------------
+      const response = await fetch(url, {
+        method: editingBanner ? "PUT" : "POST",
+        body: formData,
+      });
 
-      const response = await fetch(
-        url,
-        {
-          method: editingBanner
-            ? "PUT"
-            : "POST",
-          body: formData,
-        }
-      );
+      let data = {};
 
-      const data =
-        await response.json();
+      try {
+        data = await response.json();
+      } catch (error) {
+        console.warn("Response is not JSON:", error);
+      }
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            "Failed to save banner"
+            data.error ||
+            "Failed to save banner."
         );
       }
 
       alert(
         editingBanner
-          ? "Banner updated successfully"
-          : "Banner added successfully"
+          ? "Banner updated successfully."
+          : "Banner added successfully."
       );
 
       setShowModal(false);
-
       resetForm();
 
       await fetchBanners();
     } catch (error) {
-      console.error(
-        "SAVE BANNER ERROR:",
-        error
-      );
+      console.error("SAVE BANNER ERROR:", error);
 
-      alert(error.message);
+      alert(
+        error.message ||
+          "Something went wrong while saving the banner."
+      );
     } finally {
       setSaving(false);
     }
   };
 
   // =====================================================
-  // ENABLE / DISABLE
+  // TOGGLE STATUS
   // =====================================================
 
   const toggleStatus = async (banner) => {
@@ -443,36 +458,37 @@ const BannerManagement = ({ onBack }) => {
         `${API_URL}/banners/${banner.id}/status`,
         {
           method: "PATCH",
-
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
             enabled: !banner.enabled,
           }),
         }
       );
 
-      const data =
-        await response.json();
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch (error) {
+        console.warn("STATUS RESPONSE JSON ERROR:", error);
+      }
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Failed to update status"
+          data.message || "Failed to update status."
         );
       }
 
       await fetchBanners();
     } catch (error) {
-      console.error(
-        "STATUS ERROR:",
-        error
-      );
+      console.error("STATUS ERROR:", error);
 
-      alert(error.message);
+      alert(
+        error.message ||
+          "Failed to update banner status."
+      );
     }
   };
 
@@ -481,12 +497,11 @@ const BannerManagement = ({ onBack }) => {
   // =====================================================
 
   const handleDelete = async (banner) => {
-    const confirmed =
-      window.confirm(
-        `Are you sure you want to delete "${
-          banner.title || "this banner"
-        }"?`
-      );
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${
+        banner.title || "this banner"
+      }"?`
+    );
 
     if (!confirmed) return;
 
@@ -498,33 +513,35 @@ const BannerManagement = ({ onBack }) => {
         }
       );
 
-      const data =
-        await response.json();
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch (error) {
+        console.warn("DELETE RESPONSE JSON ERROR:", error);
+      }
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Failed to delete banner"
+          data.message || "Failed to delete banner."
         );
       }
 
-      alert(
-        "Banner deleted successfully"
-      );
+      alert("Banner deleted successfully.");
 
       await fetchBanners();
     } catch (error) {
-      console.error(
-        "DELETE BANNER ERROR:",
-        error
-      );
+      console.error("DELETE BANNER ERROR:", error);
 
-      alert(error.message);
+      alert(
+        error.message ||
+          "Failed to delete banner."
+      );
     }
   };
 
   // =====================================================
-  // RENDER BANNER PREVIEWS
+  // TABLE PREVIEW
   // =====================================================
 
   const renderBannerImages = (banner) => {
@@ -536,34 +553,45 @@ const BannerManagement = ({ onBack }) => {
     ) {
       return (
         <div className="text-banner-thumbnail">
-          <span>T</span>
+          <div className="text-thumbnail-icon">T</div>
         </div>
       );
     }
 
     return (
       <div className="banner-preview-list">
-        {images.slice(0, 4).map((image, index) => (
-          <img
+        {images.slice(0, 3).map((image, index) => (
+          <div
+            className="table-image-wrap"
             key={`${image}-${index}`}
-            src={image}
-            alt={
-              banner.title
-                ? `${banner.title} ${index + 1}`
-                : `Banner ${index + 1}`
-            }
-            className="banner-thumbnail"
-          />
+          >
+            <img
+              src={image}
+              alt={
+                banner.title
+                  ? `${banner.title} ${index + 1}`
+                  : `Banner ${index + 1}`
+              }
+              className="banner-thumbnail"
+            />
+          </div>
         ))}
 
-        {images.length > 4 && (
+        {images.length > 3 && (
           <div className="more-images-badge">
-            +{images.length - 4}
+            +{images.length - 3}
           </div>
         )}
       </div>
     );
   };
+
+  const totalSelectedImages =
+    existingImages.length +
+    selectedImages.length;
+
+  const remainingImages =
+    MAX_IMAGES - totalSelectedImages;
 
   // =====================================================
   // RENDER
@@ -577,58 +605,80 @@ const BannerManagement = ({ onBack }) => {
           box-sizing: border-box;
         }
 
+        body {
+          margin: 0;
+          font-family:
+            Inter,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+          background: #f5f7fa;
+        }
+
+        button,
+        input,
+        select {
+          font-family: inherit;
+        }
+
+        /* ================================================
+           PAGE
+        ================================================ */
+
         .banner-page {
           width: 100%;
           min-height: 100vh;
-          padding: 28px;
-          background: #f7f8fa;
-          color: #1f2937;
+          padding: 30px;
+          background: #f5f7fa;
+          color: #111827;
         }
 
-        /* ================================
+        /* ================================================
            HEADER
-        ================================= */
+        ================================================ */
 
         .banner-page-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 20px;
-          margin-bottom: 26px;
+          margin-bottom: 28px;
         }
 
         .header-title-container {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 15px;
+          min-width: 0;
         }
 
         .back-arrow-btn {
-          width: 42px;
-          height: 42px;
+          width: 44px;
+          height: 44px;
           border: 1px solid #e5e7eb;
-          background: white;
-          border-radius: 10px;
+          background: #ffffff;
+          border-radius: 12px;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
+          font-size: 22px;
           color: #374151;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-          transition: all 0.2s ease;
+          transition: 0.2s;
           flex-shrink: 0;
         }
 
         .back-arrow-btn:hover {
-          background: #f3f4f6;
+          background: #f9fafb;
           border-color: #d1d5db;
-          transform: translateY(-1px);
+          transform: translateX(-2px);
         }
 
         .banner-page-header h1 {
-          margin: 0 0 4px;
-          font-size: 28px;
+          margin: 0 0 5px;
+          font-size: 29px;
+          line-height: 1.2;
           font-weight: 750;
           color: #111827;
         }
@@ -641,63 +691,63 @@ const BannerManagement = ({ onBack }) => {
 
         .add-banner-btn {
           border: none;
-          outline: none;
           cursor: pointer;
           background: #f97316;
           color: white;
-          padding: 12px 20px;
-          border-radius: 10px;
+          padding: 13px 21px;
+          border-radius: 11px;
           font-size: 14px;
           font-weight: 700;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 8px;
-          box-shadow: 0 5px 15px rgba(249, 115, 22, 0.22);
-          transition: all 0.2s ease;
+          box-shadow: 0 7px 18px rgba(249, 115, 22, 0.20);
+          transition: 0.2s;
+          white-space: nowrap;
         }
 
         .add-banner-btn:hover {
           background: #ea580c;
           transform: translateY(-1px);
-          box-shadow: 0 7px 18px rgba(249, 115, 22, 0.28);
         }
 
         .add-banner-btn span {
-          font-size: 20px;
+          font-size: 21px;
           line-height: 1;
         }
 
-        /* ================================
+        /* ================================================
            STATS
-        ================================= */
+        ================================================ */
 
         .banner-stats {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 18px;
-          margin-bottom: 24px;
+          margin-bottom: 25px;
         }
 
         .banner-stat-card {
-          background: white;
+          background: #ffffff;
           border: 1px solid #e5e7eb;
-          border-radius: 14px;
+          border-radius: 15px;
           padding: 20px;
           display: flex;
           align-items: center;
           gap: 15px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+          box-shadow: 0 3px 12px rgba(15, 23, 42, 0.035);
         }
 
         .stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 49px;
+          height: 49px;
+          border-radius: 13px;
           background: #fff7ed;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 21px;
           flex-shrink: 0;
         }
 
@@ -720,24 +770,24 @@ const BannerManagement = ({ onBack }) => {
 
         .banner-stat-card strong {
           display: block;
-          font-size: 24px;
+          font-size: 25px;
           color: #111827;
         }
 
-        /* ================================
+        /* ================================================
            CARD
-        ================================= */
+        ================================================ */
 
         .banner-card {
-          background: white;
+          background: #ffffff;
           border: 1px solid #e5e7eb;
-          border-radius: 15px;
+          border-radius: 16px;
           overflow: hidden;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+          box-shadow: 0 3px 12px rgba(15, 23, 42, 0.035);
         }
 
         .banner-card-header {
-          padding: 21px 24px;
+          padding: 22px 25px;
           border-bottom: 1px solid #edf0f3;
         }
 
@@ -753,23 +803,23 @@ const BannerManagement = ({ onBack }) => {
           font-size: 13px;
         }
 
-        /* ================================
+        /* ================================================
            LOADING
-        ================================= */
+        ================================================ */
 
         .banner-loading {
-          min-height: 280px;
+          min-height: 300px;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 12px;
+          gap: 13px;
           color: #6b7280;
         }
 
         .spinner {
-          width: 35px;
-          height: 35px;
+          width: 36px;
+          height: 36px;
           border: 3px solid #fed7aa;
           border-top-color: #f97316;
           border-radius: 50%;
@@ -782,9 +832,9 @@ const BannerManagement = ({ onBack }) => {
           }
         }
 
-        /* ================================
+        /* ================================================
            EMPTY
-        ================================= */
+        ================================================ */
 
         .banner-empty {
           min-height: 360px;
@@ -797,14 +847,14 @@ const BannerManagement = ({ onBack }) => {
         }
 
         .empty-icon {
-          width: 70px;
-          height: 70px;
+          width: 72px;
+          height: 72px;
           border-radius: 50%;
           background: #fff7ed;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 30px;
+          font-size: 31px;
           margin-bottom: 18px;
         }
 
@@ -830,13 +880,9 @@ const BannerManagement = ({ onBack }) => {
           font-weight: 700;
         }
 
-        .empty-add-btn:hover {
-          background: #ea580c;
-        }
-
-        /* ================================
+        /* ================================================
            TABLE
-        ================================= */
+        ================================================ */
 
         .banner-table-wrapper {
           width: 100%;
@@ -846,16 +892,16 @@ const BannerManagement = ({ onBack }) => {
         .banner-table {
           width: 100%;
           border-collapse: collapse;
-          min-width: 950px;
+          min-width: 980px;
         }
 
         .banner-table th {
           background: #fafafa;
           color: #6b7280;
-          font-size: 12px;
-          font-weight: 700;
+          font-size: 11px;
+          font-weight: 750;
           text-transform: uppercase;
-          letter-spacing: 0.4px;
+          letter-spacing: 0.45px;
           text-align: left;
           padding: 14px 18px;
           border-bottom: 1px solid #e5e7eb;
@@ -863,13 +909,13 @@ const BannerManagement = ({ onBack }) => {
         }
 
         .banner-table td {
-          padding: 16px 18px;
+          padding: 17px 18px;
           border-bottom: 1px solid #f0f1f3;
           vertical-align: middle;
         }
 
         .banner-table tbody tr {
-          transition: background 0.15s ease;
+          transition: background 0.15s;
         }
 
         .banner-table tbody tr:hover {
@@ -880,38 +926,45 @@ const BannerManagement = ({ onBack }) => {
           border-bottom: none;
         }
 
-        /* ================================
-           MULTIPLE BANNER PREVIEW
-           NO IMAGE CONTAINER
-           NO BORDER
-           NO CROP
-        ================================= */
+        /* ================================================
+           TABLE IMAGE PREVIEW
+        ================================================ */
 
         .banner-preview-list {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 9px;
           max-width: 330px;
           overflow-x: auto;
-          padding: 2px 0;
+          padding: 3px 0;
+          scrollbar-width: thin;
+        }
+
+        .table-image-wrap {
+          width: 92px;
+          min-width: 92px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .banner-thumbnail {
-          width: 110px;
-          max-width: 110px;
-          height: 65px;
           display: block;
+          width: auto;
+          max-width: 92px;
+          height: auto;
+          max-height: 62px;
           object-fit: contain;
+          object-position: center;
           border: none;
           border-radius: 0;
           background: transparent;
           box-shadow: none;
-          flex-shrink: 0;
         }
 
         .more-images-badge {
-          min-width: 38px;
-          height: 38px;
+          min-width: 39px;
+          height: 39px;
           padding: 0 8px;
           border-radius: 20px;
           background: #f97316;
@@ -924,36 +977,30 @@ const BannerManagement = ({ onBack }) => {
           flex-shrink: 0;
         }
 
-        /* ================================
-           TEXT BANNER
-        ================================= */
-
         .text-banner-thumbnail {
-          width: 100px;
-          height: 58px;
-          border-radius: 8px;
-          background: #fff7ed;
-          border: 1px solid #fed7aa;
+          width: 88px;
+          height: 56px;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .text-banner-thumbnail span {
-          width: 34px;
-          height: 34px;
+        .text-thumbnail-icon {
+          width: 38px;
+          height: 38px;
           background: #f97316;
           color: white;
-          border-radius: 8px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
+          font-size: 16px;
           font-weight: 800;
         }
 
-        /* ================================
-           BANNER INFO
-        ================================= */
+        /* ================================================
+           INFO
+        ================================================ */
 
         .banner-info {
           display: flex;
@@ -970,20 +1017,20 @@ const BannerManagement = ({ onBack }) => {
         .banner-info span {
           color: #6b7280;
           font-size: 12px;
-          line-height: 1.4;
+          line-height: 1.45;
         }
 
-        /* ================================
+        /* ================================================
            TYPE
-        ================================= */
+        ================================================ */
 
         .type-badge {
           display: inline-flex;
           align-items: center;
-          padding: 5px 10px;
+          padding: 6px 10px;
           border-radius: 20px;
-          font-size: 12px;
-          font-weight: 700;
+          font-size: 11px;
+          font-weight: 750;
         }
 
         .text-type {
@@ -996,26 +1043,26 @@ const BannerManagement = ({ onBack }) => {
           color: #7c3aed;
         }
 
-        /* ================================
+        /* ================================================
            ORDER
-        ================================= */
+        ================================================ */
 
         .order-number {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
+          width: 33px;
+          height: 33px;
+          border-radius: 9px;
           background: #f3f4f6;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
-          font-weight: 700;
+          font-size: 12px;
+          font-weight: 750;
           color: #374151;
         }
 
-        /* ================================
+        /* ================================================
            STATUS
-        ================================= */
+        ================================================ */
 
         .status-toggle {
           border: none;
@@ -1025,8 +1072,8 @@ const BannerManagement = ({ onBack }) => {
           gap: 7px;
           padding: 7px 11px;
           border-radius: 20px;
-          font-size: 12px;
-          font-weight: 700;
+          font-size: 11px;
+          font-weight: 750;
           transition: 0.2s;
         }
 
@@ -1047,13 +1094,9 @@ const BannerManagement = ({ onBack }) => {
           background: currentColor;
         }
 
-        .status-toggle:hover {
-          opacity: 0.8;
-        }
-
-        /* ================================
+        /* ================================================
            ACTIONS
-        ================================= */
+        ================================================ */
 
         .banner-actions {
           display: flex;
@@ -1066,13 +1109,13 @@ const BannerManagement = ({ onBack }) => {
           border: 1px solid #e5e7eb;
           background: white;
           border-radius: 8px;
-          padding: 7px 10px;
+          padding: 8px 11px;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 5px;
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 650;
           transition: 0.2s;
         }
 
@@ -1094,14 +1137,14 @@ const BannerManagement = ({ onBack }) => {
           border-color: #fecaca;
         }
 
-        /* ================================
-           MODAL OVERLAY
-        ================================= */
+        /* ================================================
+           MODAL
+        ================================================ */
 
         .banner-modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(15, 23, 42, 0.62);
+          background: rgba(15, 23, 42, 0.68);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1112,19 +1155,19 @@ const BannerManagement = ({ onBack }) => {
 
         .banner-modal {
           width: 100%;
-          max-width: 700px;
-          max-height: 92vh;
+          max-width: 820px;
+          max-height: 94vh;
           overflow-y: auto;
           background: white;
-          border-radius: 16px;
-          box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+          border-radius: 18px;
+          box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
           animation: modalIn 0.2s ease;
         }
 
         @keyframes modalIn {
           from {
             opacity: 0;
-            transform: translateY(15px) scale(0.98);
+            transform: translateY(16px) scale(0.98);
           }
 
           to {
@@ -1133,12 +1176,8 @@ const BannerManagement = ({ onBack }) => {
           }
         }
 
-        /* ================================
-           MODAL HEADER
-        ================================= */
-
         .banner-modal-header {
-          padding: 22px 24px;
+          padding: 21px 25px;
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
@@ -1146,7 +1185,7 @@ const BannerManagement = ({ onBack }) => {
           position: sticky;
           top: 0;
           background: white;
-          z-index: 2;
+          z-index: 5;
         }
 
         .banner-modal-header h2 {
@@ -1162,17 +1201,18 @@ const BannerManagement = ({ onBack }) => {
         }
 
         .modal-close {
-          width: 34px;
-          height: 34px;
+          width: 36px;
+          height: 36px;
           border: none;
           background: #f3f4f6;
-          border-radius: 8px;
+          border-radius: 9px;
           cursor: pointer;
-          font-size: 24px;
+          font-size: 23px;
           color: #6b7280;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
 
         .modal-close:hover {
@@ -1180,12 +1220,12 @@ const BannerManagement = ({ onBack }) => {
           color: #dc2626;
         }
 
-        /* ================================
+        /* ================================================
            FORM
-        ================================= */
+        ================================================ */
 
         .banner-modal form {
-          padding: 24px;
+          padding: 25px;
         }
 
         .form-group {
@@ -1201,38 +1241,28 @@ const BannerManagement = ({ onBack }) => {
         }
 
         .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group select,
-        .form-group textarea {
+        .form-group input[type="number"] {
           width: 100%;
           border: 1px solid #d1d5db;
-          border-radius: 9px;
-          padding: 11px 12px;
-          font-family: inherit;
+          border-radius: 10px;
+          padding: 12px 13px;
           font-size: 14px;
           color: #111827;
           outline: none;
           background: white;
-          transition: border 0.2s, box-shadow 0.2s;
-        }
-
-        .form-group textarea {
-          resize: vertical;
-          min-height: 80px;
+          transition: 0.2s;
         }
 
         .form-group input[type="text"]:focus,
-        .form-group input[type="number"]:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
+        .form-group input[type="number"]:focus {
           border-color: #f97316;
-          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.10);
         }
 
         .form-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 16px;
+          gap: 17px;
         }
 
         .field-help {
@@ -1240,25 +1270,26 @@ const BannerManagement = ({ onBack }) => {
           margin-top: 6px;
           color: #9ca3af;
           font-size: 11px;
+          line-height: 1.5;
         }
 
-        /* ================================
-           TYPE OPTIONS
-        ================================= */
+        /* ================================================
+           TYPE
+        ================================================ */
 
         .banner-type-options {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          gap: 13px;
         }
 
         .type-option {
           border: 1px solid #e5e7eb;
-          border-radius: 10px;
-          padding: 13px;
+          border-radius: 11px;
+          padding: 15px;
           display: flex;
           align-items: flex-start;
-          gap: 10px;
+          gap: 11px;
           cursor: pointer;
           transition: 0.2s;
         }
@@ -1289,15 +1320,18 @@ const BannerManagement = ({ onBack }) => {
           display: block;
           color: #6b7280;
           font-size: 11px;
+          line-height: 1.45;
         }
 
-        /* ================================
-           MULTIPLE IMAGE UPLOAD
-        ================================= */
+        /* ================================================
+           UPLOAD
+        ================================================ */
 
         .image-upload-box {
           border: 2px dashed #d1d5db;
-          border-radius: 12px;
+          border-radius: 14px;
+          background: #fafafa;
+          overflow: hidden;
           transition: 0.2s;
         }
 
@@ -1311,47 +1345,47 @@ const BannerManagement = ({ onBack }) => {
         }
 
         .image-upload-label {
-          min-height: 140px;
+          min-height: 160px;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           text-align: center;
-          padding: 20px;
+          padding: 25px;
         }
 
         .upload-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          background: #fff7ed;
+          width: 50px;
+          height: 50px;
+          border-radius: 14px;
+          background: #fff1e7;
           color: #f97316;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
-          margin-bottom: 10px;
+          font-size: 23px;
+          margin-bottom: 12px;
         }
 
         .image-upload-label strong {
-          font-size: 13px;
+          font-size: 14px;
           color: #374151;
-          margin-bottom: 5px;
+          margin-bottom: 6px;
         }
 
         .image-upload-label span {
           font-size: 11px;
           color: #9ca3af;
+          line-height: 1.5;
         }
 
-        /* ================================
-           SELECTED IMAGE PREVIEWS
-           NO IMAGE CONTAINER
-        ================================= */
+        /* ================================================
+           IMAGE SECTION
+        ================================================ */
 
         .selected-images-section {
-          margin-top: 16px;
+          margin-top: 22px;
         }
 
         .selected-images-title {
@@ -1359,7 +1393,7 @@ const BannerManagement = ({ onBack }) => {
           align-items: center;
           justify-content: space-between;
           gap: 10px;
-          margin-bottom: 10px;
+          margin-bottom: 13px;
         }
 
         .selected-images-title strong {
@@ -1372,23 +1406,44 @@ const BannerManagement = ({ onBack }) => {
           font-size: 11px;
         }
 
+        .existing-label {
+          color: #059669 !important;
+        }
+
+        .new-label {
+          color: #2563eb !important;
+        }
+
+        /* ================================================
+           IMAGE GRID
+           NO IMAGE CONTAINER
+           NO BORDER
+           NO CROP
+        ================================================ */
+
         .image-preview-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 22px;
         }
 
         .image-preview-item {
           position: relative;
           min-width: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: visible;
         }
 
         .image-preview-item img {
           display: block;
-          width: 100%;
-          height: auto;
+          width: auto;
           max-width: 100%;
+          height: auto;
+          max-height: 230px;
           object-fit: contain;
+          object-position: center;
           border: none;
           border-radius: 0;
           background: transparent;
@@ -1397,57 +1452,87 @@ const BannerManagement = ({ onBack }) => {
 
         .remove-image-btn {
           position: absolute;
-          top: 6px;
-          right: 6px;
-          width: 28px;
-          height: 28px;
+          top: 2px;
+          right: 2px;
+          width: 30px;
+          height: 30px;
           border: none;
           border-radius: 50%;
-          background: rgba(220, 38, 38, 0.92);
+          background: rgba(220, 38, 38, 0.94);
           color: white;
           cursor: pointer;
-          font-size: 17px;
+          font-size: 18px;
           font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
           line-height: 1;
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 3px 9px rgba(0, 0, 0, 0.18);
+          transition: 0.15s;
+          z-index: 2;
         }
 
         .remove-image-btn:hover {
           background: #b91c1c;
-          transform: scale(1.05);
+          transform: scale(1.07);
         }
 
         .image-number {
           position: absolute;
-          left: 6px;
-          top: 6px;
-          min-width: 24px;
-          height: 24px;
-          padding: 0 6px;
-          border-radius: 12px;
-          background: rgba(17, 24, 39, 0.75);
+          left: 2px;
+          top: 2px;
+          min-width: 25px;
+          height: 25px;
+          padding: 0 7px;
+          border-radius: 13px;
+          background: rgba(17, 24, 39, 0.78);
           color: white;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 10px;
           font-weight: 700;
+          z-index: 2;
         }
 
-        .existing-label {
-          color: #059669;
+        /* ================================================
+           IMAGE COUNTER
+        ================================================ */
+
+        .image-total-info {
+          margin-top: 15px;
+          padding: 12px 14px;
+          background: #f8fafc;
+          border-radius: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
         }
 
-        .new-label {
-          color: #2563eb;
+        .image-total-info span {
+          color: #6b7280;
+          font-size: 12px;
         }
 
-        /* ================================
-           ENABLE BOX
-        ================================= */
+        .image-total-info strong {
+          color: #111827;
+          font-size: 12px;
+        }
+
+        .image-limit-warning {
+          color: #dc2626 !important;
+        }
+
+        .image-remaining {
+          margin-top: 7px;
+          color: #9ca3af;
+          font-size: 11px;
+        }
+
+        /* ================================================
+           ENABLE
+        ================================================ */
 
         .enable-box {
           display: flex;
@@ -1474,9 +1559,9 @@ const BannerManagement = ({ onBack }) => {
           font-size: 11px;
         }
 
-        /* ================================
+        /* ================================================
            SWITCH
-        ================================= */
+        ================================================ */
 
         .switch {
           position: relative;
@@ -1510,7 +1595,7 @@ const BannerManagement = ({ onBack }) => {
           background: white;
           border-radius: 50%;
           transition: 0.2s;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.20);
         }
 
         .switch input:checked + .slider {
@@ -1521,23 +1606,23 @@ const BannerManagement = ({ onBack }) => {
           transform: translateX(21px);
         }
 
-        /* ================================
-           MODAL FOOTER
-        ================================= */
+        /* ================================================
+           FOOTER
+        ================================================ */
 
         .banner-modal-footer {
           display: flex;
           justify-content: flex-end;
           gap: 10px;
           margin-top: 25px;
-          padding-top: 20px;
+          padding-top: 21px;
           border-top: 1px solid #edf0f3;
         }
 
         .cancel-btn,
         .save-banner-btn {
-          min-width: 115px;
-          padding: 11px 17px;
+          min-width: 120px;
+          padding: 12px 18px;
           border-radius: 9px;
           font-size: 13px;
           font-weight: 700;
@@ -1571,7 +1656,8 @@ const BannerManagement = ({ onBack }) => {
 
         .cancel-btn:disabled,
         .save-banner-btn:disabled,
-        .modal-close:disabled {
+        .modal-close:disabled,
+        .remove-image-btn:disabled {
           opacity: 0.55;
           cursor: not-allowed;
         }
@@ -1579,38 +1665,36 @@ const BannerManagement = ({ onBack }) => {
         .button-spinner {
           width: 15px;
           height: 15px;
-          border: 2px solid rgba(255, 255, 255, 0.4);
+          border: 2px solid rgba(255,255,255,0.4);
           border-top-color: white;
           border-radius: 50%;
           animation: bannerSpin 0.7s linear infinite;
         }
 
-        /* ================================
+        /* ================================================
            RESPONSIVE
-        ================================= */
+        ================================================ */
 
-        @media (max-width: 900px) {
+        @media (max-width: 1000px) {
 
           .banner-page {
-            padding: 20px;
+            padding: 22px;
           }
 
-          .banner-stats {
-            grid-template-columns: 1fr;
+          .image-preview-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
 
-          .banner-thumbnail {
-            width: 100px;
-            max-width: 100px;
-            height: 60px;
+          .image-preview-item img {
+            max-height: 210px;
           }
 
         }
 
-        @media (max-width: 650px) {
+        @media (max-width: 760px) {
 
           .banner-page {
-            padding: 14px;
+            padding: 16px;
           }
 
           .banner-page-header {
@@ -1618,42 +1702,28 @@ const BannerManagement = ({ onBack }) => {
             align-items: stretch;
           }
 
-          .banner-page-header h1 {
-            font-size: 23px;
-          }
-
           .add-banner-btn {
             width: 100%;
-            justify-content: center;
+          }
+
+          .banner-stats {
+            grid-template-columns: 1fr;
+            gap: 12px;
           }
 
           .banner-card-header {
-            padding: 17px;
-          }
-
-          .banner-table td,
-          .banner-table th {
-            padding: 13px;
-          }
-
-          .banner-preview-list {
-            max-width: 280px;
-          }
-
-          .banner-thumbnail {
-            width: 90px;
-            max-width: 90px;
-            height: 55px;
+            padding: 18px;
           }
 
           .banner-modal-overlay {
-            padding: 10px;
+            padding: 9px;
             align-items: flex-start;
           }
 
           .banner-modal {
-            margin-top: 10px;
-            max-height: 95vh;
+            margin-top: 8px;
+            max-height: 96vh;
+            border-radius: 14px;
           }
 
           .banner-modal-header {
@@ -1674,8 +1744,12 @@ const BannerManagement = ({ onBack }) => {
           }
 
           .image-preview-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+          }
+
+          .image-preview-item img {
+            max-height: 190px;
           }
 
           .banner-modal-footer {
@@ -1689,44 +1763,80 @@ const BannerManagement = ({ onBack }) => {
 
         }
 
-        @media (max-width: 400px) {
+        @media (max-width: 480px) {
+
+          .banner-page {
+            padding: 12px;
+          }
+
+          .header-title-container {
+            gap: 10px;
+          }
+
+          .back-arrow-btn {
+            width: 40px;
+            height: 40px;
+          }
+
+          .banner-page-header h1 {
+            font-size: 22px;
+          }
+
+          .banner-page-header p {
+            font-size: 12px;
+            line-height: 1.45;
+          }
 
           .banner-stat-card {
-            padding: 15px;
+            padding: 16px;
           }
 
           .stat-icon {
-            width: 42px;
-            height: 42px;
+            width: 43px;
+            height: 43px;
           }
 
           .banner-modal-header h2 {
             font-size: 18px;
           }
 
-          .banner-thumbnail {
-            width: 80px;
-            max-width: 80px;
-            height: 50px;
+          .image-upload-label {
+            min-height: 145px;
+            padding: 18px;
           }
 
           .image-preview-grid {
             grid-template-columns: 1fr 1fr;
+            gap: 13px;
+          }
+
+          .image-preview-item img {
+            max-height: 145px;
+          }
+
+          .remove-image-btn {
+            width: 26px;
+            height: 26px;
+            font-size: 16px;
+          }
+
+          .image-number {
+            min-width: 22px;
+            height: 22px;
+            font-size: 9px;
           }
 
         }
 
       `}</style>
 
-      {/* =================================================
+      {/* =====================================================
           PAGE
-      ================================================= */}
+      ===================================================== */}
 
       <div className="banner-page">
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <div className="banner-page-header">
 
@@ -1748,16 +1858,12 @@ const BannerManagement = ({ onBack }) => {
             </button>
 
             <div>
-
-              <h1>
-                Banner Management
-              </h1>
+              <h1>Banner Management</h1>
 
               <p>
-                Manage promotional banners
-                displayed in the customer app.
+                Manage promotional banners displayed
+                in the customer app.
               </p>
-
             </div>
 
           </div>
@@ -1772,9 +1878,7 @@ const BannerManagement = ({ onBack }) => {
 
         </div>
 
-        {/* =================================================
-            STATS
-        ================================================= */}
+        {/* STATS */}
 
         <div className="banner-stats">
 
@@ -1785,15 +1889,8 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
-
-              <span>
-                Total Banners
-              </span>
-
-              <strong>
-                {banners.length}
-              </strong>
-
+              <span>Total Banners</span>
+              <strong>{banners.length}</strong>
             </div>
 
           </div>
@@ -1805,10 +1902,7 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
-
-              <span>
-                Active
-              </span>
+              <span>Active</span>
 
               <strong>
                 {
@@ -1817,7 +1911,6 @@ const BannerManagement = ({ onBack }) => {
                   ).length
                 }
               </strong>
-
             </div>
 
           </div>
@@ -1829,10 +1922,7 @@ const BannerManagement = ({ onBack }) => {
             </div>
 
             <div>
-
-              <span>
-                Disabled
-              </span>
+              <span>Disabled</span>
 
               <strong>
                 {
@@ -1841,24 +1931,19 @@ const BannerManagement = ({ onBack }) => {
                   ).length
                 }
               </strong>
-
             </div>
 
           </div>
 
         </div>
 
-        {/* =================================================
-            CONTENT
-        ================================================= */}
+        {/* MAIN CARD */}
 
         <div className="banner-card">
 
           <div className="banner-card-header">
 
-            <h2>
-              All Banners
-            </h2>
+            <h2>All Banners</h2>
 
             <p>
               View, edit or control banner visibility
@@ -1869,13 +1954,8 @@ const BannerManagement = ({ onBack }) => {
           {loading ? (
 
             <div className="banner-loading">
-
               <div className="spinner"></div>
-
-              <span>
-                Loading banners...
-              </span>
-
+              <span>Loading banners...</span>
             </div>
 
           ) : banners.length === 0 ? (
@@ -1886,9 +1966,7 @@ const BannerManagement = ({ onBack }) => {
                 📢
               </div>
 
-              <h3>
-                No Banners Found
-              </h3>
+              <h3>No Banners Found</h3>
 
               <p>
                 Get started by adding your first
@@ -1911,7 +1989,6 @@ const BannerManagement = ({ onBack }) => {
               <table className="banner-table">
 
                 <thead>
-
                   <tr>
                     <th>Preview</th>
                     <th>Banner Details</th>
@@ -1920,7 +1997,6 @@ const BannerManagement = ({ onBack }) => {
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
-
                 </thead>
 
                 <tbody>
@@ -2016,7 +2092,7 @@ const BannerManagement = ({ onBack }) => {
                               handleEdit(banner)
                             }
                           >
-                            Edit
+                            ✎ Edit
                           </button>
 
                           <button
@@ -2025,7 +2101,7 @@ const BannerManagement = ({ onBack }) => {
                               handleDelete(banner)
                             }
                           >
-                            Delete
+                            🗑 Delete
                           </button>
 
                         </div>
@@ -2048,9 +2124,9 @@ const BannerManagement = ({ onBack }) => {
 
       </div>
 
-      {/* =================================================
+      {/* =====================================================
           MODAL
-      ================================================= */}
+      ===================================================== */}
 
       {showModal && (
 
@@ -2058,9 +2134,7 @@ const BannerManagement = ({ onBack }) => {
 
           <div className="banner-modal">
 
-            {/* =================================================
-                MODAL HEADER
-            ================================================= */}
+            {/* MODAL HEADER */}
 
             <div className="banner-modal-header">
 
@@ -2075,8 +2149,8 @@ const BannerManagement = ({ onBack }) => {
                 </h2>
 
                 <p>
-                  Configure banner appearance,
-                  images and action target
+                  Configure banner content,
+                  images and action target.
                 </p>
 
               </div>
@@ -2085,21 +2159,18 @@ const BannerManagement = ({ onBack }) => {
                 className="modal-close"
                 onClick={closeModal}
                 disabled={saving}
+                aria-label="Close"
               >
-                &times;
+                ×
               </button>
 
             </div>
 
-            {/* =================================================
-                FORM
-            ================================================= */}
+            {/* FORM */}
 
             <form onSubmit={handleSubmit}>
 
-              {/* =================================================
-                  BANNER TYPE
-              ================================================= */}
+              {/* TYPE */}
 
               <div className="form-group">
 
@@ -2109,8 +2180,6 @@ const BannerManagement = ({ onBack }) => {
 
                 <div className="banner-type-options">
 
-                  {/* TEXT */}
-
                   <div
                     className={`type-option ${
                       form.banner_type === "text"
@@ -2118,10 +2187,7 @@ const BannerManagement = ({ onBack }) => {
                         : ""
                     }`}
                     onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        banner_type: "text",
-                      }))
+                      changeBannerType("text")
                     }
                   >
 
@@ -2143,14 +2209,12 @@ const BannerManagement = ({ onBack }) => {
 
                       <small>
                         Solid colored card with
-                        custom title & subtitle
+                        custom title and subtitle.
                       </small>
 
                     </div>
 
                   </div>
-
-                  {/* IMAGE */}
 
                   <div
                     className={`type-option ${
@@ -2159,10 +2223,7 @@ const BannerManagement = ({ onBack }) => {
                         : ""
                     }`}
                     onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        banner_type: "image",
-                      }))
+                      changeBannerType("image")
                     }
                   >
 
@@ -2183,8 +2244,8 @@ const BannerManagement = ({ onBack }) => {
                       </strong>
 
                       <small>
-                        Upload multiple promotional
-                        banner images
+                        Upload up to 10 promotional
+                        banner images.
                       </small>
 
                     </div>
@@ -2195,9 +2256,7 @@ const BannerManagement = ({ onBack }) => {
 
               </div>
 
-              {/* =================================================
-                  TITLE + SUBTITLE
-              ================================================= */}
+              {/* TITLE + SUBTITLE */}
 
               <div className="form-row">
 
@@ -2237,9 +2296,7 @@ const BannerManagement = ({ onBack }) => {
 
               </div>
 
-              {/* =================================================
-                  MULTIPLE IMAGE UPLOAD
-              ================================================= */}
+              {/* MULTIPLE IMAGES */}
 
               {form.banner_type === "image" && (
 
@@ -2254,7 +2311,7 @@ const BannerManagement = ({ onBack }) => {
                     <input
                       type="file"
                       id="banner-image-files"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
                       multiple
                       onChange={handleImageChange}
                     />
@@ -2273,18 +2330,16 @@ const BannerManagement = ({ onBack }) => {
                       </strong>
 
                       <span>
-                        Select multiple PNG, JPG or
-                        WEBP images · Maximum 10 images
-                        · 5MB each
+                        Select multiple PNG, JPG or WEBP
+                        images · Maximum 10 images ·
+                        5MB each
                       </span>
 
                     </label>
 
                   </div>
 
-                  {/* =================================================
-                      EXISTING IMAGES
-                  ================================================= */}
+                  {/* EXISTING */}
 
                   {existingImages.length > 0 && (
 
@@ -2330,12 +2385,13 @@ const BannerManagement = ({ onBack }) => {
                                 type="button"
                                 className="remove-image-btn"
                                 onClick={() =>
-                                  removeExistingImage(
-                                    index
-                                  )
+                                  removeExistingImage(index)
                                 }
                                 disabled={saving}
                                 title="Remove image"
+                                aria-label={`Remove existing image ${
+                                  index + 1
+                                }`}
                               >
                                 ×
                               </button>
@@ -2351,9 +2407,7 @@ const BannerManagement = ({ onBack }) => {
 
                   )}
 
-                  {/* =================================================
-                      NEW SELECTED IMAGES
-                  ================================================= */}
+                  {/* NEW */}
 
                   {selectedImages.length > 0 && (
 
@@ -2377,17 +2431,15 @@ const BannerManagement = ({ onBack }) => {
                       <div className="image-preview-grid">
 
                         {selectedImages.map(
-                          (file, index) => (
+                          (item, index) => (
 
                             <div
                               className="image-preview-item"
-                              key={`${file.name}-${file.lastModified}-${index}`}
+                              key={`${item.file.name}-${item.file.lastModified}-${index}`}
                             >
 
                               <img
-                                src={URL.createObjectURL(
-                                  file
-                                )}
+                                src={item.preview}
                                 alt={`New banner ${
                                   index + 1
                                 }`}
@@ -2403,12 +2455,13 @@ const BannerManagement = ({ onBack }) => {
                                 type="button"
                                 className="remove-image-btn"
                                 onClick={() =>
-                                  removeSelectedImage(
-                                    index
-                                  )
+                                  removeSelectedImage(index)
                                 }
                                 disabled={saving}
                                 title="Remove image"
+                                aria-label={`Remove new image ${
+                                  index + 1
+                                }`}
                               >
                                 ×
                               </button>
@@ -2424,36 +2477,48 @@ const BannerManagement = ({ onBack }) => {
 
                   )}
 
-                  {/* =================================================
-                      IMAGE COUNT
-                  ================================================= */}
+                  {/* COUNTER */}
 
-                  {(existingImages.length > 0 ||
-                    selectedImages.length > 0) && (
+                  <div className="image-total-info">
 
-                    <small className="field-help">
+                    <span>
+                      Total banner images
+                    </span>
 
-                      Total images:{" "}
-                      <strong>
-                        {
-                          existingImages.length +
-                          selectedImages.length
-                        }
-                      </strong>
-                      {" / "}
-                      {MAX_IMAGES}
+                    <strong
+                      className={
+                        totalSelectedImages >= MAX_IMAGES
+                          ? "image-limit-warning"
+                          : ""
+                      }
+                    >
+                      {totalSelectedImages} / {MAX_IMAGES}
+                    </strong>
 
-                    </small>
+                  </div>
 
-                  )}
+                  <div className="image-remaining">
+                    {remainingImages > 0
+                      ? `${remainingImages} image${
+                          remainingImages !== 1
+                            ? "s"
+                            : ""
+                        } remaining`
+                      : "Maximum image limit reached"}
+                  </div>
+
+                  <small className="field-help">
+                    You can select images multiple times.
+                    Existing images remain unless you
+                    remove them using ×. New images are
+                    uploaded when you save the banner.
+                  </small>
 
                 </div>
 
               )}
 
-              {/* =================================================
-                  BUTTON
-              ================================================= */}
+              {/* BUTTON */}
 
               <div className="form-row">
 
@@ -2477,7 +2542,7 @@ const BannerManagement = ({ onBack }) => {
                 <div className="form-group">
 
                   <label htmlFor="button_screen">
-                    Target Screen/Route
+                    Target Screen / Route
                   </label>
 
                   <input
@@ -2493,9 +2558,7 @@ const BannerManagement = ({ onBack }) => {
 
               </div>
 
-              {/* =================================================
-                  ORDER + ENABLE
-              ================================================= */}
+              {/* ORDER + ENABLE */}
 
               <div className="form-row">
 
@@ -2515,7 +2578,7 @@ const BannerManagement = ({ onBack }) => {
                   />
 
                   <small className="field-help">
-                    Lower numbers appear first
+                    Lower numbers appear first.
                   </small>
 
                 </div>
@@ -2562,9 +2625,7 @@ const BannerManagement = ({ onBack }) => {
 
               </div>
 
-              {/* =================================================
-                  FOOTER
-              ================================================= */}
+              {/* FOOTER */}
 
               <div className="banner-modal-footer">
 
