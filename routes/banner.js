@@ -389,7 +389,15 @@ router.put(
         button_screen,
         display_order,
         enabled,
+        existing_images,
       } = req.body;
+
+      console.log("========================================");
+      console.log("UPDATE BANNER");
+      console.log("ID:", id);
+      console.log("BODY:", req.body);
+      console.log("FILES:", req.files?.length || 0);
+      console.log("========================================");
 
       // ==================================================
       // GET EXISTING BANNER
@@ -413,50 +421,130 @@ router.put(
       const existing = existingResult.rows[0];
 
       // ==================================================
-      // EXISTING IMAGES
+      // HELPER - NORMALIZE BOOLEAN
       // ==================================================
 
-      let imageUrls = [];
+      const normalizeBoolean = (value, defaultValue = false) => {
+        if (
+          value === true ||
+          value === 1 ||
+          value === "1" ||
+          value === "true" ||
+          value === "TRUE" ||
+          value === "True"
+        ) {
+          return true;
+        }
+
+        if (
+          value === false ||
+          value === 0 ||
+          value === "0" ||
+          value === "false" ||
+          value === "FALSE" ||
+          value === "False"
+        ) {
+          return false;
+        }
+
+        return defaultValue;
+      };
+
+      // ==================================================
+      // EXISTING DATABASE IMAGES
+      // ==================================================
+
+      let databaseImages = [];
 
       if (Array.isArray(existing.image_url)) {
-        imageUrls = existing.image_url;
-      } else if (typeof existing.image_url === "string") {
+        databaseImages = existing.image_url.filter(Boolean);
+      } else if (
+        typeof existing.image_url === "string" &&
+        existing.image_url.trim() !== ""
+      ) {
+        const value = existing.image_url.trim();
+
         try {
-          const parsed = JSON.parse(existing.image_url);
+          const parsed = JSON.parse(value);
 
           if (Array.isArray(parsed)) {
-            imageUrls = parsed;
+            databaseImages = parsed.filter(Boolean);
           } else if (parsed) {
-            imageUrls = [parsed];
+            databaseImages = [parsed];
           }
         } catch (error) {
-          // Old single URL stored as plain text
-          if (existing.image_url.trim() !== "") {
-            imageUrls = [existing.image_url];
-          }
+          // Old single image URL
+          databaseImages = [value];
         }
       }
 
       // ==================================================
-      // NEW IMAGES
+      // EXISTING IMAGES SENT FROM FRONTEND
       // ==================================================
 
-      if (
-        req.files &&
-        Array.isArray(req.files) &&
-        req.files.length > 0
-      ) {
-        imageUrls = req.files.map(
-          (file) => file.path
-        );
+      let keptExistingImages = databaseImages;
+
+      if (existing_images !== undefined) {
+        try {
+          let parsedExistingImages = existing_images;
+
+          // If multipart sends JSON string
+          if (typeof parsedExistingImages === "string") {
+            parsedExistingImages = JSON.parse(parsedExistingImages);
+          }
+
+          if (Array.isArray(parsedExistingImages)) {
+            keptExistingImages = parsedExistingImages.filter(
+              (image) =>
+                typeof image === "string" &&
+                image.trim() !== ""
+            );
+          }
+        } catch (error) {
+          console.error(
+            "EXISTING IMAGES PARSE ERROR:",
+            error
+          );
+
+          // Keep database images if parsing fails
+          keptExistingImages = databaseImages;
+        }
       }
+
+      // ==================================================
+      // NEW CLOUDINARY IMAGES
+      // ==================================================
+
+      const newImageUrls =
+        req.files &&
+        Array.isArray(req.files)
+          ? req.files
+              .map((file) => file.path)
+              .filter(Boolean)
+          : [];
+
+      // ==================================================
+      // COMBINE OLD + NEW IMAGES
+      // ==================================================
+
+      let imageUrls = [
+        ...keptExistingImages,
+        ...newImageUrls,
+      ];
+
+      // Remove duplicate URLs
+      imageUrls = [...new Set(imageUrls)];
 
       // ==================================================
       // FINAL BANNER TYPE
       // ==================================================
 
       const finalBannerType =
-        banner_type || existing.banner_type;
+        banner_type !== undefined &&
+        banner_type !== null &&
+        banner_type !== ""
+          ? banner_type
+          : existing.banner_type;
 
       // ==================================================
       // TEXT BANNER
@@ -467,7 +555,7 @@ router.put(
       }
 
       // ==================================================
-      // VALIDATION FOR IMAGE BANNER
+      // IMAGE BANNER VALIDATION
       // ==================================================
 
       if (
@@ -481,28 +569,77 @@ router.put(
       }
 
       // ==================================================
+      // MAXIMUM 10 IMAGES
+      // ==================================================
+
+      if (imageUrls.length > 10) {
+        return res.status(400).json({
+          message:
+            "Maximum 10 images are allowed per banner",
+        });
+      }
+
+      // ==================================================
       // ENABLED VALUE
       // ==================================================
 
-      let finalEnabled = existing.enabled;
+      const finalEnabled =
+        enabled !== undefined
+          ? normalizeBoolean(enabled, true)
+          : normalizeBoolean(existing.enabled, true);
 
-      if (enabled !== undefined) {
-        finalEnabled =
-          enabled === true ||
-          enabled === "true";
-      }
+      console.log(
+        "ENABLED FROM REQUEST:",
+        enabled,
+        typeof enabled
+      );
+
+      console.log(
+        "FINAL ENABLED:",
+        finalEnabled,
+        typeof finalEnabled
+      );
 
       // ==================================================
       // DISPLAY ORDER
       // ==================================================
 
-      let finalDisplayOrder =
-        existing.display_order || 0;
+      let finalDisplayOrder = 0;
 
       if (display_order !== undefined) {
+        const parsedOrder = Number(display_order);
+
+        finalDisplayOrder = Number.isFinite(parsedOrder)
+          ? parsedOrder
+          : 0;
+      } else {
         finalDisplayOrder =
-          Number(display_order) || 0;
+          Number(existing.display_order) || 0;
       }
+
+      // ==================================================
+      // FINAL TEXT VALUES
+      // ==================================================
+
+      const finalTitle =
+        title !== undefined
+          ? title.trim() || null
+          : existing.title;
+
+      const finalSubtitle =
+        subtitle !== undefined
+          ? subtitle.trim() || null
+          : existing.subtitle;
+
+      const finalButtonText =
+        button_text !== undefined
+          ? button_text.trim() || null
+          : existing.button_text;
+
+      const finalButtonScreen =
+        button_screen !== undefined
+          ? button_screen.trim() || null
+          : existing.button_screen;
 
       // ==================================================
       // UPDATE DATABASE
@@ -511,7 +648,6 @@ router.put(
       const result = await pool.query(
         `
         UPDATE banners
-
         SET
           title = $1,
           subtitle = $2,
@@ -522,36 +658,18 @@ router.put(
           display_order = $7,
           enabled = $8,
           updated_at = CURRENT_TIMESTAMP
-
         WHERE id = $9
-
         RETURNING *
         `,
         [
-          title !== undefined
-            ? title || null
-            : existing.title,
-
-          subtitle !== undefined
-            ? subtitle || null
-            : existing.subtitle,
-
+          finalTitle,
+          finalSubtitle,
           finalBannerType,
-
           JSON.stringify(imageUrls),
-
-          button_text !== undefined
-            ? button_text || null
-            : existing.button_text,
-
-          button_screen !== undefined
-            ? button_screen || null
-            : existing.button_screen,
-
+          finalButtonText,
+          finalButtonScreen,
           finalDisplayOrder,
-
           finalEnabled,
-
           id,
         ]
       );
@@ -560,26 +678,42 @@ router.put(
       // RESPONSE
       // ==================================================
 
-      res.json({
+      return res.json({
         message: "Banner updated successfully",
-
         banner: result.rows[0],
       });
 
     } catch (error) {
       console.error(
+        "========================================"
+      );
+
+      console.error(
         "UPDATE BANNER ERROR:",
         error
       );
 
-      res.status(500).json({
+      console.error(
+        "ERROR MESSAGE:",
+        error.message
+      );
+
+      console.error(
+        "ERROR STACK:",
+        error.stack
+      );
+
+      console.error(
+        "========================================"
+      );
+
+      return res.status(500).json({
         message: "Failed to update banner",
         error: error.message,
       });
     }
   }
 );
-
 // ======================================================
 // ENABLE / DISABLE BANNER
 // ======================================================

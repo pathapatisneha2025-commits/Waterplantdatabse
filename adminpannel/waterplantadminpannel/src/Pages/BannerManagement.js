@@ -35,7 +35,7 @@ const BannerManagement = ({ onBack }) => {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/banner/admin`);
+      const response = await fetch(`${API_URL}/banners/admin`);
       const data = await response.json();
 
       if (!response.ok) {
