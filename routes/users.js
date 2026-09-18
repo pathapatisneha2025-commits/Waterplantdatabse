@@ -174,83 +174,82 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ======================================================
-// FORGOT PASSWORD
-// ======================================================
-// ======================================================
-// FORGOT PASSWORD
-// Phone + New Password
-// ======================================================
 router.post("/forgot-password", async (req, res) => {
-  const { phone, newPassword } = req.body;
-
-  // Validate phone
-  if (!phone) {
-    return res.status(400).json({
-      success: false,
-      error: "Phone number is required"
-    });
-  }
-
-  // Validate new password
-  if (!newPassword) {
-    return res.status(400).json({
-      success: false,
-      error: "New password is required"
-    });
-  }
-
-  if (newPassword.length < 4) {
-    return res.status(400).json({
-      success: false,
-      error: "New password must be at least 4 characters"
-    });
-  }
-
   try {
-    // Check if user exists
-    const result = await pool.query(
-      `SELECT id, phone
-       FROM users
-       WHERE phone = $1`,
-      [phone]
-    );
+    const { phone, newPassword } = req.body;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
+    console.log("FORGOT PASSWORD REQUEST:", {
+      phone,
+      hasNewPassword: !!newPassword
+    });
+
+    if (!phone) {
+      return res.status(400).json({
         success: false,
-        error: "No user found with this phone number"
+        error: "Phone number is required"
       });
     }
 
-    const user = result.rows[0];
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "New password is required"
+      });
+    }
+
+    if (newPassword.length < 4) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 4 characters"
+      });
+    }
+
+    // Find user
+    const userResult = await pool.query(
+      `SELECT id FROM users WHERE phone = $1 LIMIT 1`,
+      [phone]
+    );
+
+    console.log("USER RESULT:", userResult.rows);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Phone number is not registered"
+      });
+    }
+
+    const userId = userResult.rows[0].id;
 
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    await pool.query(
+    const updateResult = await pool.query(
       `UPDATE users
        SET password = $1
-       WHERE id = $2`,
-      [hashedPassword, user.id]
+       WHERE id = $2
+       RETURNING id`,
+      [hashedPassword, userId]
     );
 
-    res.json({
+    console.log("PASSWORD UPDATED:", updateResult.rows);
+
+    return res.json({
       success: true,
       message: "Password updated successfully"
     });
 
   } catch (err) {
-    console.log("Forgot Password Error:", err);
+    console.error("FORGOT PASSWORD ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: "Failed to update password"
+      error: "Failed to update password",
+      details: err.message
     });
   }
 });
-
 // POST /users/request-premium
 router.post("/request-premium", async (req, res) => {
   try {
