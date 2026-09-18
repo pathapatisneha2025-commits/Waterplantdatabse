@@ -174,6 +174,71 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ======================================================
+// FORGOT PASSWORD
+// ======================================================
+router.post("/forgot-password", async (req, res) => {
+  const { phone } = req.body;
+
+  if (!phone) {
+    return res.status(400).json({
+      success: false,
+      error: "Phone number is required"
+    });
+  }
+
+  try {
+    // Find user by phone
+    const result = await pool.query(
+      `SELECT id, phone, name, role
+       FROM users
+       WHERE phone = $1`,
+      [phone]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No user found with this phone number"
+      });
+    }
+
+    const user = result.rows[0];
+
+    // Generate temporary password
+    const temporaryPassword =
+      Math.random().toString(36).slice(-8);
+
+    // Hash temporary password
+    const hashedPassword = await bcrypt.hash(
+      temporaryPassword,
+      10
+    );
+
+    // Update password
+    await pool.query(
+      `UPDATE users
+       SET password = $1
+       WHERE id = $2`,
+      [hashedPassword, user.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Password reset successfully",
+      temporaryPassword: temporaryPassword
+    });
+
+  } catch (err) {
+    console.log("Forgot Password Error:", err);
+
+    res.status(500).json({
+      success: false,
+      error: "Failed to reset password"
+    });
+  }
+});
+
 // POST /users/request-premium
 router.post("/request-premium", async (req, res) => {
   try {
