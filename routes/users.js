@@ -177,9 +177,14 @@ router.post('/login', async (req, res) => {
 // ======================================================
 // FORGOT PASSWORD
 // ======================================================
+// ======================================================
+// FORGOT PASSWORD
+// Phone + New Password
+// ======================================================
 router.post("/forgot-password", async (req, res) => {
-  const { phone } = req.body;
+  const { phone, newPassword } = req.body;
 
+  // Validate phone
   if (!phone) {
     return res.status(400).json({
       success: false,
@@ -187,10 +192,25 @@ router.post("/forgot-password", async (req, res) => {
     });
   }
 
+  // Validate new password
+  if (!newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: "New password is required"
+    });
+  }
+
+  if (newPassword.length < 4) {
+    return res.status(400).json({
+      success: false,
+      error: "New password must be at least 4 characters"
+    });
+  }
+
   try {
-    // Find user by phone
+    // Check if user exists
     const result = await pool.query(
-      `SELECT id, phone, name, role
+      `SELECT id, phone
        FROM users
        WHERE phone = $1`,
       [phone]
@@ -205,15 +225,8 @@ router.post("/forgot-password", async (req, res) => {
 
     const user = result.rows[0];
 
-    // Generate temporary password
-    const temporaryPassword =
-      Math.random().toString(36).slice(-8);
-
-    // Hash temporary password
-    const hashedPassword = await bcrypt.hash(
-      temporaryPassword,
-      10
-    );
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password
     await pool.query(
@@ -225,8 +238,7 @@ router.post("/forgot-password", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Password reset successfully",
-      temporaryPassword: temporaryPassword
+      message: "Password updated successfully"
     });
 
   } catch (err) {
@@ -234,7 +246,7 @@ router.post("/forgot-password", async (req, res) => {
 
     res.status(500).json({
       success: false,
-      error: "Failed to reset password"
+      error: "Failed to update password"
     });
   }
 });
