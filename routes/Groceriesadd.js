@@ -26,7 +26,6 @@ const upload = multer({ storage });
 // ===============================
 // ADD Grocery Item
 // ===============================
-
 router.post(
   "/add",
   upload.single("image"),
@@ -46,161 +45,72 @@ router.post(
         mrp,
         price,
         premiumPrice,
+
+        // ==========================================
+        // RETURN SETTINGS
+        // ==========================================
         return_allowed,
         return_days,
       } = req.body;
 
-      console.log("========== ADD GROCERY ==========");
-      console.log("Received stock:", JSON.stringify(stock));
-      console.log("Received quantity:", JSON.stringify(quantity));
+      const file = req.file;
 
       // ==========================================
       // IMAGE VALIDATION
       // ==========================================
 
-      if (!req.file) {
+      if (!file) {
         return res.status(400).json({
           success: false,
           message: "Image is required",
         });
       }
 
-      const imgUrl = req.file.path;
+      const imgUrl = file.path;
 
       // ==========================================
-      // VALIDATE REQUIRED FIELDS
-      // ==========================================
-
-      if (
-        !name?.trim() ||
-        !brand?.trim() ||
-        !category?.trim() ||
-        !unit?.trim()
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Name, brand, category and unit are required",
-        });
-      }
-
-      // ==========================================
-      // SAFE INTEGER CONVERSION
-      // ==========================================
-
-      const parseInteger = (value, defaultValue = 0) => {
-        if (
-          value === undefined ||
-          value === null ||
-          String(value).trim() === ""
-        ) {
-          return defaultValue;
-        }
-
-        const parsed = Number(value);
-
-        return Number.isInteger(parsed) ? parsed : NaN;
-      };
-
-      // ==========================================
-      // SAFE DECIMAL CONVERSION
-      // ==========================================
-
-      const parseDecimal = (value, defaultValue = 0) => {
-        if (
-          value === undefined ||
-          value === null ||
-          String(value).trim() === ""
-        ) {
-          return defaultValue;
-        }
-
-        const parsed = Number(value);
-
-        return Number.isFinite(parsed) ? parsed : NaN;
-      };
-
-      const numericQuantity = parseInteger(quantity, 1);
-      const numericStock = parseInteger(stock, 0);
-
-      const numericDiscount = parseDecimal(discount, 0);
-      const numericPremiumDiscount = parseDecimal(
-        premiumDiscount,
-        0
-      );
-
-      const numericMrp = parseDecimal(mrp, 0);
-      const numericPrice = parseDecimal(price, 0);
-      const numericPremiumPrice = parseDecimal(
-        premiumPrice,
-        0
-      );
-
-      // ==========================================
-      // NUMERIC VALIDATION
-      // ==========================================
-
-      if (
-        !Number.isInteger(numericQuantity) ||
-        numericQuantity < 1
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Quantity must be a valid positive integer",
-        });
-      }
-
-      if (
-        !Number.isInteger(numericStock) ||
-        numericStock < 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Stock must be a valid non-negative integer",
-        });
-      }
-
-      const numericValues = [
-        numericDiscount,
-        numericPremiumDiscount,
-        numericMrp,
-        numericPrice,
-        numericPremiumPrice,
-      ];
-
-      if (numericValues.some((value) => !Number.isFinite(value) || value < 0)) {
-        return res.status(400).json({
-          success: false,
-          message: "Discounts and prices must be valid non-negative numbers",
-        });
-      }
-
-      // ==========================================
-      // RETURN SETTINGS
+      // CONVERT RETURN ALLOWED
+      // FormData sends boolean as string
       // ==========================================
 
       const returnAllowed =
         return_allowed === true ||
         return_allowed === "true";
 
+      // ==========================================
+      // RETURN DAYS
+      // ==========================================
+
       let returnDays = 0;
 
       if (returnAllowed) {
-        returnDays = parseInteger(return_days, NaN);
+        returnDays = parseInt(
+          return_days,
+          10
+        );
 
         if (
-          !Number.isInteger(returnDays) ||
-          returnDays < 1 ||
-          returnDays > 365
+          isNaN(returnDays) ||
+          returnDays < 1
         ) {
           return res.status(400).json({
             success: false,
-            message: "Return days must be between 1 and 365",
+            message:
+              "Return days must be at least 1 when returns are enabled",
+          });
+        }
+
+        if (returnDays > 365) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Return days cannot be more than 365",
           });
         }
       }
 
       // ==========================================
-      // INSERT QUERY
+      // INSERT GROCERY ITEM
       // ==========================================
 
       const insertQuery = `
@@ -219,60 +129,97 @@ router.post(
           price,
           premiumprice,
           img,
+
+          -- RETURN SETTINGS
           return_allowed,
           return_days
+
         )
         VALUES (
-          $1, $2, $3, $4,
-          $5, $6, $7, $8,
-          $9, $10, $11, $12,
-          $13, $14, $15, $16
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
+          $14,
+          $15,
+          $16
         )
         RETURNING *
       `;
 
       // ==========================================
-      // SQL VALUES
+      // VALUES
       // ==========================================
 
       const values = [
-        name.trim(),
-        brand.trim(),
-        category.trim(),
-        subcategory || null,
-        description || null,
-        numericDiscount,
-        numericPremiumDiscount,
-        numericQuantity,
-        unit.trim(),
-        numericStock,
-        numericMrp,
-        numericPrice,
-        numericPremiumPrice,
+        name,
+        brand,
+        category,
+        subcategory,
+        description,
+
+        // Normal discount
+        discount,
+
+        // Premium discount
+        premiumDiscount,
+
+        // Stock
+        quantity,
+        unit,
+        stock,
+
+        // Prices
+        mrp,
+        price,
+        premiumPrice,
+
+        // Cloudinary image URL
         imgUrl,
+
+        // ========================================
+        // RETURN SETTINGS
+        // ========================================
+
         returnAllowed,
         returnDays,
       ];
-
-      console.log("SQL PARAMETER $10 (STOCK):", numericStock);
-      console.log("SQL VALUES:", values);
 
       // ==========================================
       // EXECUTE INSERT
       // ==========================================
 
-      const result = await pool.query(insertQuery, values);
+      const result = await pool.query(
+        insertQuery,
+        values
+      );
 
-      console.log("Grocery added successfully:", result.rows[0].id);
+      // ==========================================
+      // RESPONSE
+      // ==========================================
 
       return res.status(201).json({
         success: true,
-        message: "Grocery Item Added",
+        message:
+          "Grocery Item Added",
+
         item: result.rows[0],
       });
 
     } catch (error) {
-      console.error("Add Grocery Error:", error);
+      console.error(
+        "Add Grocery Error:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
@@ -282,7 +229,6 @@ router.post(
     }
   }
 );
-
 // ===============================
 // FETCH All Grocery Items
 // ===============================
