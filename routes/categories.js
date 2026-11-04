@@ -5,63 +5,141 @@ const pool = require("../db");
 
 const multer = require("multer");
 const path = require("path");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../cloudinary");
+const fs = require("fs");
+const crypto = require("crypto");
 
 // ======================================================
-// CLOUDINARY STORAGE
+// VPS IMAGE STORAGE
 // ======================================================
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "water_plant_categories",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    public_id: (req, file) => {
-      const nameWithoutExt = path.parse(file.originalname).name;
-      return Date.now() + "-" + nameWithoutExt;
-    },
+
+const uploadDir = path.join(
+  process.cwd(),
+  "uploads",
+  "water_plant_categories"
+);
+
+// Create folder automatically
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+
+    const uniqueName =
+      Date.now() + "-" + crypto.randomUUID() + extension;
+
+    cb(null, uniqueName);
   },
 });
 
-const upload = multer({ storage });
+// Allow only image files
+const upload = multer({
+  storage,
 
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPG, PNG and WEBP images are allowed"));
+    }
+  },
+});
 
 // ======================================================
-// HELPER: EXTRACT CLOUDINARY PUBLIC ID FROM IMAGE URL
+// HELPER: GET IMAGE URL
 // ======================================================
-function getCloudinaryPublicId(imageUrl) {
+
+function getImageUrl(filename) {
+  const baseUrl = (
+    process.env.BASE_URL || "https://api2.ajpartyhouse.in"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/uploads/water_plant_categories/${filename}`;
+}
+
+// ======================================================
+// HELPER: DELETE LOCAL VPS IMAGE
+// ======================================================
+
+function deleteLocalImage(imageUrl) {
   try {
+    if (!imageUrl) return;
+
     const url = new URL(imageUrl);
 
-    if (!url.hostname.endsWith("cloudinary.com")) {
-      return null;
+    // Only delete images belonging to this backend
+    const baseUrl = (
+      process.env.BASE_URL || "https://api2.ajpartyhouse.in"
+    ).replace(/\/+$/, "");
+
+    const expectedOrigin = new URL(baseUrl).origin;
+
+    if (url.origin !== expectedOrigin) return;
+
+    const prefix = "/uploads/water_plant_categories/";
+
+    if (!url.pathname.startsWith(prefix)) return;
+
+    const filename = path.basename(
+      decodeURIComponent(url.pathname.slice(prefix.length))
+    );
+
+    // Prevent directory traversal
+    if (
+      !filename ||
+      filename === "." ||
+      filename === ".." ||
+      filename !== path.basename(filename)
+    ) {
+      return;
     }
 
-    const parts = url.pathname.split("/");
-    const uploadIndex = parts.indexOf("upload");
+    const filePath = path.join(uploadDir, filename);
 
-    if (uploadIndex === -1) return null;
-
-    let publicIdParts = parts.slice(uploadIndex + 1);
-
-    // Remove version number
-    if (/^v\d+$/.test(publicIdParts[0])) {
-      publicIdParts.shift();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log("Deleted VPS image:", filename);
     }
-
-    return publicIdParts.join("/").replace(/\.[^/.]+$/, "");
 
   } catch (error) {
-    console.error("Public ID extraction error:", error);
-    return null;
+    console.error("VPS image deletion error:", error);
   }
 }
 
+// ======================================================
+// HELPER: DELETE NEWLY UPLOADED IMAGE IF REQUEST FAILS
+// ======================================================
+
+function cleanupUploadedImage(file) {
+  if (file?.filename) {
+    const filePath = path.join(uploadDir, file.filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
 
 // ======================================================
 // GET ALL WATER PLANT CATEGORIES
 // GET /water-plant-categories/all
 // ======================================================
+
 router.get("/all", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -82,19 +160,17 @@ router.get("/all", async (req, res) => {
   }
 });
 
-
 // ======================================================
 // ADD CATEGORY
 // POST /water-plant-categories/add
 // ======================================================
+
 router.post("/add", upload.single("image"), async (req, res) => {
   try {
     const { name } = req.body;
 
     if (!name || !name.trim()) {
-      if (req.file?.filename) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
+      cleanupUploadedImage(req.file);
 
       return res.status(400).json({
         message: "Category name is required",
@@ -114,16 +190,16 @@ router.post("/add", upload.single("image"), async (req, res) => {
     );
 
     if (existing.rows.length > 0) {
-      if (req.file?.filename) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
+      cleanupUploadedImage(req.file);
 
       return res.status(409).json({
         message: "Category already exists",
       });
     }
 
-    const imageUrl = req.file ? req.file.path : null;
+    const imageUrl = req.file
+      ? getImageUrl(req.file.filename)
+      : null;
 
     const result = await pool.query(
       `
@@ -142,13 +218,7 @@ router.post("/add", upload.single("image"), async (req, res) => {
   } catch (error) {
     console.error("Add category error:", error);
 
-    if (req.file?.filename) {
-      try {
-        await cloudinary.uploader.destroy(req.file.filename);
-      } catch (deleteError) {
-        console.error("Cloudinary cleanup error:", deleteError);
-      }
-    }
+    cleanupUploadedImage(req.file);
 
     res.status(500).json({
       message: "Failed to add category",
@@ -157,20 +227,18 @@ router.post("/add", upload.single("image"), async (req, res) => {
   }
 });
 
-
 // ======================================================
 // UPDATE CATEGORY
 // PUT /water-plant-categories/update/:id
 // ======================================================
+
 router.put("/update/:id", upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
     const { name } = req.body;
 
     if (!name || !name.trim()) {
-      if (req.file?.filename) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
+      cleanupUploadedImage(req.file);
 
       return res.status(400).json({
         message: "Category name is required",
@@ -190,9 +258,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     );
 
     if (existing.rows.length === 0) {
-      if (req.file?.filename) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
+      cleanupUploadedImage(req.file);
 
       return res.status(404).json({
         message: "Category not found",
@@ -211,9 +277,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     );
 
     if (duplicate.rows.length > 0) {
-      if (req.file?.filename) {
-        await cloudinary.uploader.destroy(req.file.filename);
-      }
+      cleanupUploadedImage(req.file);
 
       return res.status(409).json({
         message: "Another category with this name already exists",
@@ -222,9 +286,9 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
 
     const oldImageUrl = existing.rows[0].image_url;
 
-    // Keep old image if no new image is uploaded
+    // New image if uploaded, otherwise keep old image
     const imageUrl = req.file
-      ? req.file.path
+      ? getImageUrl(req.file.filename)
       : oldImageUrl;
 
     const result = await pool.query(
@@ -238,17 +302,9 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
       [categoryName, imageUrl, id]
     );
 
-    // Delete old Cloudinary image after successful update
+    // Delete old VPS image after successful update
     if (req.file && oldImageUrl) {
-      try {
-        const oldPublicId = getCloudinaryPublicId(oldImageUrl);
-
-        if (oldPublicId) {
-          await cloudinary.uploader.destroy(oldPublicId);
-        }
-      } catch (deleteError) {
-        console.error("Old image deletion error:", deleteError);
-      }
+      deleteLocalImage(oldImageUrl);
     }
 
     res.status(200).json({
@@ -259,13 +315,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
   } catch (error) {
     console.error("Update category error:", error);
 
-    if (req.file?.filename) {
-      try {
-        await cloudinary.uploader.destroy(req.file.filename);
-      } catch (deleteError) {
-        console.error("Cloudinary cleanup error:", deleteError);
-      }
-    }
+    cleanupUploadedImage(req.file);
 
     res.status(500).json({
       message: "Failed to update category",
@@ -274,11 +324,11 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
   }
 });
 
-
 // ======================================================
 // DELETE CATEGORY
 // DELETE /water-plant-categories/delete/:id
 // ======================================================
+
 router.delete("/delete/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -308,18 +358,8 @@ router.delete("/delete/:id", async (req, res) => {
       [id]
     );
 
-    // Delete image from Cloudinary
-    if (imageUrl) {
-      try {
-        const publicId = getCloudinaryPublicId(imageUrl);
-
-        if (publicId) {
-          await cloudinary.uploader.destroy(publicId);
-        }
-      } catch (deleteError) {
-        console.error("Cloudinary image deletion error:", deleteError);
-      }
-    }
+    // Delete image from VPS
+    deleteLocalImage(imageUrl);
 
     res.status(200).json({
       message: "Category deleted successfully",
@@ -334,6 +374,5 @@ router.delete("/delete/:id", async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;
