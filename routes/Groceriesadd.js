@@ -93,6 +93,43 @@ function cleanupUploadedImage(file) {
     console.error("Image cleanup error:", error);
   }
 }
+// ======================================================
+// DELETE OLD VPS IMAGE
+// ======================================================
+
+function deleteOldGroceryImage(imageUrl) {
+  try {
+    if (!imageUrl) return;
+
+    const baseUrl = (
+      process.env.BASE_URL || "https://api2.ajpartyhouse.in"
+    ).replace(/\/+$/, "");
+
+    const imageUrlObj = new URL(imageUrl);
+    const baseUrlObj = new URL(baseUrl);
+
+    // Delete only images belonging to this VPS folder
+    if (
+      imageUrlObj.origin !== baseUrlObj.origin ||
+      !imageUrlObj.pathname.startsWith("/uploads/grocery_items/")
+    ) {
+      return;
+    }
+
+    const filename = path.basename(
+      decodeURIComponent(imageUrlObj.pathname)
+    );
+
+    const filePath = path.join(uploadDir, filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log("Old grocery image deleted:", filename);
+    }
+  } catch (error) {
+    console.error("Old image deletion error:", error);
+  }
+}
 
 // ======================================================
 // ADD GROCERY ITEM
@@ -329,6 +366,11 @@ router.get("/:id", async (req, res) => {
 // ===============================
 // UPDATE Grocery Item
 // ===============================
+// ===============================
+// UPDATE Grocery Item
+// PUT /grocery-items/update/:id
+// ===============================
+
 router.put(
   "/update/:id",
   upload.single("image"),
@@ -349,10 +391,6 @@ router.put(
       mrp,
       price,
       premiumPrice,
-
-      // ==========================================
-      // RETURN SETTINGS
-      // ==========================================
       return_allowed,
       return_days,
     } = req.body;
@@ -360,16 +398,15 @@ router.put(
     const file = req.file;
 
     try {
-      // ==========================================
-      // GET EXISTING ITEM
-      // ==========================================
-
+      // 1. GET EXISTING ITEM
       const existing = await pool.query(
         "SELECT * FROM grocery_items WHERE id = $1",
         [id]
       );
 
       if (existing.rows.length === 0) {
+        cleanupUploadedImage(file);
+
         return res.status(404).json({
           success: false,
           message: "Item not found",
@@ -378,19 +415,18 @@ router.put(
 
       const existingItem = existing.rows[0];
 
-      // ==========================================
-      // IMAGE
-      // Keep old image if new image is not uploaded
-      // ==========================================
+      // 2. IMAGE URL
+      // New image uploaded -> generate public VPS URL
+      // No new image -> retain existing image
 
       const imgUrl = file
-        ? file.path
+        ? getImageUrl(file.filename)
         : existingItem.img;
 
-      // ==========================================
-      // RETURN ALLOWED
-      // FormData sends "true" / "false" as strings
-      // ==========================================
+      console.log("New uploaded file:", file?.filename);
+      console.log("Image URL to save:", imgUrl);
+
+      // 3. RETURN ALLOWED
 
       let returnAllowed;
 
@@ -409,46 +445,30 @@ router.put(
           existingItem.return_allowed ?? false;
       }
 
-      // ==========================================
-      // RETURN DAYS
-      // If returns are disabled, force 0
-      // ==========================================
+      // 4. RETURN DAYS
 
-      let returnDays;
+      let returnDays = 0;
 
       if (returnAllowed) {
-        const parsedReturnDays = parseInt(
-          return_days,
-          10
-        );
+        const parsedReturnDays = parseInt(return_days, 10);
 
         if (
           isNaN(parsedReturnDays) ||
-          parsedReturnDays < 1
+          parsedReturnDays < 1 ||
+          parsedReturnDays > 365
         ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Return days must be at least 1 when returns are enabled",
-          });
-        }
+          cleanupUploadedImage(file);
 
-        if (parsedReturnDays > 365) {
           return res.status(400).json({
             success: false,
-            message:
-              "Return days cannot be more than 365",
+            message: "Return days must be between 1 and 365",
           });
         }
 
         returnDays = parsedReturnDays;
-      } else {
-        returnDays = 0;
       }
 
-      // ==========================================
-      // UPDATE QUERY
-      // ==========================================
+      // 5. UPDATE DATABASE
 
       const updateQuery = `
         UPDATE grocery_items SET
@@ -466,104 +486,53 @@ router.put(
           price = $12,
           premiumprice = $13,
           img = $14,
-
-          -- RETURN SETTINGS
           return_allowed = $15,
           return_days = $16,
-
           updated_at = CURRENT_TIMESTAMP
-
         WHERE id = $17
-
         RETURNING *
       `;
 
-      // ==========================================
-      // VALUES
-      // ==========================================
-
       const values = [
         name ?? existingItem.name,
-
         brand ?? existingItem.brand,
-
         category ?? existingItem.category,
-
-        subcategory ??
-          existingItem.subcategory,
-
-        description ??
-          existingItem.description,
-
-        // Normal discount
-        discount ??
-          existingItem.discount,
-
-        // Premium discount
-        premiumDiscount ??
-          existingItem.premiumdiscount,
-
-        // Stock
-        quantity ??
-          existingItem.quantity,
-
-        unit ??
-          existingItem.unit,
-
-        stock ??
-          existingItem.stock,
-
-        // Prices
-        mrp ??
-          existingItem.mrp,
-
-        price ??
-          existingItem.price,
-
-        premiumPrice ??
-          existingItem.premiumprice,
-
-        // Image
+        subcategory ?? existingItem.subcategory,
+        description ?? existingItem.description,
+        discount ?? existingItem.discount,
+        premiumDiscount ?? existingItem.premiumdiscount,
+        quantity ?? existingItem.quantity,
+        unit ?? existingItem.unit,
+        stock ?? existingItem.stock,
+        mrp ?? existingItem.mrp,
+        price ?? existingItem.price,
+        premiumPrice ?? existingItem.premiumprice,
         imgUrl,
-
-        // ========================================
-        // RETURN SETTINGS
-        // ========================================
-
         returnAllowed,
-
         returnDays,
-
-        // ID
         id,
       ];
 
-      // ==========================================
-      // EXECUTE UPDATE
-      // ==========================================
+      const result = await pool.query(updateQuery, values);
 
-      const result = await pool.query(
-        updateQuery,
-        values
-      );
+      // 6. DELETE OLD IMAGE ONLY AFTER DATABASE UPDATE SUCCEEDS
+      if (file && existingItem.img) {
+        deleteOldGroceryImage(existingItem.img);
+      }
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
+      // 7. RESPONSE
 
-      return res.json({
+      return res.status(200).json({
         success: true,
-        message:
-          "Item Updated Successfully",
-
+        message: "Item Updated Successfully",
         item: result.rows[0],
       });
 
     } catch (error) {
-      console.error(
-        "Update Grocery Error:",
-        error
-      );
+      console.error("Update Grocery Error:", error);
+
+      // Remove newly uploaded image if update fails
+      cleanupUploadedImage(file);
 
       return res.status(500).json({
         success: false,
