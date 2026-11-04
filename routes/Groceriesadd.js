@@ -1,31 +1,104 @@
+
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+
 const multer = require("multer");
 const path = require("path");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../cloudinary");
+const fs = require("fs");
+const crypto = require("crypto");
 
-// ===============================
-// CLOUDINARY STORAGE (same style)
-// ===============================
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "grocery_items",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    public_id: (req, file) => {
-      const nameWithoutExt = path.parse(file.originalname).name;
-      return Date.now() + "-" + nameWithoutExt;
-    },
+// ======================================================
+// VPS IMAGE STORAGE
+// ======================================================
+
+const uploadDir = path.join(
+  process.cwd(),
+  "uploads",
+  "grocery_items"
+);
+
+// Automatically create folder
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+
+    const uniqueName =
+      Date.now() + "-" + crypto.randomUUID() + extension;
+
+    cb(null, uniqueName);
   },
 });
 
-const upload = multer({ storage });
+// ======================================================
+// MULTER CONFIGURATION
+// ======================================================
 
-// ===============================
-// ADD Grocery Item
-// ===============================
+const upload = multer({
+  storage,
+
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+  },
+
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPG, PNG and WEBP images are allowed"));
+    }
+  },
+});
+
+// ======================================================
+// HELPER: GET VPS IMAGE URL
+// ======================================================
+
+function getImageUrl(filename) {
+  const baseUrl = (
+    process.env.BASE_URL || "https://api2.ajpartyhouse.in"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/uploads/grocery_items/${filename}`;
+}
+
+// ======================================================
+// HELPER: CLEANUP UPLOADED IMAGE
+// ======================================================
+
+function cleanupUploadedImage(file) {
+  try {
+    if (!file?.filename) return;
+
+    const filePath = path.join(uploadDir, file.filename);
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log("Deleted uploaded image:", file.filename);
+    }
+  } catch (error) {
+    console.error("Image cleanup error:", error);
+  }
+}
+
+// ======================================================
+// ADD GROCERY ITEM
+// POST /grocery-items/add
+// ======================================================
+
 router.post(
   "/add",
   upload.single("image"),
@@ -46,18 +119,16 @@ router.post(
         price,
         premiumPrice,
 
-        // ==========================================
         // RETURN SETTINGS
-        // ==========================================
         return_allowed,
         return_days,
       } = req.body;
 
       const file = req.file;
 
-      // ==========================================
+      // ==================================================
       // IMAGE VALIDATION
-      // ==========================================
+      // ==================================================
 
       if (!file) {
         return res.status(400).json({
@@ -66,33 +137,32 @@ router.post(
         });
       }
 
-      const imgUrl = file.path;
+      // VPS IMAGE URL
+      const imgUrl = getImageUrl(file.filename);
 
-      // ==========================================
+      // ==================================================
       // CONVERT RETURN ALLOWED
-      // FormData sends boolean as string
-      // ==========================================
+      // ==================================================
 
       const returnAllowed =
         return_allowed === true ||
         return_allowed === "true";
 
-      // ==========================================
+      // ==================================================
       // RETURN DAYS
-      // ==========================================
+      // ==================================================
 
       let returnDays = 0;
 
       if (returnAllowed) {
-        returnDays = parseInt(
-          return_days,
-          10
-        );
+        returnDays = parseInt(return_days, 10);
 
         if (
           isNaN(returnDays) ||
           returnDays < 1
         ) {
+          cleanupUploadedImage(file);
+
           return res.status(400).json({
             success: false,
             message:
@@ -101,6 +171,8 @@ router.post(
         }
 
         if (returnDays > 365) {
+          cleanupUploadedImage(file);
+
           return res.status(400).json({
             success: false,
             message:
@@ -109,9 +181,9 @@ router.post(
         }
       }
 
-      // ==========================================
+      // ==================================================
       // INSERT GROCERY ITEM
-      // ==========================================
+      // ==================================================
 
       const insertQuery = `
         INSERT INTO grocery_items (
@@ -129,36 +201,21 @@ router.post(
           price,
           premiumprice,
           img,
-
-          -- RETURN SETTINGS
           return_allowed,
           return_days
-
         )
         VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-          $11,
-          $12,
-          $13,
-          $14,
-          $15,
-          $16
+          $1, $2, $3, $4,
+          $5, $6, $7, $8,
+          $9, $10, $11, $12,
+          $13, $14, $15, $16
         )
         RETURNING *
       `;
 
-      // ==========================================
+      // ==================================================
       // VALUES
-      // ==========================================
+      // ==================================================
 
       const values = [
         name,
@@ -167,10 +224,8 @@ router.post(
         subcategory,
         description,
 
-        // Normal discount
+        // Discounts
         discount,
-
-        // Premium discount
         premiumDiscount,
 
         // Stock
@@ -183,43 +238,38 @@ router.post(
         price,
         premiumPrice,
 
-        // Cloudinary image URL
+        // VPS IMAGE URL
         imgUrl,
 
-        // ========================================
         // RETURN SETTINGS
-        // ========================================
-
         returnAllowed,
         returnDays,
       ];
 
-      // ==========================================
+      // ==================================================
       // EXECUTE INSERT
-      // ==========================================
+      // ==================================================
 
       const result = await pool.query(
         insertQuery,
         values
       );
 
-      // ==========================================
+      // ==================================================
       // RESPONSE
-      // ==========================================
+      // ==================================================
 
       return res.status(201).json({
         success: true,
-        message:
-          "Grocery Item Added",
-
+        message: "Grocery Item Added Successfully",
         item: result.rows[0],
       });
 
     } catch (error) {
-      console.error(
-        "Add Grocery Error:",
-        error
-      );
+      console.error("Add Grocery Error:", error);
+
+      // Remove uploaded image if database insert fails
+      cleanupUploadedImage(req.file);
 
       return res.status(500).json({
         success: false,
@@ -229,6 +279,8 @@ router.post(
     }
   }
 );
+
+
 // ===============================
 // FETCH All Grocery Items
 // ===============================

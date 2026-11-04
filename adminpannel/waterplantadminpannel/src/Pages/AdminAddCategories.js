@@ -7,27 +7,24 @@ export default function AdminWaterPlantCategory() {
 
   const [categories, setCategories] = useState([]);
   const [categoryName, setCategoryName] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const BASE_URL =
-    "https://api2.ajpartyhouse.in";
+  const BASE_URL = "https://api2.ajpartyhouse.in";
 
   // =====================================================
   // FETCH CATEGORIES
   // =====================================================
+
   const fetchCategories = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${BASE_URL}/categories/all`
-      );
-
+      const res = await fetch(`${BASE_URL}/categories/all`);
       const data = await res.json();
-
-      console.log("Categories API Response:", data);
 
       if (Array.isArray(data)) {
         setCategories(data);
@@ -51,8 +48,68 @@ export default function AdminWaterPlantCategory() {
   }, []);
 
   // =====================================================
+  // IMAGE SELECTION
+  // =====================================================
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please select JPG, PNG or WEBP image");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should not exceed 5 MB");
+      e.target.value = "";
+      return;
+    }
+
+    // Revoke previous preview URL
+    if (previewImage.startsWith("blob:")) {
+      URL.revokeObjectURL(previewImage);
+    }
+
+    setSelectedImage(file);
+    setPreviewImage(URL.createObjectURL(file));
+  };
+
+  // =====================================================
+  // RESET FORM
+  // =====================================================
+
+  const resetForm = () => {
+    if (previewImage.startsWith("blob:")) {
+      URL.revokeObjectURL(previewImage);
+    }
+
+    setCategoryName("");
+    setSelectedImage(null);
+    setPreviewImage("");
+    setEditingId(null);
+
+    const fileInput = document.getElementById(
+      "categoryImage"
+    );
+
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
+  // =====================================================
   // ADD CATEGORY
   // =====================================================
+
   const handleAddCategory = async () => {
     if (!categoryName.trim()) {
       alert("Please enter category name");
@@ -62,16 +119,19 @@ export default function AdminWaterPlantCategory() {
     try {
       setSaving(true);
 
+      const formData = new FormData();
+
+      formData.append("name", categoryName.trim());
+
+      if (selectedImage) {
+        formData.append("image", selectedImage);
+      }
+
       const res = await fetch(
         `${BASE_URL}/categories/add`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: categoryName.trim(),
-          }),
+          body: formData,
         }
       );
 
@@ -82,9 +142,8 @@ export default function AdminWaterPlantCategory() {
       if (res.ok) {
         alert("Category added successfully");
 
-        setCategoryName("");
-
-        fetchCategories();
+        resetForm();
+        await fetchCategories();
       } else {
         alert(data.message || "Failed to add category");
       }
@@ -99,6 +158,7 @@ export default function AdminWaterPlantCategory() {
   // =====================================================
   // UPDATE CATEGORY
   // =====================================================
+
   const handleUpdateCategory = async () => {
     if (!categoryName.trim()) {
       alert("Please enter category name");
@@ -108,16 +168,19 @@ export default function AdminWaterPlantCategory() {
     try {
       setSaving(true);
 
+      const formData = new FormData();
+
+      formData.append("name", categoryName.trim());
+
+      if (selectedImage) {
+        formData.append("image", selectedImage);
+      }
+
       const res = await fetch(
         `${BASE_URL}/categories/update/${editingId}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: categoryName.trim(),
-          }),
+          body: formData,
         }
       );
 
@@ -128,10 +191,8 @@ export default function AdminWaterPlantCategory() {
       if (res.ok) {
         alert("Category updated successfully");
 
-        setCategoryName("");
-        setEditingId(null);
-
-        fetchCategories();
+        resetForm();
+        await fetchCategories();
       } else {
         alert(data.message || "Failed to update category");
       }
@@ -144,26 +205,35 @@ export default function AdminWaterPlantCategory() {
   };
 
   // =====================================================
-  // EDIT
+  // EDIT CATEGORY
   // =====================================================
+
   const handleEdit = (category) => {
+    resetForm();
+
     setEditingId(category.id);
     setCategoryName(category.name || "");
+    setPreviewImage(category.image_url || "");
   };
 
   // =====================================================
   // CANCEL EDIT
   // =====================================================
+
   const handleCancel = () => {
-    setEditingId(null);
-    setCategoryName("");
+    resetForm();
   };
 
   // =====================================================
-  // DELETE
+  // DELETE CATEGORY
   // =====================================================
+
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this category?"
+      )
+    ) {
       return;
     }
 
@@ -177,8 +247,6 @@ export default function AdminWaterPlantCategory() {
 
       const data = await res.json();
 
-      console.log("Delete Category Response:", data);
-
       if (res.ok) {
         alert("Category deleted successfully");
 
@@ -187,7 +255,7 @@ export default function AdminWaterPlantCategory() {
         );
 
         if (editingId === id) {
-          handleCancel();
+          resetForm();
         }
       } else {
         alert(data.message || "Delete failed");
@@ -201,11 +269,11 @@ export default function AdminWaterPlantCategory() {
   // =====================================================
   // STYLES
   // =====================================================
+
   const styles = {
     container: {
-      marginTop: "0px",
-      fontFamily: "Arial, sans-serif",
       padding: "15px",
+      fontFamily: "Arial, sans-serif",
       maxWidth: "100%",
       boxSizing: "border-box",
     },
@@ -214,7 +282,7 @@ export default function AdminWaterPlantCategory() {
       display: "flex",
       alignItems: "center",
       gap: "15px",
-      marginBottom: "15px",
+      marginBottom: "20px",
       flexWrap: "wrap",
     },
 
@@ -224,13 +292,8 @@ export default function AdminWaterPlantCategory() {
       borderRadius: "5px",
       width: "36px",
       height: "36px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "18px",
       cursor: "pointer",
-      color: "#333",
-      flexShrink: 0,
+      fontSize: "18px",
     },
 
     header: {
@@ -238,112 +301,120 @@ export default function AdminWaterPlantCategory() {
       margin: 0,
     },
 
-    // ================================================
-    // ADD CATEGORY AREA
-    // ================================================
+    formCard: {
+      background: "#fff",
+      border: "1px solid #eee",
+      borderRadius: "10px",
+      padding: "18px",
+      marginBottom: "25px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+    },
 
     addSection: {
       display: "flex",
       alignItems: "center",
-      gap: "10px",
-      marginBottom: "20px",
+      gap: "12px",
       flexWrap: "wrap",
     },
 
     input: {
-      padding: "9px 12px",
+      padding: "11px 12px",
       border: "1px solid #FF6600",
       borderRadius: "5px",
       fontSize: "14px",
       width: "280px",
       maxWidth: "100%",
-      outline: "none",
       boxSizing: "border-box",
     },
 
+    fileInput: {
+      padding: "8px",
+      border: "1px solid #ddd",
+      borderRadius: "5px",
+      maxWidth: "100%",
+      background: "#fff",
+    },
+
+    previewContainer: {
+      marginTop: "15px",
+    },
+
+    previewImage: {
+      width: "110px",
+      height: "110px",
+      objectFit: "cover",
+      borderRadius: "8px",
+      border: "1px solid #ddd",
+    },
+
     addBtn: {
-      padding: "9px 16px",
+      padding: "10px 18px",
       backgroundColor: "#FF6600",
       border: "none",
       color: "#fff",
       borderRadius: "5px",
       cursor: "pointer",
       fontWeight: "bold",
-      whiteSpace: "nowrap",
     },
 
     cancelBtn: {
-      padding: "9px 16px",
+      padding: "10px 18px",
       backgroundColor: "#777",
       border: "none",
       color: "#fff",
       borderRadius: "5px",
       cursor: "pointer",
-      fontWeight: "bold",
-      whiteSpace: "nowrap",
     },
-
-    // ================================================
-    // TABLE
-    // ================================================
 
     tableResponsiveWrapper: {
       width: "100%",
       overflowX: "auto",
-      WebkitOverflowScrolling: "touch",
     },
 
     table: {
       width: "100%",
       borderCollapse: "collapse",
-      minWidth: "600px",
+      minWidth: "750px",
     },
 
     th: {
       border: "1px solid #FF6600",
-      padding: "10px",
+      padding: "11px",
       backgroundColor: "#FF6600",
       color: "#fff",
       textAlign: "left",
-      whiteSpace: "nowrap",
     },
 
     td: {
       border: "1px solid #FF6600",
       padding: "10px",
       textAlign: "left",
-      whiteSpace: "nowrap",
     },
 
-    row: {
-      backgroundColor: "#fff",
+    categoryImage: {
+      width: "65px",
+      height: "65px",
+      objectFit: "cover",
+      borderRadius: "6px",
     },
 
     editBtn: {
       marginRight: "8px",
-      padding: "5px 10px",
+      padding: "6px 12px",
       backgroundColor: "#FFA500",
       border: "none",
       color: "#fff",
       borderRadius: "5px",
       cursor: "pointer",
-      whiteSpace: "nowrap",
     },
 
     deleteBtn: {
-      padding: "5px 10px",
+      padding: "6px 12px",
       backgroundColor: "#E53935",
       border: "none",
       color: "#fff",
       borderRadius: "5px",
       cursor: "pointer",
-      whiteSpace: "nowrap",
-    },
-
-    actionCell: {
-      display: "flex",
-      alignItems: "center",
-      gap: "5px",
     },
 
     emptyText: {
@@ -356,24 +427,14 @@ export default function AdminWaterPlantCategory() {
   // =====================================================
   // LOADING
   // =====================================================
+
   if (loading) {
     return (
       <div style={styles.container}>
-        <div style={styles.headerRow}>
-          <button
-            style={styles.backBtn}
-            onClick={() => navigate(-1)}
-            title="Go Back"
-          >
-            ←
-          </button>
-
-          <h2 style={styles.header}>
-            Water Plant Categories
-          </h2>
-        </div>
-
-        <div>Loading categories...</div>
+        <h2 style={styles.header}>
+          Water Plant Categories
+        </h2>
+        Loading categories...
       </div>
     );
   }
@@ -381,15 +442,16 @@ export default function AdminWaterPlantCategory() {
   // =====================================================
   // PAGE
   // =====================================================
+
   return (
     <div style={styles.container}>
 
       {/* HEADER */}
+
       <div style={styles.headerRow}>
         <button
           style={styles.backBtn}
           onClick={() => navigate(-1)}
-          title="Go Back"
         >
           ←
         </button>
@@ -399,70 +461,116 @@ export default function AdminWaterPlantCategory() {
         </h2>
       </div>
 
-      {/* ADD / EDIT CATEGORY */}
-      <div style={styles.addSection}>
+      {/* ADD / EDIT FORM */}
 
-        <input
-          type="text"
-          placeholder="Enter category name"
-          value={categoryName}
-          onChange={(e) =>
-            setCategoryName(e.target.value)
-          }
-          style={styles.input}
-        />
+      <div style={styles.formCard}>
 
-        {editingId ? (
-          <>
+        <h3>
+          {editingId ? "Update Category" : "Add New Category"}
+        </h3>
+
+        <div style={styles.addSection}>
+
+          {/* CATEGORY NAME */}
+
+          <input
+            type="text"
+            placeholder="Enter category name"
+            value={categoryName}
+            onChange={(e) =>
+              setCategoryName(e.target.value)
+            }
+            style={styles.input}
+          />
+
+          {/* IMAGE UPLOAD */}
+
+          <input
+            id="categoryImage"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleImageChange}
+            style={styles.fileInput}
+          />
+
+          {/* ADD / UPDATE BUTTON */}
+
+          {editingId ? (
+            <>
+              <button
+                style={{
+                  ...styles.addBtn,
+                  opacity: saving ? 0.6 : 1,
+                }}
+                onClick={handleUpdateCategory}
+                disabled={saving}
+              >
+                {saving ? "Updating..." : "Update Category"}
+              </button>
+
+              <button
+                style={styles.cancelBtn}
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
             <button
-              style={styles.addBtn}
-              onClick={handleUpdateCategory}
+              style={{
+                ...styles.addBtn,
+                opacity: saving ? 0.6 : 1,
+              }}
+              onClick={handleAddCategory}
               disabled={saving}
             >
-              {saving ? "Updating..." : "Update"}
+              {saving ? "Adding..." : "➕ Add Category"}
             </button>
+          )}
 
-            <button
-              style={styles.cancelBtn}
-              onClick={handleCancel}
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <button
-            style={styles.addBtn}
-            onClick={handleAddCategory}
-            disabled={saving}
-          >
-            {saving ? "Adding..." : "➕ Add Category"}
-          </button>
+        </div>
+
+        {/* IMAGE PREVIEW */}
+
+        {previewImage && (
+          <div style={styles.previewContainer}>
+            <p>
+              {selectedImage ? "Selected Image Preview:" : "Current Category Image:"}
+            </p>
+
+            <img
+              src={previewImage}
+              alt="Category Preview"
+              style={styles.previewImage}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          </div>
         )}
+
+        <p style={{ color: "#777", fontSize: "12px" }}>
+          Supported formats: JPG, PNG, WEBP. Maximum size: 5 MB.
+          When editing, selecting a new image replaces the existing image.
+          If you don't select a new image, the existing image is retained.
+        </p>
 
       </div>
 
       {/* CATEGORY TABLE */}
+
       <div style={styles.tableResponsiveWrapper}>
 
         <table style={styles.table}>
 
           <thead>
             <tr>
-              <th style={styles.th}>
-                ID
-              </th>
-
-              <th style={styles.th}>
-                Category Name
-              </th>
-
-              <th style={styles.th}>
-                Created Date
-              </th>
-
-              <th style={styles.th}>
-                Actions
-              </th>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>Image</th>
+              <th style={styles.th}>Category Name</th>
+              <th style={styles.th}>Created Date</th>
+              <th style={styles.th}>Actions</th>
             </tr>
           </thead>
 
@@ -471,10 +579,7 @@ export default function AdminWaterPlantCategory() {
             {categories.length === 0 ? (
 
               <tr>
-                <td
-                  colSpan="4"
-                  style={styles.emptyText}
-                >
+                <td colSpan="5" style={styles.emptyText}>
                   No categories found
                 </td>
               </tr>
@@ -483,13 +588,22 @@ export default function AdminWaterPlantCategory() {
 
               categories.map((category) => (
 
-                <tr
-                  key={category.id}
-                  style={styles.row}
-                >
+                <tr key={category.id}>
 
                   <td style={styles.td}>
                     {category.id}
+                  </td>
+
+                  <td style={styles.td}>
+                    {category.image_url ? (
+                      <img
+                        src={category.image_url}
+                        alt={category.name}
+                        style={styles.categoryImage}
+                      />
+                    ) : (
+                      "No Image"
+                    )}
                   </td>
 
                   <td style={styles.td}>
@@ -506,27 +620,19 @@ export default function AdminWaterPlantCategory() {
 
                   <td style={styles.td}>
 
-                    <div style={styles.actionCell}>
+                    <button
+                      style={styles.editBtn}
+                      onClick={() => handleEdit(category)}
+                    >
+                      Edit
+                    </button>
 
-                      <button
-                        style={styles.editBtn}
-                        onClick={() =>
-                          handleEdit(category)
-                        }
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        style={styles.deleteBtn}
-                        onClick={() =>
-                          handleDelete(category.id)
-                        }
-                      >
-                        Delete
-                      </button>
-
-                    </div>
+                    <button
+                      style={styles.deleteBtn}
+                      onClick={() => handleDelete(category.id)}
+                    >
+                      Delete
+                    </button>
 
                   </td>
 
