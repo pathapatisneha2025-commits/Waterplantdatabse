@@ -1,9 +1,11 @@
+
 import React, { useEffect, useState } from "react";
 
 const API_URL = "https://api2.ajpartyhouse.in";
 
 const WaterCanPricing = () => {
   const [price, setPrice] = useState("50");
+  const [currentPrice, setCurrentPrice] = useState("50");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -19,7 +21,7 @@ const WaterCanPricing = () => {
       setError("");
 
       const res = await fetch(
-        `${API_URL}/water-pricing`
+        `${API_URL}/watercan/all`
       );
 
       const data = await res.json();
@@ -30,7 +32,11 @@ const WaterCanPricing = () => {
         );
       }
 
-      setPrice(String(data.pricing.price));
+      const fetchedPrice = String(data.pricing.price);
+
+      setPrice(fetchedPrice);
+      setCurrentPrice(fetchedPrice);
+
     } catch (err) {
       console.error("FETCH PRICE ERROR:", err);
       setError(err.message);
@@ -67,7 +73,7 @@ const WaterCanPricing = () => {
       setError("");
 
       const res = await fetch(
-        `${API_URL}/water-pricing`,
+        `${API_URL}/watercan/update`,
         {
           method: "PUT",
           headers: {
@@ -87,9 +93,13 @@ const WaterCanPricing = () => {
         );
       }
 
-      setPrice(String(data.pricing.price));
+      const updatedPrice = String(data.pricing.price);
+
+      setPrice(updatedPrice);
+      setCurrentPrice(updatedPrice);
 
       setMessage("Water can price updated successfully!");
+
     } catch (err) {
       console.error("UPDATE PRICE ERROR:", err);
       setError(err.message);
@@ -105,6 +115,7 @@ const WaterCanPricing = () => {
   return (
     <div style={styles.page}>
 
+      {/* HEADER */}
       <div style={styles.header}>
         <div>
           <h2 style={styles.heading}>
@@ -112,8 +123,12 @@ const WaterCanPricing = () => {
           </h2>
 
           <p style={styles.subtitle}>
-            Manage the water can selling price
+            Manage and update your water can selling price
           </p>
+        </div>
+
+        <div style={styles.headerIcon}>
+          💧
         </div>
       </div>
 
@@ -122,74 +137,147 @@ const WaterCanPricing = () => {
           Loading water can price...
         </div>
       ) : (
-        <div style={styles.card}>
+        <div style={styles.content}>
 
-          <div style={styles.icon}>
-            💧
-          </div>
+          {/* CURRENT PRICE CARD */}
+          <div style={styles.currentPriceCard}>
+            <div style={styles.currentPriceTop}>
+              <div>
+                <p style={styles.currentLabel}>
+                  CURRENT WATER CAN PRICE
+                </p>
 
-          <h3 style={styles.cardTitle}>
-            Water Can Price
-          </h3>
+                <h2 style={styles.currentPrice}>
+                  ₹{Number(currentPrice).toFixed(2)}
+                </h2>
 
-          <p style={styles.description}>
-            This price applies to all customers,
-            including premium customers.
-          </p>
+                <p style={styles.currentDescription}>
+                  Current selling price per water can
+                </p>
+              </div>
 
-          <form onSubmit={handleSave}>
-
-            <label style={styles.label}>
-              Price per water can (₹)
-            </label>
-
-            <div style={styles.inputWrapper}>
-              <span style={styles.rupee}>
-                ₹
-              </span>
-
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => {
-                  setPrice(e.target.value);
-                  setMessage("");
-                  setError("");
-                }}
-                placeholder="Enter water can price"
-                style={styles.input}
-                required
-              />
+              <div style={styles.priceIcon}>
+                💧
+              </div>
             </div>
 
-            {message && (
-              <div style={styles.success}>
-                ✓ {message}
+            <div style={styles.status}>
+              <span style={styles.statusDot}></span>
+              Active Pricing
+            </div>
+          </div>
+
+          {/* UPDATE PRICE CARD */}
+          <div style={styles.card}>
+
+            <div style={styles.cardHeader}>
+              <div>
+                <h3 style={styles.cardTitle}>
+                  Update Water Can Price
+                </h3>
+
+                <p style={styles.description}>
+                  Change the selling price for all customers.
+                </p>
               </div>
-            )}
+            </div>
 
-            {error && (
-              <div style={styles.error}>
-                {error}
+            <form onSubmit={handleSave}>
+
+              <label style={styles.label}>
+                New Price Per Water Can
+              </label>
+
+              <div style={styles.inputWrapper}>
+                <span style={styles.rupee}>₹</span>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    setMessage("");
+                    setError("");
+                  }}
+                  placeholder="Enter price"
+                  style={styles.input}
+                  required
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                ...styles.button,
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
-              {saving
-                ? "Saving..."
-                : "Save Price Changes"}
-            </button>
+              {/* PRICE PREVIEW */}
+              <div style={styles.preview}>
+                <span>New selling price</span>
 
-          </form>
+                <strong>
+                  ₹{price !== "" && Number.isFinite(Number(price))
+                    ? Number(price).toFixed(2)
+                    : "0.00"}
+                </strong>
+              </div>
+
+              {message && (
+                <div style={styles.success}>
+                  ✓ {message}
+                </div>
+              )}
+
+              {error && (
+                <div style={styles.error}>
+                  ⚠ {error}
+                </div>
+              )}
+
+              <div style={styles.buttonRow}>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice(currentPrice);
+                    setMessage("");
+                    setError("");
+                  }}
+                  disabled={saving}
+                  style={styles.cancelButton}
+                >
+                  Reset
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={saving || price.trim() === ""}
+                  style={{
+                    ...styles.button,
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Saving..." : "Save Price Changes"}
+                </button>
+
+              </div>
+
+            </form>
+          </div>
+
+          {/* INFORMATION */}
+          <div style={styles.infoCard}>
+            <span style={styles.infoIcon}>ℹ️</span>
+
+            <div>
+              <h4 style={styles.infoTitle}>
+                Pricing Information
+              </h4>
+
+              <p style={styles.infoText}>
+                The updated water can price will be used
+                when calculating customer water can orders.
+                Premium and regular customers will use
+                this same price.
+              </p>
+            </div>
+          </div>
 
         </div>
       )}
@@ -206,8 +294,9 @@ const styles = {
   page: {
     padding: "30px",
     minHeight: "100vh",
-    background: "#f5f6fa",
+    background: "#f5f7f8",
     fontFamily: "Arial, sans-serif",
+    boxSizing: "border-box",
   },
 
   header: {
@@ -220,7 +309,7 @@ const styles = {
   heading: {
     fontSize: "26px",
     fontWeight: "700",
-    color: "#172b4d",
+    color: "#0B1E22",
     margin: 0,
   },
 
@@ -230,37 +319,107 @@ const styles = {
     fontSize: "14px",
   },
 
-  card: {
-    background: "#ffffff",
-    padding: "35px",
-    borderRadius: "14px",
-    maxWidth: "480px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-  },
-
-  icon: {
-    width: "55px",
-    height: "55px",
-    background: "#e5f4f5",
+  headerIcon: {
+    width: "48px",
+    height: "48px",
     borderRadius: "12px",
+    background: "#e4f2f1",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "28px",
-    marginBottom: "20px",
+    fontSize: "25px",
+  },
+
+  content: {
+    maxWidth: "850px",
+  },
+
+  currentPriceCard: {
+    background: "#0B1E22",
+    padding: "30px",
+    borderRadius: "15px",
+    color: "#fff",
+    marginBottom: "25px",
+    boxShadow: "0 5px 20px rgba(11,30,34,0.12)",
+  },
+
+  currentPriceTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  currentLabel: {
+    color: "#b8c8c7",
+    fontSize: "12px",
+    fontWeight: "700",
+    letterSpacing: "1px",
+    margin: "0 0 12px",
+  },
+
+  currentPrice: {
+    fontSize: "36px",
+    fontWeight: "700",
+    color: "#D4B477",
+    margin: 0,
+  },
+
+  currentDescription: {
+    color: "#b8c8c7",
+    fontSize: "13px",
+    marginTop: "8px",
+  },
+
+  priceIcon: {
+    width: "65px",
+    height: "65px",
+    background: "rgba(255,255,255,0.1)",
+    borderRadius: "14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "32px",
+  },
+
+  status: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "22px",
+    fontSize: "12px",
+    color: "#c4e7d3",
+  },
+
+  statusDot: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+    background: "#4ade80",
+  },
+
+  card: {
+    background: "#fff",
+    padding: "30px",
+    borderRadius: "14px",
+    boxShadow: "0 3px 15px rgba(0,0,0,0.04)",
+    border: "1px solid #edf0f1",
+  },
+
+  cardHeader: {
+    marginBottom: "25px",
   },
 
   cardTitle: {
-    fontSize: "21px",
-    color: "#172b4d",
+    fontSize: "20px",
+    color: "#0B1E22",
     margin: "0 0 8px",
   },
 
   description: {
     color: "#7b8494",
-    fontSize: "14px",
-    lineHeight: "22px",
-    marginBottom: "28px",
+    fontSize: "13px",
+    margin: 0,
+    lineHeight: "21px",
   },
 
   label: {
@@ -277,35 +436,70 @@ const styles = {
     border: "1px solid #dce1e8",
     borderRadius: "9px",
     padding: "0 15px",
-    height: "52px",
-    marginBottom: "20px",
+    height: "55px",
+    marginBottom: "15px",
+    background: "#fff",
   },
 
   rupee: {
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: "700",
-    color: "#344054",
-    marginRight: "10px",
+    color: "#0B1E22",
+    marginRight: "12px",
   },
 
   input: {
     width: "100%",
     border: "none",
     outline: "none",
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: "600",
-    color: "#172b4d",
+    color: "#0B1E22",
     background: "transparent",
   },
 
+  preview: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "15px",
+    background: "#f5f8f7",
+    borderRadius: "8px",
+    marginBottom: "20px",
+    color: "#667085",
+    fontSize: "13px",
+  },
+
+  previewPrice: {
+    color: "#0B1E22",
+    fontWeight: "700",
+  },
+
+  buttonRow: {
+    display: "flex",
+    gap: "12px",
+    marginTop: "20px",
+  },
+
+  cancelButton: {
+    padding: "14px 22px",
+    background: "#fff",
+    color: "#344054",
+    border: "1px solid #dce1e8",
+    borderRadius: "9px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+
   button: {
-    width: "100%",
+    flex: 1,
     padding: "15px",
     background: "#0B1E22",
-    color: "#ffffff",
+    color: "#fff",
     border: "none",
     borderRadius: "9px",
-    fontSize: "15px",
+    fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
   },
@@ -326,6 +520,32 @@ const styles = {
     borderRadius: "7px",
     fontSize: "13px",
     marginBottom: "15px",
+  },
+
+  infoCard: {
+    display: "flex",
+    gap: "14px",
+    padding: "20px",
+    background: "#edf5f4",
+    borderRadius: "10px",
+    marginTop: "22px",
+  },
+
+  infoIcon: {
+    fontSize: "20px",
+  },
+
+  infoTitle: {
+    margin: "0 0 7px",
+    fontSize: "14px",
+    color: "#0B1E22",
+  },
+
+  infoText: {
+    margin: 0,
+    color: "#667085",
+    fontSize: "13px",
+    lineHeight: "21px",
   },
 
   loading: {
