@@ -1,69 +1,145 @@
+
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
 const multer = require("multer");
-const cloudinary = require("../cloudinary");
+const path = require("path");
+const fs = require("fs");
 
 // ======================================================
-// MULTER CONFIGURATION
+// VPS IMAGE STORAGE
 // ======================================================
 
-const storage = multer.memoryStorage();
+const uploadDir = path.join(
+  __dirname,
+  "../uploads/todays_deals"
+);
+
+// Create folder automatically
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, {
+    recursive: true,
+  });
+}
+
+const BASE_URL =
+  process.env.BASE_URL ||
+  "https://api2.ajpartyhouse.in";
+
+// ======================================================
+// MULTER DISK STORAGE
+// ======================================================
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+
+  filename: (req, file, cb) => {
+    const extension = path
+      .extname(file.originalname)
+      .toLowerCase();
+
+    const safeName = path
+      .basename(file.originalname, extension)
+      .replace(/[^a-zA-Z0-9_-]/g, "-");
+
+    const filename =
+      Date.now() +
+      "-" +
+      safeName +
+      extension;
+
+    cb(null, filename);
+  },
+});
+
+// ======================================================
+// FILE FILTER
+// ======================================================
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+  ];
+
+  if (!allowedTypes.includes(file.mimetype)) {
+    return cb(
+      new Error(
+        "Only JPG, JPEG, PNG and WEBP images are allowed"
+      ),
+      false
+    );
+  }
+
+  cb(null, true);
+};
 
 const upload = multer({
   storage,
 
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+    fileSize: 5 * 1024 * 1024,
   },
 
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-    ];
-
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(
-        new Error(
-          "Only JPG, JPEG, PNG and WEBP images are allowed"
-        )
-      );
-    }
-
-    cb(null, true);
-  },
+  fileFilter,
 });
 
 // ======================================================
-// CLOUDINARY UPLOAD HELPER
+// VPS IMAGE URL HELPER
 // ======================================================
 
-const uploadToCloudinary = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      return resolve(null);
+const getImageUrl = (filename) => {
+  return (
+    BASE_URL +
+    "/uploads/todays_deals/" +
+    filename
+  );
+};
+
+// ======================================================
+// DELETE LOCAL VPS IMAGE
+// Only delete images inside today's deals folder.
+// ======================================================
+
+const deleteLocalImage = (imageUrl) => {
+  try {
+    if (!imageUrl) return;
+
+    const imagePrefix =
+      BASE_URL + "/uploads/todays_deals/";
+
+    if (!imageUrl.startsWith(imagePrefix)) {
+      return;
     }
 
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: "todays_deals",
-        resource_type: "image",
-      },
-      (error, result) => {
-        if (error) {
-          return reject(error);
-        }
-
-        resolve(result);
-      }
+    const filename = path.basename(
+      imageUrl.split("?")[0]
     );
 
-    stream.end(file.buffer);
-  });
+    const imagePath = path.join(
+      uploadDir,
+      filename
+    );
+
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+
+      console.log(
+        "VPS IMAGE DELETED:",
+        imagePath
+      );
+    }
+  } catch (error) {
+    console.error(
+      "IMAGE DELETE ERROR:",
+      error
+    );
+  }
 };
 
 // ======================================================
@@ -107,7 +183,7 @@ const nullableNumber = (value) => {
 
   const number = Number(value);
 
-  if (Number.isNaN(number)) {
+  if (!Number.isFinite(number)) {
     return null;
   }
 
@@ -170,6 +246,7 @@ router.get("/todays-deals", async (req, res) => {
     `);
 
     res.json(result.rows);
+
   } catch (error) {
     console.error(
       "GET TODAY'S DEALS ERROR:",
@@ -212,6 +289,7 @@ router.get("/admin/todays-deals", async (req, res) => {
     `);
 
     res.json(result.rows);
+
   } catch (error) {
     console.error(
       "GET ADMIN TODAY'S DEALS ERROR:",
@@ -267,6 +345,7 @@ router.get(
       }
 
       res.json(result.rows[0]);
+
     } catch (error) {
       console.error(
         "GET SINGLE DEAL ERROR:",
@@ -283,8 +362,8 @@ router.get(
 
 // ======================================================
 // ADMIN - CREATE DEAL
-// IMAGE -> CLOUDINARY
-// DATABASE -> ONLY image_url
+// IMAGE -> VPS
+// DATABASE -> image_url
 // ======================================================
 
 router.post(
@@ -307,9 +386,7 @@ router.post(
         end_date,
       } = req.body;
 
-      // ==================================================
       // VALIDATION
-      // ==================================================
 
       if (!title || !title.trim()) {
         return res.status(400).json({
@@ -328,15 +405,13 @@ router.post(
         });
       }
 
-      // ==================================================
       // PRICE VALIDATION
-      // ==================================================
 
       if (
         price !== undefined &&
         price !== null &&
         price !== "" &&
-        Number.isNaN(Number(price))
+        !Number.isFinite(Number(price))
       ) {
         return res.status(400).json({
           message: "Invalid price",
@@ -347,7 +422,7 @@ router.post(
         old_price !== undefined &&
         old_price !== null &&
         old_price !== "" &&
-        Number.isNaN(Number(old_price))
+        !Number.isFinite(Number(old_price))
       ) {
         return res.status(400).json({
           message: "Invalid old price",
@@ -358,48 +433,27 @@ router.post(
         product_id !== undefined &&
         product_id !== null &&
         product_id !== "" &&
-        Number.isNaN(Number(product_id))
+        !Number.isFinite(Number(product_id))
       ) {
         return res.status(400).json({
           message: "Product ID must be a number",
         });
       }
 
-      // ==================================================
-      // CLOUDINARY IMAGE
-      // ==================================================
+      // VPS IMAGE URL
 
       let imageUrl = null;
 
       if (req.file) {
-        try {
-          const uploaded =
-            await uploadToCloudinary(req.file);
+        imageUrl = getImageUrl(req.file.filename);
 
-          imageUrl = uploaded.secure_url;
-
-          console.log(
-            "Today's Deal image uploaded:",
-            imageUrl
-          );
-        } catch (uploadError) {
-          console.error(
-            "CLOUDINARY UPLOAD ERROR:",
-            uploadError
-          );
-
-          return res.status(500).json({
-            message: "Failed to upload deal image",
-            error: uploadError.message,
-          });
-        }
+        console.log(
+          "TODAY'S DEAL VPS IMAGE:",
+          imageUrl
+        );
       }
 
-      // ==================================================
-      // INSERT
-      // IMPORTANT:
-      // NO image_public_id HERE
-      // ==================================================
+      // INSERT DATABASE
 
       const result = await pool.query(
         `
@@ -419,47 +473,24 @@ router.post(
           end_date
         )
         VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-          $11,
-          $12,
-          $13
+          $1, $2, $3, $4, $5, $6, $7,
+          $8, $9, $10, $11, $12, $13
         )
         RETURNING *
         `,
         [
           title.trim(),
-
           subtitle?.trim() || null,
-
           imageUrl,
-
           discount_text?.trim() || null,
-
           nullableNumber(price),
-
           nullableNumber(old_price),
-
           button_text?.trim() || "Order Now",
-
           button_screen?.trim() || null,
-
           nullableNumber(product_id),
-
           category?.trim() || null,
-
           parseBoolean(is_active, true),
-
           start_date,
-
           end_date,
         ]
       );
@@ -468,11 +499,19 @@ router.post(
         message: "Deal created successfully",
         deal: result.rows[0],
       });
+
     } catch (error) {
       console.error(
         "CREATE DEAL ERROR:",
         error
       );
+
+      // Remove newly uploaded file if DB insert fails
+      if (req.file) {
+        deleteLocalImage(
+          getImageUrl(req.file.filename)
+        );
+      }
 
       return res.status(500).json({
         message: "Failed to create deal",
@@ -484,15 +523,16 @@ router.post(
 
 // ======================================================
 // ADMIN - UPDATE DEAL
-// IMAGE OPTIONAL
-// NEW IMAGE -> CLOUDINARY
-// DATABASE -> ONLY image_url
+// NEW IMAGE -> VPS
+// OLD IMAGE -> PRESERVED IF NO NEW IMAGE
 // ======================================================
 
 router.put(
   "/admin/todays-deals/:id",
   upload.single("image"),
   async (req, res) => {
+    let newImageUrl = null;
+
     try {
       const { id } = req.params;
 
@@ -511,9 +551,7 @@ router.put(
         end_date,
       } = req.body;
 
-      // ==================================================
       // VALIDATION
-      // ==================================================
 
       if (!title || !title.trim()) {
         return res.status(400).json({
@@ -532,27 +570,11 @@ router.put(
         });
       }
 
-      // ==================================================
       // GET EXISTING DEAL
-      // ==================================================
 
       const existingResult = await pool.query(
         `
-        SELECT
-          id,
-          title,
-          subtitle,
-          image_url,
-          discount_text,
-          price,
-          old_price,
-          button_text,
-          button_screen,
-          product_id,
-          category,
-          is_active,
-          start_date,
-          end_date
+        SELECT *
         FROM todays_deals
         WHERE id = $1
         `,
@@ -565,51 +587,25 @@ router.put(
         });
       }
 
-      const existingDeal =
-        existingResult.rows[0];
+      const existingDeal = existingResult.rows[0];
 
-      // ==================================================
       // KEEP OLD IMAGE BY DEFAULT
-      // ==================================================
 
-      let imageUrl =
-        existingDeal.image_url || null;
+      let imageUrl = existingDeal.image_url || null;
 
-      // ==================================================
-      // IF NEW IMAGE SELECTED
-      // UPLOAD TO CLOUDINARY
-      // ==================================================
+      // NEW VPS IMAGE
 
       if (req.file) {
-        try {
-          const uploaded =
-            await uploadToCloudinary(req.file);
+        newImageUrl = getImageUrl(req.file.filename);
+        imageUrl = newImageUrl;
 
-          imageUrl = uploaded.secure_url;
-
-          console.log(
-            "Updated Today's Deal image:",
-            imageUrl
-          );
-        } catch (uploadError) {
-          console.error(
-            "CLOUDINARY UPDATE UPLOAD ERROR:",
-            uploadError
-          );
-
-          return res.status(500).json({
-            message:
-              "Failed to upload new deal image",
-            error: uploadError.message,
-          });
-        }
+        console.log(
+          "UPDATED DEAL VPS IMAGE:",
+          imageUrl
+        );
       }
 
-      // ==================================================
-      // UPDATE
-      // IMPORTANT:
-      // NO image_public_id
-      // ==================================================
+      // UPDATE DATABASE
 
       const result = await pool.query(
         `
@@ -634,44 +630,46 @@ router.put(
         `,
         [
           title.trim(),
-
           subtitle?.trim() || null,
-
           imageUrl,
-
           discount_text?.trim() || null,
-
           nullableNumber(price),
-
           nullableNumber(old_price),
-
           button_text?.trim() || "Order Now",
-
           button_screen?.trim() || null,
-
           nullableNumber(product_id),
-
           category?.trim() || null,
-
           parseBoolean(is_active, false),
-
           start_date,
-
           end_date,
-
           id,
         ]
       );
+
+      // DELETE OLD LOCAL IMAGE AFTER SUCCESSFUL UPDATE
+      if (
+        newImageUrl &&
+        existingDeal.image_url &&
+        existingDeal.image_url !== newImageUrl
+      ) {
+        deleteLocalImage(existingDeal.image_url);
+      }
 
       return res.json({
         message: "Deal updated successfully",
         deal: result.rows[0],
       });
+
     } catch (error) {
       console.error(
         "UPDATE DEAL ERROR:",
         error
       );
+
+      // Remove newly uploaded file if update fails
+      if (newImageUrl) {
+        deleteLocalImage(newImageUrl);
+      }
 
       return res.status(500).json({
         message: "Failed to update deal",
@@ -716,6 +714,7 @@ router.patch(
 
         deal: result.rows[0],
       });
+
     } catch (error) {
       console.error(
         "TOGGLE DEAL ERROR:",
@@ -732,11 +731,7 @@ router.patch(
 
 // ======================================================
 // ADMIN - DELETE DEAL
-//
-// IMPORTANT:
-// Since image_public_id is NOT stored in DB,
-// we cannot safely delete the Cloudinary file.
-// The database deal will still be deleted correctly.
+// DELETE DATABASE RECORD + LOCAL VPS IMAGE
 // ======================================================
 
 router.delete(
@@ -760,10 +755,16 @@ router.delete(
         });
       }
 
+      // Delete associated local VPS image
+      deleteLocalImage(
+        result.rows[0].image_url
+      );
+
       return res.json({
         message: "Deal deleted successfully",
         deal: result.rows[0],
       });
+
     } catch (error) {
       console.error(
         "DELETE DEAL ERROR:",
@@ -786,8 +787,7 @@ router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
-        message:
-          "Image size must be less than 5 MB",
+        message: "Image size must be less than 5 MB",
       });
     }
 
