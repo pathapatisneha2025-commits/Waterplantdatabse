@@ -11,6 +11,8 @@ const AdminLayout = () => {
 
     { name: "Customer Mangement", path: "/customermanagement", icon: <FiList /> },
     { name: "Driver Mangement", path: "/drivermanagement", icon: <FiList /> },
+        { name: "WaterCan", path: "/watercanpricing", icon: <FiList /> },
+
     { name: "categoryAdding", path: "/admincatagories", icon: <FiList /> },
     { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
     { name: "Order Mangement", path: "/adminorders", icon: <FiList /> },

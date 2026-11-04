@@ -13,6 +13,7 @@ const Banners = require("./routes/banner");
 const todaysdeals = require("./routes/todaysdeals");
 const wishlists = require("./routes/wishlists");
 const Admin = require("./routes/admin");
+const watercan = require("./routes/watercan");
 
 const app = express();
 
@@ -36,6 +37,8 @@ app.use("/banner", Banners);
 app.use("/todaydeals", todaysdeals);
 app.use("/wishlists", wishlists);
 app.use("/admin", Admin);
+app.use("/watercan", watercan);
+
 
 // Server
 const PORT = process.env.PORT || 5002;

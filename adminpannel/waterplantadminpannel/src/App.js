@@ -32,6 +32,7 @@ import TodaysDealsAdmin from "./Pages/AdminAddtodaysdeals";
 // ============================================================
 
 import GlobalOrderNotification from "./components/GlobalNotificationSounds";
+import WaterCanPricing from "./Pages/WaterCanPricing";
 
 // ============================================================
 // GLOBAL NOTIFICATION WRAPPER
@@ -132,6 +133,10 @@ function App() {
           element={<AddGrocery />}
         />
 
+        <Route
+          path="/watercanpricing"
+          element={<WaterCanPricing />}
+        />
         <Route
           path="/customermanagement"
           element={<CustomerManagement />}
