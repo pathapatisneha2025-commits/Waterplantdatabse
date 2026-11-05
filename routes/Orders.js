@@ -24,6 +24,7 @@ const upload = multer({ storage });
 
 /* ------------------ PLACE ORDER ------------------ */
 
+
 router.post("/place", async (req, res) => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -169,9 +170,9 @@ router.post("/place", async (req, res) => {
     else {
       console.log("PROCESSING CART ORDER");
 
-      // IMPORTANT:
       // WATER PRICE = user_cart.price
       // GROCERY PRICE = grocery_items.price
+      // NO gi.premium_price USED
 
       const cartResult = await client.query(
         `
@@ -183,13 +184,10 @@ router.post("/place", async (req, res) => {
           uc.item_type,
           uc.slot,
 
-          -- PRICE SAVED IN CART
           uc.price AS cart_price,
           uc.premium_price AS cart_premium_price,
 
-          -- GROCERY DATABASE PRICES
-          gi.price AS product_price,
-          gi.premium_price AS product_premium_price
+          gi.price AS product_price
 
         FROM user_cart uc
 
@@ -229,15 +227,14 @@ router.post("/place", async (req, res) => {
 
         // ======================================
         // GROCERY PRICE
-        // FROM grocery_items TABLE
+        // FROM grocery_items.price
         // ======================================
 
         else {
           if (isPremium) {
             price = Number(
-              item.product_premium_price ??
-              item.product_price ??
               item.cart_premium_price ??
+              item.product_price ??
               item.cart_price
             );
           } else {
@@ -267,6 +264,7 @@ router.post("/place", async (req, res) => {
           name: item.name,
           item_type: itemType,
           cart_price: item.cart_price,
+          cart_premium_price: item.cart_premium_price,
           product_price: item.product_price,
           final_price: price,
           qty,
@@ -333,6 +331,7 @@ router.post("/place", async (req, res) => {
 
     for (const item of orderItems) {
       // WATER DOES NOT USE GROCERY STOCK
+
       if (item.item_type === "water") {
         continue;
       }
@@ -347,6 +346,7 @@ router.post("/place", async (req, res) => {
       }
 
       // LOCK STOCK ROW
+
       const stockResult = await client.query(
         `
         SELECT
@@ -384,6 +384,7 @@ router.post("/place", async (req, res) => {
       }
 
       // REDUCE STOCK
+
       await client.query(
         `
         UPDATE grocery_items
@@ -420,6 +421,11 @@ router.post("/place", async (req, res) => {
     // 6. INSERT ORDER
     // ==========================================
 
+    const finalAmount =
+      Number(total_amount) > 0
+        ? Number(total_amount)
+        : itemsSubtotal;
+
     const insertOrder = await client.query(
       `
       INSERT INTO groceriesorders
@@ -453,13 +459,7 @@ router.post("/place", async (req, res) => {
         landmark || null,
         pincode,
         payment_mode || "COD",
-
-        // Use frontend total when supplied.
-        // Otherwise use calculated item subtotal.
-        Number(total_amount) > 0
-          ? Number(total_amount)
-          : itemsSubtotal,
-
+        finalAmount,
         isPremium,
         JSON.stringify(orderItems),
         latitudeNumber,
@@ -526,10 +526,13 @@ router.post("/place", async (req, res) => {
     console.log("ORDER CREATED:", createdOrder.id);
     console.log("ORDER SOURCE:", order_source);
     console.log("ITEMS SUBTOTAL:", itemsSubtotal);
+    console.log("FINAL AMOUNT:", finalAmount);
+
     console.log(
       "SAVED ITEMS:",
       JSON.stringify(orderItems, null, 2)
     );
+
     console.log("=================================");
 
     return res.status(201).json({
@@ -567,6 +570,7 @@ router.post("/place", async (req, res) => {
     client.release();
   }
 });
+
 
 /* ------------------ GET ALL ORDERS ------------------ */
 router.get("/all", async (req, res) => {
