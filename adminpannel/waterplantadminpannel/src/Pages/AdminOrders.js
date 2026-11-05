@@ -622,11 +622,7 @@ export default function AdminOrdersScreen() {
         order.total_amount || 0
       );
 
-    const premium =
-      order.is_premium
-        ? "Yes"
-        : "No";
-
+   const premium = order.is_premium === true ? "Yes" : "No";
     let items = [];
 
     if (
@@ -2209,16 +2205,9 @@ cancelledBtn: {
 
                     {/* PREMIUM */}
 
-                    <td
-                      style={
-                        styles.td
-                      }
-                    >
-                      {order.is_premium
-                        ? "Yes"
-                        : "No"}
-                    </td>
-
+                  <td style={styles.td}>
+  {order.is_premium === true ? "Yes" : "No"}
+</td>
                     {/* STATUS */}
 
                     <td

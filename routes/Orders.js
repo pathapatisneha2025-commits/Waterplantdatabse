@@ -24,7 +24,6 @@ const upload = multer({ storage });
 
 /* ------------------ PLACE ORDER ------------------ */
 
-
 router.post("/place", async (req, res) => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -38,7 +37,6 @@ router.post("/place", async (req, res) => {
       landmark,
       pincode,
       payment_mode,
-      is_premium,
       total_amount,
       latitude,
       longitude,
@@ -108,19 +106,40 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // NORMALIZE PREMIUM VALUE
-    // ==========================================
-
-    const isPremium =
-      is_premium === true ||
-      String(is_premium).toLowerCase() === "true";
-
-    // ==========================================
     // START TRANSACTION
     // ==========================================
 
     await client.query("BEGIN");
     transactionStarted = true;
+
+    // ==========================================
+    // FETCH PREMIUM STATUS FROM USERS TABLE
+    // NEVER TRUST FRONTEND is_premium
+    // ==========================================
+
+    const userResult = await client.query(
+      `
+      SELECT
+        id,
+        is_premium
+      FROM users
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error("Customer not found");
+    }
+
+    const isPremium =
+      userResult.rows[0].is_premium === true;
+
+    console.log("CUSTOMER PREMIUM STATUS:", {
+      user_id,
+      is_premium: isPremium,
+    });
 
     let orderItems = [];
 
@@ -170,10 +189,6 @@ router.post("/place", async (req, res) => {
     else {
       console.log("PROCESSING CART ORDER");
 
-      // WATER PRICE = user_cart.price
-      // GROCERY PRICE = grocery_items.price
-      // NO gi.premium_price USED
-
       const cartResult = await client.query(
         `
         SELECT
@@ -218,7 +233,7 @@ router.post("/place", async (req, res) => {
 
         // ======================================
         // WATER CAN PRICE
-        // DIRECTLY FROM user_cart.price
+        // FROM user_cart.price
         // ======================================
 
         if (isWater) {
@@ -227,7 +242,6 @@ router.post("/place", async (req, res) => {
 
         // ======================================
         // GROCERY PRICE
-        // FROM grocery_items.price
         // ======================================
 
         else {
@@ -330,8 +344,6 @@ router.post("/place", async (req, res) => {
     // ==========================================
 
     for (const item of orderItems) {
-      // WATER DOES NOT USE GROCERY STOCK
-
       if (item.item_type === "water") {
         continue;
       }
@@ -344,8 +356,6 @@ router.post("/place", async (req, res) => {
           `Invalid grocery item ID for ${item.name}`
         );
       }
-
-      // LOCK STOCK ROW
 
       const stockResult = await client.query(
         `
@@ -383,8 +393,6 @@ router.post("/place", async (req, res) => {
         );
       }
 
-      // REDUCE STOCK
-
       await client.query(
         `
         UPDATE grocery_items
@@ -418,13 +426,24 @@ router.post("/place", async (req, res) => {
     console.log("FRONTEND TOTAL:", total_amount);
 
     // ==========================================
-    // 6. INSERT ORDER
+    // 6. CALCULATE FINAL AMOUNT
     // ==========================================
 
+    // Existing behavior retained:
+    // Uses frontend total when valid and positive;
+    // otherwise uses calculated item subtotal.
+
+    const frontendTotal = Number(total_amount);
+
     const finalAmount =
-      Number(total_amount) > 0
-        ? Number(total_amount)
+      Number.isFinite(frontendTotal) && frontendTotal > 0
+        ? frontendTotal
         : itemsSubtotal;
+
+    // ==========================================
+    // 7. INSERT ORDER
+    // PREMIUM STATUS COMES FROM USERS TABLE
+    // ==========================================
 
     const insertOrder = await client.query(
       `
@@ -471,7 +490,7 @@ router.post("/place", async (req, res) => {
     const createdOrder = insertOrder.rows[0];
 
     // ==========================================
-    // 7. UPDATE WATER BOOKING FLAG
+    // 8. UPDATE WATER BOOKING FLAG
     // ==========================================
 
     const hasWaterOrder = orderItems.some(
@@ -493,7 +512,7 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // 8. CLEAR CART
+    // 9. CLEAR CART
     // ONLY NORMAL CART CHECKOUT
     // ==========================================
 
@@ -512,19 +531,20 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // 9. COMMIT TRANSACTION
+    // 10. COMMIT TRANSACTION
     // ==========================================
 
     await client.query("COMMIT");
     transactionStarted = false;
 
     // ==========================================
-    // 10. RESPONSE
+    // 11. RESPONSE
     // ==========================================
 
     console.log("=================================");
     console.log("ORDER CREATED:", createdOrder.id);
     console.log("ORDER SOURCE:", order_source);
+    console.log("CUSTOMER PREMIUM:", isPremium);
     console.log("ITEMS SUBTOTAL:", itemsSubtotal);
     console.log("FINAL AMOUNT:", finalAmount);
 
@@ -539,6 +559,7 @@ router.post("/place", async (req, res) => {
       message: "Order placed successfully",
       order: createdOrder,
       order_source: order_source || "cart",
+      is_premium: isPremium,
       items_subtotal: itemsSubtotal,
       location: {
         latitude: latitudeNumber,
@@ -549,7 +570,7 @@ router.post("/place", async (req, res) => {
 
   } catch (error) {
     // ==========================================
-    // ROLLBACK ONLY IF TRANSACTION STARTED
+    // ROLLBACK
     // ==========================================
 
     if (transactionStarted) {
