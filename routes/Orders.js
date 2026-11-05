@@ -23,8 +23,10 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ------------------ PLACE ORDER ------------------ */
+
 router.post("/place", async (req, res) => {
   const client = await pool.connect();
+  let transactionStarted = false;
 
   try {
     const {
@@ -37,36 +39,23 @@ router.post("/place", async (req, res) => {
       payment_mode,
       is_premium,
       total_amount,
-
-      // ==========================================
-      // CUSTOMER LIVE LOCATION
-      // ==========================================
       latitude,
       longitude,
       location_address,
-
-      // ==========================================
-      // BUY NOW / CART
-      // ==========================================
       items,
       order_source,
     } = req.body;
+
+    // ==========================================
+    // LOG REQUEST
+    // ==========================================
 
     console.log("=================================");
     console.log("PLACE ORDER REQUEST");
     console.log("USER ID:", user_id);
     console.log("CUSTOMER:", customer_name);
-    console.log("MOBILE:", mobile);
-    console.log("LATITUDE:", latitude);
-    console.log("LONGITUDE:", longitude);
-    console.log("LOCATION ADDRESS:", location_address);
     console.log("ORDER SOURCE:", order_source);
-
-    console.log(
-      "FRONTEND ITEMS:",
-      JSON.stringify(items, null, 2)
-    );
-
+    console.log("FRONTEND ITEMS:", JSON.stringify(items, null, 2));
     console.log("=================================");
 
     // ==========================================
@@ -106,14 +95,7 @@ router.post("/place", async (req, res) => {
 
     if (
       !Number.isFinite(latitudeNumber) ||
-      !Number.isFinite(longitudeNumber)
-    ) {
-      return res.status(400).json({
-        message: "Invalid latitude or longitude",
-      });
-    }
-
-    if (
+      !Number.isFinite(longitudeNumber) ||
       latitudeNumber < -90 ||
       latitudeNumber > 90 ||
       longitudeNumber < -180 ||
@@ -125,279 +107,238 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
+    // NORMALIZE PREMIUM VALUE
+    // ==========================================
+
+    const isPremium =
+      is_premium === true ||
+      String(is_premium).toLowerCase() === "true";
+
+    // ==========================================
     // START TRANSACTION
     // ==========================================
 
     await client.query("BEGIN");
-
-    // ==========================================
-    // 1. GET ORDER ITEMS
-    //
-    // BUY NOW:
-    //     Use req.body.items
-    //
-    // CART:
-    //     Read from user_cart
-    //     + GET PRICE FROM grocery_items
-    // ==========================================
+    transactionStarted = true;
 
     let orderItems = [];
 
     // ==========================================
-    // BUY NOW ORDER
+    // 1. BUY NOW ORDER
     // ==========================================
 
     if (order_source === "buy_now") {
       console.log("PROCESSING BUY NOW ORDER");
 
-      // ==========================================
-      // BUY NOW VALIDATION
-      // ==========================================
-
-      if (
-        !Array.isArray(items) ||
-        items.length === 0
-      ) {
-        throw new Error(
-          "No Buy Now items received"
-        );
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error("No Buy Now items received");
       }
-
-      // ==========================================
-      // NORMALIZE BUY NOW ITEMS
-      // ==========================================
 
       orderItems = items.map((item) => {
         const qty = Number(
-          item.qty ??
-          item.quantity ??
-          1
+          item.qty ?? item.quantity ?? 1
         );
 
-        const price = Number(
-          item.price ?? 0
-        );
+        const price = Number(item.price ?? 0);
 
-        const total = Number(
-          item.total ??
-          qty * price
-        );
+        const itemType = String(
+          item.item_type || "grocery"
+        ).toLowerCase().trim();
 
         return {
-          item_id:
-            item.item_id ??
-            item.id ??
-            null,
-
+          item_id: item.item_id ?? item.id ?? null,
           qty,
-
-          name:
-            item.name ||
-            item.item_name ||
-            "Product",
-
-          item_type:
-            item.item_type ||
-            "grocery",
-
-          slot:
-            item.slot ||
-            null,
-
-          // ======================================
-          // PRICE
-          // ======================================
-
+          name: item.name || item.item_name || "Product",
+          item_type: itemType,
+          slot: item.slot || null,
           price,
-
-          // ======================================
-          // ITEM TOTAL
-          // ======================================
-
-          total,
+          total: Number((qty * price).toFixed(2)),
         };
       });
 
       console.log(
         "BUY NOW ITEMS:",
-        JSON.stringify(
-          orderItems,
-          null,
-          2
-        )
+        JSON.stringify(orderItems, null, 2)
       );
     }
 
     // ==========================================
-    // NORMAL CART ORDER
+    // 2. NORMAL CART ORDER
     // ==========================================
 
     else {
       console.log("PROCESSING CART ORDER");
 
-      // ==========================================
-      // GET CART ITEMS + PRODUCT PRICE
-      // ==========================================
+      // IMPORTANT:
+      // WATER PRICE = user_cart.price
+      // GROCERY PRICE = grocery_items.price
 
-      const cartResult =
-        await client.query(
-          `
-          SELECT
-            uc.item_id,
-            uc.qty,
-            uc.name,
-            uc.item_type,
-            uc.slot,
+      const cartResult = await client.query(
+        `
+        SELECT
+          uc.id AS cart_id,
+          uc.item_id,
+          uc.qty,
+          uc.name,
+          uc.item_type,
+          uc.slot,
 
-            -- PRODUCT PRICE
-            gi.price AS product_price
+          -- PRICE SAVED IN CART
+          uc.price AS cart_price,
+          uc.premium_price AS cart_premium_price,
 
-          FROM user_cart uc
+          -- GROCERY DATABASE PRICES
+          gi.price AS product_price,
+          gi.premium_price AS product_premium_price
 
-          LEFT JOIN grocery_items gi
-            ON gi.id = uc.item_id
+        FROM user_cart uc
 
-          WHERE uc.user_id = $1
-          `,
-          [user_id]
-        );
+        LEFT JOIN grocery_items gi
+          ON gi.id = uc.item_id
 
-      // ==========================================
-      // CHECK CART
-      // ==========================================
+        WHERE uc.user_id = $1
 
-      if (
-        cartResult.rows.length === 0
-      ) {
-        throw new Error(
-          "Cart is empty"
-        );
+        ORDER BY uc.id DESC
+        `,
+        [user_id]
+      );
+
+      if (cartResult.rows.length === 0) {
+        throw new Error("Cart is empty");
       }
 
-      // ==========================================
-      // NORMALIZE CART ITEMS
-      // ==========================================
+      orderItems = cartResult.rows.map((item) => {
+        const qty = Number(item.qty || 1);
 
-      orderItems =
-        cartResult.rows.map(
-          (item) => {
-            const qty =
-              Number(
-                item.qty || 1
-              );
+        const itemType = String(
+          item.item_type || "grocery"
+        ).toLowerCase().trim();
 
-            const price =
-              Number(
-                item.product_price || 0
-              );
+        const isWater = itemType === "water";
 
-            const total =
-              qty * price;
+        let price = 0;
 
-            return {
-              item_id:
-                item.item_id,
+        // ======================================
+        // WATER CAN PRICE
+        // DIRECTLY FROM user_cart.price
+        // ======================================
 
-              qty,
+        if (isWater) {
+          price = Number(item.cart_price);
+        }
 
-              name:
-                item.name ||
-                "Product",
+        // ======================================
+        // GROCERY PRICE
+        // FROM grocery_items TABLE
+        // ======================================
 
-              item_type:
-                item.item_type ||
-                "grocery",
-
-              slot:
-                item.slot ||
-                null,
-
-              // ==================================
-              // SAVE PRICE
-              // ==================================
-
-              price,
-
-              // ==================================
-              // SAVE TOTAL
-              // ==================================
-
-              total,
-            };
+        else {
+          if (isPremium) {
+            price = Number(
+              item.product_premium_price ??
+              item.product_price ??
+              item.cart_premium_price ??
+              item.cart_price
+            );
+          } else {
+            price = Number(
+              item.product_price ??
+              item.cart_price
+            );
           }
+        }
+
+        if (
+          !Number.isFinite(price) ||
+          price <= 0
+        ) {
+          throw new Error(
+            `Invalid price for ${item.name}. Cart price: ${item.cart_price}`
+          );
+        }
+
+        const total = Number(
+          (qty * price).toFixed(2)
         );
 
-      console.log(
-        "CART ITEMS WITH PRICE:",
-        JSON.stringify(
-          orderItems,
-          null,
-          2
-        )
-      );
-    }
-
-    // ==========================================
-    // VALIDATE ORDER ITEMS
-    // ==========================================
-
-    if (
-      !orderItems ||
-      orderItems.length === 0
-    ) {
-      throw new Error(
-        "No items found for this order"
-      );
-    }
-
-    // ==========================================
-    // VALIDATE ITEM PRICES
-    // ==========================================
-
-    for (const item of orderItems) {
-      console.log(
-        "ITEM PRICE CHECK:",
-        {
+        console.log("PLACE ORDER CART PRICE:", {
+          cart_id: item.cart_id,
           item_id: item.item_id,
           name: item.name,
-          qty: item.qty,
-          price: item.price,
-          total: item.total,
-        }
-      );
+          item_type: itemType,
+          cart_price: item.cart_price,
+          product_price: item.product_price,
+          final_price: price,
+          qty,
+          total,
+        });
 
-      // Grocery items must have price
-      if (
-        item.item_type !== "water" &&
-        Number(item.price || 0) <= 0
-      ) {
-        throw new Error(
-          `Price not found for ${item.name} (ID: ${item.item_id})`
-        );
-      }
+        return {
+          item_id: item.item_id,
+          qty,
+          name: item.name || "Product",
+          item_type: isWater ? "water" : "grocery",
+          slot: item.slot || null,
+          price,
+          total,
+        };
+      });
+
+      console.log(
+        "FINAL CART ORDER ITEMS:",
+        JSON.stringify(orderItems, null, 2)
+      );
     }
 
     // ==========================================
-    // 2. CHECK STOCK & REDUCE GROCERY STOCK
+    // 3. VALIDATE ORDER ITEMS
+    // ==========================================
+
+    if (!orderItems.length) {
+      throw new Error("No items found for this order");
+    }
+
+    for (const item of orderItems) {
+      const qty = Number(item.qty);
+      const price = Number(item.price);
+
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new Error(
+          `Invalid quantity for ${item.name}`
+        );
+      }
+
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new Error(
+          `Invalid price for ${item.name}`
+        );
+      }
+
+      item.total = Number(
+        (qty * price).toFixed(2)
+      );
+
+      console.log("ITEM PRICE CHECK:", {
+        name: item.name,
+        item_type: item.item_type,
+        qty,
+        price,
+        total: item.total,
+      });
+    }
+
+    // ==========================================
+    // 4. CHECK STOCK & REDUCE GROCERY STOCK
     // ==========================================
 
     for (const item of orderItems) {
-      // ==========================================
       // WATER DOES NOT USE GROCERY STOCK
-      // ==========================================
-
-      if (
-        item.item_type === "water"
-      ) {
+      if (item.item_type === "water") {
         continue;
       }
 
-      const itemId =
-        item.item_id;
-
-      // ==========================================
-      // VALIDATE ITEM ID
-      // ==========================================
+      const itemId = item.item_id;
+      const qty = Number(item.qty);
 
       if (!itemId) {
         throw new Error(
@@ -405,54 +346,28 @@ router.post("/place", async (req, res) => {
         );
       }
 
-      const qty =
-        Number(
-          item.qty || 1
-        );
-
-      // ==========================================
-      // VALIDATE QUANTITY
-      // ==========================================
-
-      if (qty <= 0) {
-        throw new Error(
-          `Invalid quantity for ${item.name}`
-        );
-      }
-
-      // ==========================================
       // LOCK STOCK ROW
-      // ==========================================
+      const stockResult = await client.query(
+        `
+        SELECT
+          stock,
+          name
+        FROM grocery_items
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [itemId]
+      );
 
-      const stockResult =
-        await client.query(
-          `
-          SELECT
-            stock,
-            name
-          FROM grocery_items
-          WHERE id = $1
-          FOR UPDATE
-          `,
-          [itemId]
-        );
-
-      // ==========================================
-      // ITEM NOT FOUND
-      // ==========================================
-
-      if (
-        !stockResult.rows.length
-      ) {
+      if (!stockResult.rows.length) {
         throw new Error(
           `Item not found (ID: ${itemId})`
         );
       }
 
-      const currentStock =
-        Number(
-          stockResult.rows[0].stock
-        );
+      const currentStock = Number(
+        stockResult.rows[0].stock
+      );
 
       console.log(
         `STOCK CHECK: ${item.name}`,
@@ -462,22 +377,13 @@ router.post("/place", async (req, res) => {
         currentStock
       );
 
-      // ==========================================
-      // STOCK VALIDATION
-      // ==========================================
-
-      if (
-        currentStock < qty
-      ) {
+      if (currentStock < qty) {
         throw new Error(
           `Insufficient stock for ${item.name}. Available: ${currentStock}`
         );
       }
 
-      // ==========================================
       // REDUCE STOCK
-      // ==========================================
-
       await client.query(
         `
         UPDATE grocery_items
@@ -486,10 +392,7 @@ router.post("/place", async (req, res) => {
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
         `,
-        [
-          qty,
-          itemId,
-        ]
+        [qty, itemId]
       );
 
       console.log(
@@ -498,153 +401,84 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // 3. INSERT ORDER
+    // 5. CALCULATE ITEM SUBTOTAL
     // ==========================================
 
-    const insertOrder =
-      await client.query(
-        `
-        INSERT INTO groceriesorders
-        (
-          user_id,
-          customer_name,
-          mobile,
-          address,
-          landmark,
-          pincode,
-          payment_mode,
-          total_amount,
-          is_premium,
-          items,
-
-          latitude,
-          longitude,
-          location_address
+    const itemsSubtotal = Number(
+      orderItems
+        .reduce(
+          (sum, item) => sum + Number(item.total),
+          0
         )
+        .toFixed(2)
+    );
 
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-
-          $11,
-          $12,
-          $13
-        )
-
-        RETURNING *
-        `,
-        [
-          user_id,
-
-          customer_name,
-
-          mobile,
-
-          address,
-
-          landmark ||
-            null,
-
-          pincode,
-
-          payment_mode ||
-            "COD",
-
-          Number(
-            total_amount || 0
-          ),
-
-          is_premium ||
-            false,
-
-          // ======================================
-          // SAVE ITEMS INCLUDING PRICE + TOTAL
-          // ======================================
-
-          JSON.stringify(
-            orderItems
-          ),
-
-          // ======================================
-          // LOCATION
-          // ======================================
-
-          latitudeNumber,
-
-          longitudeNumber,
-
-          location_address ||
-            null,
-        ]
-      );
-
-    const createdOrder =
-      insertOrder.rows[0];
+    console.log("ITEMS SUBTOTAL:", itemsSubtotal);
+    console.log("FRONTEND TOTAL:", total_amount);
 
     // ==========================================
-    // LOG CREATED ORDER
+    // 6. INSERT ORDER
     // ==========================================
 
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "ORDER CREATED:",
-      createdOrder.id
-    );
-
-    console.log(
-      "ORDER SOURCE:",
-      order_source
-    );
-
-    console.log(
-      "SAVED ITEMS:",
-      JSON.stringify(
-        orderItems,
-        null,
-        2
+    const insertOrder = await client.query(
+      `
+      INSERT INTO groceriesorders
+      (
+        user_id,
+        customer_name,
+        mobile,
+        address,
+        landmark,
+        pincode,
+        payment_mode,
+        total_amount,
+        is_premium,
+        items,
+        latitude,
+        longitude,
+        location_address
       )
+      VALUES
+      (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12, $13
+      )
+      RETURNING *
+      `,
+      [
+        user_id,
+        customer_name,
+        mobile,
+        address,
+        landmark || null,
+        pincode,
+        payment_mode || "COD",
+
+        // Use frontend total when supplied.
+        // Otherwise use calculated item subtotal.
+        Number(total_amount) > 0
+          ? Number(total_amount)
+          : itemsSubtotal,
+
+        isPremium,
+        JSON.stringify(orderItems),
+        latitudeNumber,
+        longitudeNumber,
+        location_address || null,
+      ]
     );
 
-    console.log(
-      "SAVED LATITUDE:",
-      createdOrder.latitude
-    );
-
-    console.log(
-      "SAVED LONGITUDE:",
-      createdOrder.longitude
-    );
-
-    console.log(
-      "================================="
-    );
+    const createdOrder = insertOrder.rows[0];
 
     // ==========================================
-    // 4. UPDATE WATER BOOKING FLAG
+    // 7. UPDATE WATER BOOKING FLAG
     // ==========================================
 
-    const hasWaterOrder =
-      orderItems.some(
-        (item) =>
-          item.item_type ===
-          "water"
-      );
+    const hasWaterOrder = orderItems.some(
+      (item) => item.item_type === "water"
+    );
 
-    if (
-      hasWaterOrder
-    ) {
+    if (hasWaterOrder) {
       await client.query(
         `
         UPDATE users
@@ -659,17 +493,11 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // 5. CLEAR CART
-    //
+    // 8. CLEAR CART
     // ONLY NORMAL CART CHECKOUT
-    //
-    // BUY NOW DOES NOT CLEAR CART
     // ==========================================
 
-    if (
-      order_source !==
-      "buy_now"
-    ) {
+    if (order_source !== "buy_now") {
       await client.query(
         `
         DELETE FROM user_cart
@@ -678,75 +506,68 @@ router.post("/place", async (req, res) => {
         [user_id]
       );
 
-      console.log(
-        "CART CLEARED"
-      );
+      console.log("CART CLEARED");
     } else {
-      console.log(
-        "BUY NOW - CART NOT CLEARED"
-      );
+      console.log("BUY NOW - CART NOT CLEARED");
     }
 
     // ==========================================
-    // 6. COMMIT
+    // 9. COMMIT TRANSACTION
     // ==========================================
 
-    await client.query(
-      "COMMIT"
+    await client.query("COMMIT");
+    transactionStarted = false;
+
+    // ==========================================
+    // 10. RESPONSE
+    // ==========================================
+
+    console.log("=================================");
+    console.log("ORDER CREATED:", createdOrder.id);
+    console.log("ORDER SOURCE:", order_source);
+    console.log("ITEMS SUBTOTAL:", itemsSubtotal);
+    console.log(
+      "SAVED ITEMS:",
+      JSON.stringify(orderItems, null, 2)
     );
+    console.log("=================================");
 
-    // ==========================================
-    // 7. RESPONSE
-    // ==========================================
-
-    res.status(201).json({
-      message:
-        "Order placed successfully",
-
-      order:
-        createdOrder,
-
-      order_source:
-        order_source ||
-        "cart",
-
+    return res.status(201).json({
+      message: "Order placed successfully",
+      order: createdOrder,
+      order_source: order_source || "cart",
+      items_subtotal: itemsSubtotal,
       location: {
-        latitude:
-          latitudeNumber,
-
-        longitude:
-          longitudeNumber,
-
-        address:
-          location_address ||
-          null,
+        latitude: latitudeNumber,
+        longitude: longitudeNumber,
+        address: location_address || null,
       },
     });
 
   } catch (error) {
     // ==========================================
-    // ROLLBACK
+    // ROLLBACK ONLY IF TRANSACTION STARTED
     // ==========================================
 
-    await client.query(
-      "ROLLBACK"
-    );
+    if (transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("ROLLBACK ERROR:", rollbackError);
+      }
+    }
 
-    console.error(
-      "Place order error:",
-      error
-    );
+    console.error("PLACE ORDER ERROR:", error);
 
-    res.status(500).json({
-      error:
-        error.message ||
-        "Failed to place order",
+    return res.status(500).json({
+      error: error.message || "Failed to place order",
     });
 
   } finally {
     client.release();
   }
 });
+
 /* ------------------ GET ALL ORDERS ------------------ */
 router.get("/all", async (req, res) => {
   try {
