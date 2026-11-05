@@ -23,8 +23,11 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ------------------ PLACE ORDER ------------------ */
+
 router.post("/place", async (req, res) => {
   const client = await pool.connect();
+
+  let transactionStarted = false;
 
   try {
     const {
@@ -38,16 +41,10 @@ router.post("/place", async (req, res) => {
       is_premium,
       total_amount,
 
-      // ==========================================
-      // CUSTOMER LIVE LOCATION
-      // ==========================================
       latitude,
       longitude,
       location_address,
 
-      // ==========================================
-      // BUY NOW / CART
-      // ==========================================
       items,
       order_source,
     } = req.body;
@@ -56,21 +53,13 @@ router.post("/place", async (req, res) => {
     console.log("PLACE ORDER REQUEST");
     console.log("USER ID:", user_id);
     console.log("CUSTOMER:", customer_name);
-    console.log("MOBILE:", mobile);
-    console.log("LATITUDE:", latitude);
-    console.log("LONGITUDE:", longitude);
-    console.log("LOCATION ADDRESS:", location_address);
     console.log("ORDER SOURCE:", order_source);
-
-    console.log(
-      "FRONTEND ITEMS:",
-      JSON.stringify(items, null, 2)
-    );
-
+    console.log("FRONTEND TOTAL:", total_amount);
+    console.log("FRONTEND ITEMS:", JSON.stringify(items, null, 2));
     console.log("=================================");
 
     // ==========================================
-    // REQUIRED CUSTOMER DETAILS
+    // 1. VALIDATE CUSTOMER DETAILS
     // ==========================================
 
     if (
@@ -81,12 +70,12 @@ router.post("/place", async (req, res) => {
       !pincode
     ) {
       return res.status(400).json({
-        message: "Missing required fields",
+        message: "Missing required customer details",
       });
     }
 
     // ==========================================
-    // VALIDATE LOCATION
+    // 2. VALIDATE GPS LOCATION
     // ==========================================
 
     if (
@@ -96,8 +85,7 @@ router.post("/place", async (req, res) => {
       longitude === null
     ) {
       return res.status(400).json({
-        message:
-          "Customer live location is required. Please detect your current location.",
+        message: "Customer live location is required",
       });
     }
 
@@ -106,14 +94,7 @@ router.post("/place", async (req, res) => {
 
     if (
       !Number.isFinite(latitudeNumber) ||
-      !Number.isFinite(longitudeNumber)
-    ) {
-      return res.status(400).json({
-        message: "Invalid latitude or longitude",
-      });
-    }
-
-    if (
+      !Number.isFinite(longitudeNumber) ||
       latitudeNumber < -90 ||
       latitudeNumber > 90 ||
       longitudeNumber < -180 ||
@@ -125,279 +106,276 @@ router.post("/place", async (req, res) => {
     }
 
     // ==========================================
-    // START TRANSACTION
+    // 3. START TRANSACTION
     // ==========================================
 
     await client.query("BEGIN");
+    transactionStarted = true;
 
     // ==========================================
-    // 1. GET ORDER ITEMS
-    //
-    // BUY NOW:
-    //     Use req.body.items
-    //
-    // CART:
-    //     Read from user_cart
-    //     + GET PRICE FROM grocery_items
+    // 4. FETCH LATEST WATER CAN PRICE
+    // ==========================================
+
+    const waterPriceResult = await client.query(`
+      SELECT price
+      FROM water_can_pricing
+      ORDER BY updated_at DESC NULLS LAST, id DESC
+      LIMIT 1
+    `);
+
+    const latestWaterPrice = Number(
+      waterPriceResult.rows[0]?.price || 0
+    );
+
+    console.log(
+      "LATEST WATER CAN PRICE:",
+      latestWaterPrice
+    );
+
+    // ==========================================
+    // 5. FETCH LATEST DELIVERY CHARGE
+    // ==========================================
+
+    const deliveryResult = await client.query(`
+      SELECT delivery_charge
+      FROM delivery_charge_settings
+      ORDER BY id DESC
+      LIMIT 1
+    `);
+
+    const deliveryCharge = Number(
+      deliveryResult.rows[0]?.delivery_charge ?? 0
+    );
+
+    if (
+      !Number.isFinite(deliveryCharge) ||
+      deliveryCharge < 0
+    ) {
+      throw new Error("Invalid delivery charge configuration");
+    }
+
+    console.log(
+      "LATEST DELIVERY CHARGE:",
+      deliveryCharge
+    );
+
+    // ==========================================
+    // 6. GET ORDER ITEMS
     // ==========================================
 
     let orderItems = [];
 
+    const isDirectOrder =
+      order_source === "buy_now" ||
+      order_source === "water";
+
     // ==========================================
-    // BUY NOW ORDER
+    // BUY NOW / WATER ORDER
     // ==========================================
 
-    if (order_source === "buy_now") {
-      console.log("PROCESSING BUY NOW ORDER");
+    if (isDirectOrder) {
+      console.log(
+        "PROCESSING DIRECT ORDER:",
+        order_source
+      );
 
-      // ==========================================
-      // BUY NOW VALIDATION
-      // ==========================================
-
-      if (
-        !Array.isArray(items) ||
-        items.length === 0
-      ) {
-        throw new Error(
-          "No Buy Now items received"
-        );
+      if (!Array.isArray(items) || items.length === 0) {
+        throw new Error("No order items received");
       }
 
-      // ==========================================
-      // NORMALIZE BUY NOW ITEMS
-      // ==========================================
-
       orderItems = items.map((item) => {
+        const itemType = String(
+          item.item_type ||
+          item.product_type ||
+          item.type ||
+          ""
+        ).toLowerCase();
+
+        const itemName =
+          item.name ||
+          item.item_name ||
+          item.product_name ||
+          "Product";
+
+        const isWater =
+          itemType === "water" ||
+          itemType === "water_can" ||
+          itemType === "water-can" ||
+          itemName.toLowerCase().includes("water can");
+
         const qty = Number(
           item.qty ??
           item.quantity ??
           1
         );
 
-        const price = Number(
-          item.price ?? 0
-        );
+        // Water price always comes from database.
+        const price = isWater
+          ? latestWaterPrice
+          : Number(item.price ?? 0);
 
-        const total = Number(
-          item.total ??
-          qty * price
-        );
+        if (!Number.isFinite(qty) || qty <= 0) {
+          throw new Error(`Invalid quantity for ${itemName}`);
+        }
+
+        if (!Number.isFinite(price) || price <= 0) {
+          throw new Error(`Invalid price for ${itemName}`);
+        }
 
         return {
-          item_id:
-            item.item_id ??
-            item.id ??
-            null,
+          item_id: isWater
+            ? null
+            : item.item_id ?? item.id ?? null,
 
           qty,
 
-          name:
-            item.name ||
-            item.item_name ||
-            "Product",
+          name: itemName,
 
-          item_type:
-            item.item_type ||
-            "grocery",
+          item_type: isWater ? "water" : "grocery",
 
-          slot:
-            item.slot ||
-            null,
-
-          // ======================================
-          // PRICE
-          // ======================================
+          slot: item.slot || null,
 
           price,
 
-          // ======================================
-          // ITEM TOTAL
-          // ======================================
-
-          total,
+          total: qty * price,
         };
       });
 
-      console.log(
-        "BUY NOW ITEMS:",
-        JSON.stringify(
-          orderItems,
-          null,
-          2
-        )
+    } else {
+      // ========================================
+      // NORMAL CART ORDER
+      // ========================================
+
+      console.log("PROCESSING NORMAL CART ORDER");
+
+      const cartResult = await client.query(
+        `
+        SELECT
+          uc.item_id,
+          uc.qty,
+          uc.name,
+          uc.item_type,
+          uc.slot,
+          gi.price AS product_price
+
+        FROM user_cart uc
+
+        LEFT JOIN grocery_items gi
+          ON gi.id = uc.item_id
+
+        WHERE uc.user_id = $1
+        `,
+        [user_id]
       );
-    }
 
-    // ==========================================
-    // NORMAL CART ORDER
-    // ==========================================
-
-    else {
-      console.log("PROCESSING CART ORDER");
-
-      // ==========================================
-      // GET CART ITEMS + PRODUCT PRICE
-      // ==========================================
-
-      const cartResult =
-        await client.query(
-          `
-          SELECT
-            uc.item_id,
-            uc.qty,
-            uc.name,
-            uc.item_type,
-            uc.slot,
-
-            -- PRODUCT PRICE
-            gi.price AS product_price
-
-          FROM user_cart uc
-
-          LEFT JOIN grocery_items gi
-            ON gi.id = uc.item_id
-
-          WHERE uc.user_id = $1
-          `,
-          [user_id]
-        );
-
-      // ==========================================
-      // CHECK CART
-      // ==========================================
-
-      if (
-        cartResult.rows.length === 0
-      ) {
-        throw new Error(
-          "Cart is empty"
-        );
+      if (cartResult.rows.length === 0) {
+        throw new Error("Cart is empty");
       }
 
-      // ==========================================
-      // NORMALIZE CART ITEMS
-      // ==========================================
+      orderItems = cartResult.rows.map((item) => {
+        const qty = Number(item.qty || 1);
 
-      orderItems =
-        cartResult.rows.map(
-          (item) => {
-            const qty =
-              Number(
-                item.qty || 1
-              );
+        const isWater =
+          String(item.item_type || "").toLowerCase() === "water";
 
-            const price =
-              Number(
-                item.product_price || 0
-              );
+        const price = isWater
+          ? latestWaterPrice
+          : Number(item.product_price || 0);
 
-            const total =
-              qty * price;
-
-            return {
-              item_id:
-                item.item_id,
-
-              qty,
-
-              name:
-                item.name ||
-                "Product",
-
-              item_type:
-                item.item_type ||
-                "grocery",
-
-              slot:
-                item.slot ||
-                null,
-
-              // ==================================
-              // SAVE PRICE
-              // ==================================
-
-              price,
-
-              // ==================================
-              // SAVE TOTAL
-              // ==================================
-
-              total,
-            };
-          }
-        );
-
-      console.log(
-        "CART ITEMS WITH PRICE:",
-        JSON.stringify(
-          orderItems,
-          null,
-          2
-        )
-      );
-    }
-
-    // ==========================================
-    // VALIDATE ORDER ITEMS
-    // ==========================================
-
-    if (
-      !orderItems ||
-      orderItems.length === 0
-    ) {
-      throw new Error(
-        "No items found for this order"
-      );
-    }
-
-    // ==========================================
-    // VALIDATE ITEM PRICES
-    // ==========================================
-
-    for (const item of orderItems) {
-      console.log(
-        "ITEM PRICE CHECK:",
-        {
-          item_id: item.item_id,
-          name: item.name,
-          qty: item.qty,
-          price: item.price,
-          total: item.total,
+        if (!Number.isFinite(qty) || qty <= 0) {
+          throw new Error(`Invalid quantity for ${item.name}`);
         }
-      );
 
-      // Grocery items must have price
-      if (
-        item.item_type !== "water" &&
-        Number(item.price || 0) <= 0
-      ) {
-        throw new Error(
-          `Price not found for ${item.name} (ID: ${item.item_id})`
-        );
-      }
+        if (!Number.isFinite(price) || price <= 0) {
+          throw new Error(`Price not found for ${item.name}`);
+        }
+
+        return {
+          item_id: isWater ? null : item.item_id,
+
+          qty,
+
+          name: item.name || "Product",
+
+          item_type: isWater ? "water" : "grocery",
+
+          slot: item.slot || null,
+
+          price,
+
+          total: qty * price,
+        };
+      });
     }
 
     // ==========================================
-    // 2. CHECK STOCK & REDUCE GROCERY STOCK
+    // 7. VALIDATE ALL ORDER ITEMS
+    // ==========================================
+
+    if (!orderItems.length) {
+      throw new Error("No items found for this order");
+    }
+
+    for (const item of orderItems) {
+      if (
+        !Number.isFinite(Number(item.price)) ||
+        Number(item.price) <= 0
+      ) {
+        throw new Error(
+          `Invalid price for ${item.name}`
+        );
+      }
+
+      if (
+        !Number.isFinite(Number(item.total)) ||
+        Number(item.total) <= 0
+      ) {
+        throw new Error(
+          `Invalid item total for ${item.name}`
+        );
+      }
+
+      console.log("VALIDATED ITEM:", item);
+    }
+
+    // ==========================================
+    // 8. CALCULATE SUBTOTAL
+    // ==========================================
+
+    const subtotal = orderItems.reduce(
+      (sum, item) => {
+        return sum + Number(item.total);
+      },
+      0
+    );
+
+    // ==========================================
+    // 9. CALCULATE FINAL TOTAL
+    // ==========================================
+
+    const calculatedTotal =
+      subtotal + deliveryCharge;
+
+    console.log("=================================");
+    console.log("ORDER PRICE CALCULATION");
+    console.log("SUBTOTAL:", subtotal);
+    console.log("DELIVERY CHARGE:", deliveryCharge);
+    console.log("FINAL TOTAL:", calculatedTotal);
+    console.log("=================================");
+
+    // ==========================================
+    // 10. CHECK AND REDUCE GROCERY STOCK
     // ==========================================
 
     for (const item of orderItems) {
-      // ==========================================
-      // WATER DOES NOT USE GROCERY STOCK
-      // ==========================================
 
-      if (
-        item.item_type === "water"
-      ) {
+      // Water does not use grocery stock.
+      if (item.item_type === "water") {
         continue;
       }
 
-      const itemId =
-        item.item_id;
-
-      // ==========================================
-      // VALIDATE ITEM ID
-      // ==========================================
+      const itemId = item.item_id;
+      const qty = Number(item.qty);
 
       if (!itemId) {
         throw new Error(
@@ -405,78 +383,31 @@ router.post("/place", async (req, res) => {
         );
       }
 
-      const qty =
-        Number(
-          item.qty || 1
-        );
-
-      // ==========================================
-      // VALIDATE QUANTITY
-      // ==========================================
-
-      if (qty <= 0) {
-        throw new Error(
-          `Invalid quantity for ${item.name}`
-        );
-      }
-
-      // ==========================================
-      // LOCK STOCK ROW
-      // ==========================================
-
-      const stockResult =
-        await client.query(
-          `
-          SELECT
-            stock,
-            name
-          FROM grocery_items
-          WHERE id = $1
-          FOR UPDATE
-          `,
-          [itemId]
-        );
-
-      // ==========================================
-      // ITEM NOT FOUND
-      // ==========================================
-
-      if (
-        !stockResult.rows.length
-      ) {
-        throw new Error(
-          `Item not found (ID: ${itemId})`
-        );
-      }
-
-      const currentStock =
-        Number(
-          stockResult.rows[0].stock
-        );
-
-      console.log(
-        `STOCK CHECK: ${item.name}`,
-        "Requested:",
-        qty,
-        "Available:",
-        currentStock
+      const stockResult = await client.query(
+        `
+        SELECT stock, name
+        FROM grocery_items
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [itemId]
       );
 
-      // ==========================================
-      // STOCK VALIDATION
-      // ==========================================
+      if (!stockResult.rows.length) {
+        throw new Error(
+          `Grocery item not found: ${item.name}`
+        );
+      }
 
-      if (
-        currentStock < qty
-      ) {
+      const currentStock = Number(
+        stockResult.rows[0].stock
+      );
+
+      if (currentStock < qty) {
         throw new Error(
           `Insufficient stock for ${item.name}. Available: ${currentStock}`
         );
       }
-
-      // ==========================================
-      // REDUCE STOCK
-      // ==========================================
 
       await client.query(
         `
@@ -486,165 +417,86 @@ router.post("/place", async (req, res) => {
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
         `,
-        [
-          qty,
-          itemId,
-        ]
+        [qty, itemId]
       );
 
       console.log(
-        `STOCK REDUCED: ${item.name} by ${qty}`
+        `STOCK REDUCED: ${item.name}, QUANTITY: ${qty}`
       );
     }
 
     // ==========================================
-    // 3. INSERT ORDER
+    // 11. INSERT ORDER
     // ==========================================
 
-    const insertOrder =
-      await client.query(
-        `
-        INSERT INTO groceriesorders
-        (
-          user_id,
-          customer_name,
-          mobile,
-          address,
-          landmark,
-          pincode,
-          payment_mode,
-          total_amount,
-          is_premium,
-          items,
+    const insertOrder = await client.query(
+      `
+      INSERT INTO groceriesorders
+      (
+        user_id,
+        customer_name,
+        mobile,
+        address,
+        landmark,
+        pincode,
+        payment_mode,
 
-          latitude,
-          longitude,
-          location_address
-        )
+        subtotal_amount,
+        delivery_charge,
+        total_amount,
 
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
+        is_premium,
+        items,
 
-          $11,
-          $12,
-          $13
-        )
-
-        RETURNING *
-        `,
-        [
-          user_id,
-
-          customer_name,
-
-          mobile,
-
-          address,
-
-          landmark ||
-            null,
-
-          pincode,
-
-          payment_mode ||
-            "COD",
-
-          Number(
-            total_amount || 0
-          ),
-
-          is_premium ||
-            false,
-
-          // ======================================
-          // SAVE ITEMS INCLUDING PRICE + TOTAL
-          // ======================================
-
-          JSON.stringify(
-            orderItems
-          ),
-
-          // ======================================
-          // LOCATION
-          // ======================================
-
-          latitudeNumber,
-
-          longitudeNumber,
-
-          location_address ||
-            null,
-        ]
-      );
-
-    const createdOrder =
-      insertOrder.rows[0];
-
-    // ==========================================
-    // LOG CREATED ORDER
-    // ==========================================
-
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "ORDER CREATED:",
-      createdOrder.id
-    );
-
-    console.log(
-      "ORDER SOURCE:",
-      order_source
-    );
-
-    console.log(
-      "SAVED ITEMS:",
-      JSON.stringify(
-        orderItems,
-        null,
-        2
+        latitude,
+        longitude,
+        location_address
       )
+
+      VALUES
+      (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10,
+        $11, $12,
+        $13, $14, $15
+      )
+
+      RETURNING *
+      `,
+      [
+        user_id,
+        customer_name,
+        mobile,
+        address,
+        landmark || null,
+        pincode,
+        payment_mode || "COD",
+
+        subtotal,
+        deliveryCharge,
+        calculatedTotal,
+
+        Boolean(is_premium),
+
+        JSON.stringify(orderItems),
+
+        latitudeNumber,
+        longitudeNumber,
+        location_address || null,
+      ]
     );
 
-    console.log(
-      "SAVED LATITUDE:",
-      createdOrder.latitude
-    );
-
-    console.log(
-      "SAVED LONGITUDE:",
-      createdOrder.longitude
-    );
-
-    console.log(
-      "================================="
-    );
+    const createdOrder = insertOrder.rows[0];
 
     // ==========================================
-    // 4. UPDATE WATER BOOKING FLAG
+    // 12. UPDATE WATER BOOKING FLAG
     // ==========================================
 
-    const hasWaterOrder =
-      orderItems.some(
-        (item) =>
-          item.item_type ===
-          "water"
-      );
+    const hasWaterOrder = orderItems.some(
+      (item) => item.item_type === "water"
+    );
 
-    if (
-      hasWaterOrder
-    ) {
+    if (hasWaterOrder) {
       await client.query(
         `
         UPDATE users
@@ -652,24 +504,16 @@ router.post("/place", async (req, res) => {
           has_booked_water_cans = TRUE,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
-          AND has_booked_water_cans = FALSE
         `,
         [user_id]
       );
     }
 
     // ==========================================
-    // 5. CLEAR CART
-    //
-    // ONLY NORMAL CART CHECKOUT
-    //
-    // BUY NOW DOES NOT CLEAR CART
+    // 13. CLEAR CART
     // ==========================================
 
-    if (
-      order_source !==
-      "buy_now"
-    ) {
+    if (order_source !== "buy_now") {
       await client.query(
         `
         DELETE FROM user_cart
@@ -678,75 +522,72 @@ router.post("/place", async (req, res) => {
         [user_id]
       );
 
-      console.log(
-        "CART CLEARED"
-      );
+      console.log("CART CLEARED");
     } else {
-      console.log(
-        "BUY NOW - CART NOT CLEARED"
-      );
+      console.log("BUY NOW - CART NOT CLEARED");
     }
 
     // ==========================================
-    // 6. COMMIT
+    // 14. COMMIT TRANSACTION
     // ==========================================
 
-    await client.query(
-      "COMMIT"
-    );
+    await client.query("COMMIT");
+    transactionStarted = false;
 
     // ==========================================
-    // 7. RESPONSE
+    // 15. SUCCESS RESPONSE
     // ==========================================
 
-    res.status(201).json({
-      message:
-        "Order placed successfully",
+    console.log("=================================");
+    console.log("ORDER SUCCESSFULLY CREATED");
+    console.log("ORDER ID:", createdOrder.id);
+    console.log("SUBTOTAL:", subtotal);
+    console.log("DELIVERY CHARGE:", deliveryCharge);
+    console.log("FINAL TOTAL:", calculatedTotal);
+    console.log("ORDER ITEMS:", JSON.stringify(orderItems, null, 2));
+    console.log("=================================");
 
-      order:
-        createdOrder,
+    return res.status(201).json({
+      message: "Order placed successfully",
 
-      order_source:
-        order_source ||
-        "cart",
+      order: createdOrder,
+
+      order_source: order_source || "cart",
+
+      price_summary: {
+        subtotal,
+        delivery_charge: deliveryCharge,
+        total_amount: calculatedTotal,
+      },
 
       location: {
-        latitude:
-          latitudeNumber,
-
-        longitude:
-          longitudeNumber,
-
-        address:
-          location_address ||
-          null,
+        latitude: latitudeNumber,
+        longitude: longitudeNumber,
+        address: location_address || null,
       },
     });
 
   } catch (error) {
+
     // ==========================================
-    // ROLLBACK
+    // ROLLBACK TRANSACTION
     // ==========================================
 
-    await client.query(
-      "ROLLBACK"
-    );
+    if (transactionStarted) {
+      await client.query("ROLLBACK");
+    }
 
-    console.error(
-      "Place order error:",
-      error
-    );
+    console.error("PLACE ORDER ERROR:", error);
 
-    res.status(500).json({
-      error:
-        error.message ||
-        "Failed to place order",
+    return res.status(500).json({
+      error: error.message || "Failed to place order",
     });
 
   } finally {
     client.release();
   }
 });
+
 /* ------------------ GET ALL ORDERS ------------------ */
 router.get("/all", async (req, res) => {
   try {
