@@ -33,6 +33,7 @@ import TodaysDealsAdmin from "./Pages/AdminAddtodaysdeals";
 
 import GlobalOrderNotification from "./components/GlobalNotificationSounds";
 import WaterCanPricing from "./Pages/WaterCanPricing";
+import DeliveryCharge from "./Pages/DeliverySettings";
 
 // ============================================================
 // GLOBAL NOTIFICATION WRAPPER
@@ -155,6 +156,11 @@ function App() {
         <Route
           path="/adminorders"
           element={<AdminOrdersScreen />}
+        />
+        
+        <Route
+          path="/deliverychargesettings"
+          element={<DeliveryCharge />}
         />
 
         <Route

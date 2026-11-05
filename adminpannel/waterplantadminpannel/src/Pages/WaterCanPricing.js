@@ -1,16 +1,19 @@
 
 import React, { useEffect, useState } from "react";
-
+import { useNavigate } from "react-router-dom";
 const API_URL = "https://api2.ajpartyhouse.in";
 
 const WaterCanPricing = () => {
   const [price, setPrice] = useState("50");
-  const [currentPrice, setCurrentPrice] = useState("50");
+  const [currentPrice, setCurrentPrice] = useState("");
+  const [pricingId, setPricingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const isExisting = pricingId !== null;
+const navigate = useNavigate();
   // =====================================
   // FETCH CURRENT PRICE
   // =====================================
@@ -26,11 +29,20 @@ const WaterCanPricing = () => {
 
       const data = await res.json();
 
+      if (res.status === 404) {
+        setPricingId(null);
+        setCurrentPrice("");
+        setPrice("50");
+        return;
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(
           data.message || "Failed to fetch price"
         );
       }
+
+      setPricingId(data.pricing.id);
 
       const fetchedPrice = String(data.pricing.price);
 
@@ -50,7 +62,7 @@ const WaterCanPricing = () => {
   }, []);
 
   // =====================================
-  // UPDATE PRICE
+  // ADD / UPDATE PRICE
   // =====================================
 
   const handleSave = async (e) => {
@@ -72,40 +84,68 @@ const WaterCanPricing = () => {
       setMessage("");
       setError("");
 
-      const res = await fetch(
-        `${API_URL}/watercan/update`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            price: numericPrice,
-          }),
-        }
-      );
+      const method = isExisting ? "PUT" : "POST";
+
+      const endpoint = isExisting
+        ? `${API_URL}/watercan/update`
+        : `${API_URL}/watercan/add`;
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          price: numericPrice,
+        }),
+      });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
         throw new Error(
-          data.message || "Failed to update price"
+          data.message || "Failed to save price"
         );
       }
 
-      const updatedPrice = String(data.pricing.price);
+      const savedPrice = String(data.pricing.price);
 
-      setPrice(updatedPrice);
-      setCurrentPrice(updatedPrice);
+      setPricingId(data.pricing.id);
+      setPrice(savedPrice);
+      setCurrentPrice(savedPrice);
 
-      setMessage("Water can price updated successfully!");
+      setMessage(
+        isExisting
+          ? "Water can price updated successfully!"
+          : "Water can price added successfully!"
+      );
 
     } catch (err) {
-      console.error("UPDATE PRICE ERROR:", err);
+      console.error("SAVE PRICE ERROR:", err);
       setError(err.message);
+
+      // In case another admin created the record
+      // after this page loaded, refresh the current data.
+      if (err.message.toLowerCase().includes("already exists")) {
+        fetchPrice();
+      }
+
     } finally {
       setSaving(false);
     }
+  };
+
+  // =====================================
+  // RESET
+  // =====================================
+
+  const handleReset = () => {
+    setPrice(
+      isExisting ? currentPrice : "50"
+    );
+
+    setMessage("");
+    setError("");
   };
 
   // =====================================
@@ -115,22 +155,32 @@ const WaterCanPricing = () => {
   return (
     <div style={styles.page}>
 
-      {/* HEADER */}
-      <div style={styles.header}>
-        <div>
-          <h2 style={styles.heading}>
-            Water Can Pricing
-          </h2>
+   <div style={styles.header}>
+  <div style={styles.headerLeft}>
+    <button
+      type="button"
+      onClick={() => navigate(-1)}
+      style={styles.backButton}
+      title="Go Back"
+    >
+      ←
+    </button>
 
-          <p style={styles.subtitle}>
-            Manage and update your water can selling price
-          </p>
-        </div>
+    <div>
+      <h2 style={styles.heading}>
+        Water Can Pricing
+      </h2>
 
-        <div style={styles.headerIcon}>
-          💧
-        </div>
-      </div>
+      <p style={styles.subtitle}>
+        Manage and configure water can selling prices
+      </p>
+    </div>
+  </div>
+
+  <div style={styles.headerIcon}>
+    💧
+  </div>
+</div>
 
       {loading ? (
         <div style={styles.loading}>
@@ -139,56 +189,73 @@ const WaterCanPricing = () => {
       ) : (
         <div style={styles.content}>
 
-          {/* CURRENT PRICE CARD */}
-          <div style={styles.currentPriceCard}>
-            <div style={styles.currentPriceTop}>
-              <div>
-                <p style={styles.currentLabel}>
-                  CURRENT WATER CAN PRICE
-                </p>
+          {/* CURRENT PRICE */}
 
-                <h2 style={styles.currentPrice}>
-                  ₹{Number(currentPrice).toFixed(2)}
-                </h2>
+          {isExisting && (
+            <div style={styles.currentPriceCard}>
 
-                <p style={styles.currentDescription}>
-                  Current selling price per water can
-                </p>
+              <div style={styles.currentPriceTop}>
+                <div>
+                  <p style={styles.currentLabel}>
+                    CURRENT WATER CAN PRICE
+                  </p>
+
+                  <h2 style={styles.currentPrice}>
+                    ₹{Number(currentPrice).toFixed(2)}
+                  </h2>
+
+                  <p style={styles.currentDescription}>
+                    Current selling price per water can
+                  </p>
+                </div>
+
+                <div style={styles.priceIcon}>
+                  💧
+                </div>
               </div>
 
-              <div style={styles.priceIcon}>
-                💧
+              <div style={styles.status}>
+                <span style={styles.statusDot}></span>
+                Active Pricing
               </div>
-            </div>
 
-            <div style={styles.status}>
-              <span style={styles.statusDot}></span>
-              Active Pricing
             </div>
-          </div>
+          )}
 
-          {/* UPDATE PRICE CARD */}
+          {/* ADD / UPDATE CARD */}
+
           <div style={styles.card}>
 
             <div style={styles.cardHeader}>
+
+              <div style={styles.cardIcon}>
+                {isExisting ? "✏️" : "➕"}
+              </div>
+
               <div>
                 <h3 style={styles.cardTitle}>
-                  Update Water Can Price
+                  {isExisting
+                    ? "Update Water Can Price"
+                    : "Add Water Can Price"}
                 </h3>
 
                 <p style={styles.description}>
-                  Change the selling price for all customers.
+                  {isExisting
+                    ? "Change the existing selling price."
+                    : "Set the initial selling price for water cans."}
                 </p>
               </div>
+
             </div>
 
             <form onSubmit={handleSave}>
 
               <label style={styles.label}>
-                New Price Per Water Can
+                Price Per Water Can (₹)
               </label>
 
               <div style={styles.inputWrapper}>
+
                 <span style={styles.rupee}>₹</span>
 
                 <input
@@ -201,20 +268,23 @@ const WaterCanPricing = () => {
                     setMessage("");
                     setError("");
                   }}
-                  placeholder="Enter price"
+                  placeholder="Enter water can price"
                   style={styles.input}
                   required
                 />
+
               </div>
 
-              {/* PRICE PREVIEW */}
               <div style={styles.preview}>
                 <span>New selling price</span>
 
                 <strong>
-                  ₹{price !== "" && Number.isFinite(Number(price))
-                    ? Number(price).toFixed(2)
-                    : "0.00"}
+                  ₹{
+                    price !== "" &&
+                    Number.isFinite(Number(price))
+                      ? Number(price).toFixed(2)
+                      : "0.00"
+                  }
                 </strong>
               </div>
 
@@ -234,11 +304,7 @@ const WaterCanPricing = () => {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setPrice(currentPrice);
-                    setMessage("");
-                    setError("");
-                  }}
+                  onClick={handleReset}
                   disabled={saving}
                   style={styles.cancelButton}
                 >
@@ -253,15 +319,21 @@ const WaterCanPricing = () => {
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  {saving ? "Saving..." : "Save Price Changes"}
+                  {saving
+                    ? "Saving..."
+                    : isExisting
+                      ? "Update Price"
+                      : "Add Water Can Price"}
                 </button>
 
               </div>
 
             </form>
+
           </div>
 
           {/* INFORMATION */}
+
           <div style={styles.infoCard}>
             <span style={styles.infoIcon}>ℹ️</span>
 
@@ -271,10 +343,9 @@ const WaterCanPricing = () => {
               </h4>
 
               <p style={styles.infoText}>
-                The updated water can price will be used
-                when calculating customer water can orders.
-                Premium and regular customers will use
-                this same price.
+                {isExisting
+                  ? "The current price is active for regular and premium customers. Updating this price changes the selling price used for future water can orders."
+                  : "No water can price has been configured yet. Add the initial price to activate water can pricing."}
               </p>
             </div>
           </div>
@@ -312,7 +383,27 @@ const styles = {
     color: "#0B1E22",
     margin: 0,
   },
+headerLeft: {
+  display: "flex",
+  alignItems: "center",
+  gap: "16px",
+},
 
+backButton: {
+  width: "42px",
+  height: "42px",
+  borderRadius: "10px",
+  border: "1px solid #dce1e8",
+  background: "#ffffff",
+  color: "#0B1E22",
+  fontSize: "26px",
+  fontWeight: "600",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "0.2s",
+},
   subtitle: {
     color: "#7b8494",
     marginTop: "8px",
@@ -406,7 +497,21 @@ const styles = {
   },
 
   cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
     marginBottom: "25px",
+  },
+
+  cardIcon: {
+    width: "48px",
+    height: "48px",
+    background: "#e4f2f1",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "22px",
   },
 
   cardTitle: {
@@ -468,11 +573,6 @@ const styles = {
     marginBottom: "20px",
     color: "#667085",
     fontSize: "13px",
-  },
-
-  previewPrice: {
-    color: "#0B1E22",
-    fontWeight: "700",
   },
 
   buttonRow: {

@@ -16,6 +16,8 @@ const AdminLayout = () => {
     { name: "categoryAdding", path: "/admincatagories", icon: <FiList /> },
     { name: "Grocery List", path: "/admingrocerylisting", icon: <FiList /> },
     { name: "Order Mangement", path: "/adminorders", icon: <FiList /> },
+     { name: "DeliveryChargeSettings", path: "/deliverychargesettings", icon: <FiList /> },
+
     { name: "Stock Inventory", path: "/stockinventory", icon: <FiList /> },
     { name: "Drivers Earnings", path: "/driverearnings", icon: <FiList /> },
     // { name: "AssignDrivers", path: "/ordersassigndriver", icon: <FiList /> },

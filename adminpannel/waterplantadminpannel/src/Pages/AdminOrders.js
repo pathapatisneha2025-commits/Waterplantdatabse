@@ -1092,7 +1092,7 @@ export default function AdminOrdersScreen() {
             <div>
 
               <div class="company-name">
-                WATER PLANT
+             VR EASY MART
               </div>
 
               <div class="company-subtitle">

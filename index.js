@@ -14,6 +14,7 @@ const todaysdeals = require("./routes/todaysdeals");
 const wishlists = require("./routes/wishlists");
 const Admin = require("./routes/admin");
 const watercan = require("./routes/watercan");
+const DeliveryCharge = require("./routes/deliverrycharge");
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/todaydeals", todaysdeals);
 app.use("/wishlists", wishlists);
 app.use("/admin", Admin);
 app.use("/watercan", watercan);
+app.use("/deliverycharge",DeliveryCharge);
 
 
 // Server
