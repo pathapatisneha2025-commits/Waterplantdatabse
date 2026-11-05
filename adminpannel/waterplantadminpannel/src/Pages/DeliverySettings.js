@@ -17,24 +17,30 @@ const DeliveryCharge = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // GET DELIVERY CHARGE
   const fetchDeliveryCharge = async () => {
     try {
       setLoading(true);
       setError("");
+      setMessage("");
 
       const response = await fetch(`${API_URL}/all`);
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch delivery charge");
+        throw new Error(
+          data.message || data.error || "Failed to fetch delivery charge"
+        );
       }
 
+      // Backend returns delivery_charge directly
       const value = Number(data.delivery_charge ?? 30);
 
       setCurrentCharge(value);
       setCharge(String(value));
     } catch (err) {
       setError(err.message || "Unable to load delivery charge");
+      setCurrentCharge(null);
     } finally {
       setLoading(false);
     }
@@ -44,6 +50,7 @@ const DeliveryCharge = () => {
     fetchDeliveryCharge();
   }, []);
 
+  // ADD / UPDATE DELIVERY CHARGE
   const handleSave = async () => {
     setMessage("");
     setError("");
@@ -62,9 +69,14 @@ const DeliveryCharge = () => {
     try {
       setSaving(true);
 
+      // If no existing record, use POST.
+      // Otherwise, use PUT.
       const method = currentCharge === null ? "POST" : "PUT";
 
-      const response = await fetch(`${API_URL}/delivery-charge`, {
+      const endpoint =
+        method === "POST" ? "/add" : "/update";
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -77,7 +89,9 @@ const DeliveryCharge = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to save delivery charge");
+        throw new Error(
+          data.message || data.error || "Failed to save delivery charge"
+        );
       }
 
       setCurrentCharge(numericCharge);
@@ -287,7 +301,9 @@ const DeliveryCharge = () => {
         }
 
         @keyframes deliverySpin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         @media (max-width: 600px) {
@@ -315,7 +331,9 @@ const DeliveryCharge = () => {
           <div className="delivery-header">
             <div>
               <h2>Delivery Charge Management</h2>
-              <p>Manage the delivery fee applied to customer orders.</p>
+              <p>
+                Manage the delivery fee applied to customer orders.
+              </p>
             </div>
 
             <button
@@ -359,16 +377,22 @@ const DeliveryCharge = () => {
             {currentCharge !== null && (
               <div className="current-delivery-charge">
                 Current delivery charge:
-                <strong>₹{currentCharge.toFixed(2)}</strong>
+                <strong>
+                  ₹{currentCharge.toFixed(2)}
+                </strong>
               </div>
             )}
 
             {message && (
-              <div className="delivery-success">{message}</div>
+              <div className="delivery-success">
+                {message}
+              </div>
             )}
 
             {error && (
-              <div className="delivery-error">{error}</div>
+              <div className="delivery-error">
+                {error}
+              </div>
             )}
 
             <button
@@ -377,6 +401,7 @@ const DeliveryCharge = () => {
               disabled={saving}
             >
               <FaSave />
+
               {saving
                 ? "Saving..."
                 : currentCharge === null
